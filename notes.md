@@ -12,6 +12,7 @@ Some design goals:
 * Plan for multiple node backends ([LND](https://github.com/lightningnetwork/lnd/) gRPC interface is the first implementation) (also through Tor)
 * Admin panel for better Ops
 * All configuration stored in the DB
+* Using constraints and functions in the DB to prevent inconsistent data
 
 
 
