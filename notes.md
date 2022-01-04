@@ -58,6 +58,31 @@ Get all transactions
 	+ https://gocardless.com/guides/posts/double-entry-bookkeeping/
 	+
 
+#### User
+
++ id (primary key)
++ email (optional)
++ login (auto generated, random string)
++ password (auto generated, random string)
++ refresh_token (auto generated on /auth call)
++ access_token (auto generated on /auth call)
++ updated_at (datetime)
++ created_at (datetime)
+
+#### Invoices
+
++ id (primary key)
++ user_id (foreign key, constaint)
++ amount (integer, constraint >=0)
++ memo (string)
++ description_hash (string)
++ payment_request (string)
++ r_hash (string)
++ state (string (enum: )
++ created_at (datetime)
++ expires_at (datetime)
++ settled_at (datetime)
+
 
 ### Links
 
