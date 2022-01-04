@@ -58,8 +58,9 @@ Get all transactions
 	+ https://gocardless.com/guides/posts/double-entry-bookkeeping/
 	+
 
-#### User
+#### users
 
+```
 + id (primary key)
 + email (optional)
 + login (auto generated, random string)
@@ -68,11 +69,15 @@ Get all transactions
 + access_token (auto generated on /auth call)
 + updated_at (datetime)
 + created_at (datetime)
+```
 
-#### Invoices
+#### invoices
 
+```
 + id (primary key)
++ type (enum: incoming, outgoing)
 + user_id (foreign key, constaint)
++ transaction_entry_id (foreign key)
 + amount (integer, constraint >=0)
 + memo (string)
 + description_hash (string)
@@ -82,7 +87,31 @@ Get all transactions
 + created_at (datetime)
 + expires_at (datetime)
 + settled_at (datetime)
+```
 
+#### accounts
+```
++ user_id
++ type (enum: outgoing, incoming, current)
+```
+
+#### transaction_entries
+
+```
++ user_id
++ invoice_id
++ credit_account_id
++ debit_account_id
++ amount (integer >0 constraint)
++ created_at (datetime)
+```
+
+
+### Know Issues
+
+#### Self-payments
+How do we identify self-payments?
+We could use two different lightning wallets for sending and receiving. This would avoid the need to identify self-payments completely and any payment would be a proper lightning payment.
 
 ### Links
 
