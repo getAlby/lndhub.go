@@ -11,9 +11,14 @@ import (
 // User : User Model
 type User struct {
 	gorm.Model
-	Username     string
-	PasswordHash string
-	DisplayName  string
+	Id           int
+	Email        string
+	Login        string
+	Password     string
+	RefreshToken string
+	AccessToken  string
+	UpdatedAt    int64
+	CreatedAt    int64
 }
 
 var (
