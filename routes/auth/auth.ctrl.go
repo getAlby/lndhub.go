@@ -39,7 +39,7 @@ func (AuthRouter) Auth(c echo.Context) error {
 		return c.NoContent(http.StatusConflict)
 	}
 
-	err = user.GenerateToken(c, &user)
+	err = user.GenerateAccessToken(c, &user)
 	if err != nil {
 		return err
 	}

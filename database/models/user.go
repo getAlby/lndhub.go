@@ -9,7 +9,7 @@ import (
 
 // User : User Model
 type User struct {
-	Id           uint `gorm:"primary_key"`
+	ID           uint `gorm:"primary_key"`
 	Email        string
 	Login        string
 	Password     string
@@ -20,16 +20,17 @@ type User struct {
 }
 
 // GenerateToken : Generate Token
-func (u *User) GenerateToken(c echo.Context, user *User) error {
-	if u.Id == user.Id {
+func (u *User) GenerateAccessToken(c echo.Context, user *User) error {
+	if u.ID == user.ID {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"id": u.Id,
+			"id": u.ID,
 		})
 
 		t, err := token.SignedString([]byte("secret"))
 		if err != nil {
 			return err
 		}
+
 		return c.JSON(http.StatusOK, map[string]string{
 			u.AccessToken: t,
 		})
