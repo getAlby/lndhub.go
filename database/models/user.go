@@ -1,42 +1,41 @@
 package models
 
 import (
-	"os"
-
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/jinzhu/gorm"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/labstack/echo/v4"
+	"net/http"
+	"time"
 )
 
 // User : User Model
 type User struct {
 	gorm.Model
-	Id           int
+	Id           uint `gorm:"primary_key"`
 	Email        string
 	Login        string
 	Password     string
 	RefreshToken string
 	AccessToken  string
-	UpdatedAt    int64
-	CreatedAt    int64
-}
-
-var (
-	jwtKey = os.Getenv("JWT_KEY")
-)
-
-// HashPassword : Hash Password
-func (u *User) HashPassword() {
-	bytes, _ := bcrypt.GenerateFromPassword([]byte(u.PasswordHash), bcrypt.DefaultCost)
-	u.PasswordHash = string(bytes)
+	UpdatedAt    time.Time
+	CreatedAt    time.Time
 }
 
 // GenerateToken : Generate Token
-func (u *User) GenerateToken() (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": u.Username,
-	})
+func (u *User) GenerateToken(c echo.Context) error {
+	if u.Id == 0 {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"id": u.Id,
+		})
 
-	tokenString, err := token.SignedString(jwtKey)
-	return tokenString, err
+		t, err := token.SignedString([]byte("secret"))
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, map[string]string{
+			u.AccessToken: t,
+		})
+	}
+
+	return echo.ErrUnauthorized
 }
