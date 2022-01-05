@@ -27,10 +27,6 @@ func (AuthRouter) Auth(c echo.Context) error {
 	body.Email = c.FormValue("email")
 	body.Password = c.FormValue("password")
 
-
-	if err := c.Bind(&body); err != nil {
-		return c.NoContent(http.StatusNotFound)
-	}
 	if err := c.Validate(&body); err != nil {
 		return err
 	}
@@ -43,11 +39,7 @@ func (AuthRouter) Auth(c echo.Context) error {
 		return c.NoContent(http.StatusConflict)
 	}
 
-	//if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(body.Password)) != nil {
-	//	return c.NoContent(http.StatusInternalServerError)
-	//}
-
-	err = user.GenerateToken(c)
+	err = user.GenerateToken(c, &user)
 	if err != nil {
 		return err
 	}

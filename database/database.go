@@ -9,7 +9,7 @@ import (
 
 // Connect : Database connect
 func Connect(database string) *gorm.DB {
-	db, err := gorm.Open(database, "user=gorm password=gorm dbname=gorm port=5432")
+	db, err := gorm.Open(database, "user=gorm1 password=gorm1 dbname=gorm1 port=5432")
 	//db, err := gorm.Open(database, "./database/data.db")
 	db.LogMode(true)
 

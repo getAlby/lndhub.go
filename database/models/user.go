@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/dgrijalva/jwt-go"
-	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"time"
@@ -10,7 +9,6 @@ import (
 
 // User : User Model
 type User struct {
-	gorm.Model
 	Id           uint `gorm:"primary_key"`
 	Email        string
 	Login        string
@@ -22,8 +20,8 @@ type User struct {
 }
 
 // GenerateToken : Generate Token
-func (u *User) GenerateToken(c echo.Context) error {
-	if u.Id == 0 {
+func (u *User) GenerateToken(c echo.Context, user *User) error {
+	if u.Id == user.Id {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 			"id": u.Id,
 		})
