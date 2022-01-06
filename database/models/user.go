@@ -3,7 +3,6 @@ package models
 import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
-	"net/http"
 	"time"
 )
 
@@ -19,22 +18,20 @@ type User struct {
 	CreatedAt    time.Time
 }
 
-// GenerateToken : Generate Token
-func (u *User) GenerateAccessToken(c echo.Context, user *User) error {
-	if u.ID == user.ID {
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"id": u.ID,
-		})
+// GenerateAccessToken : Generate Access Token
+func (u *User) GenerateAccessToken(c echo.Context) error {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id": u.ID,
+	})
 
-		t, err := token.SignedString([]byte("secret"))
-		if err != nil {
-			return err
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{
-			u.AccessToken: t,
-		})
+	t, err := token.SignedString([]byte("secret"))
+	if err != nil {
+		return err
 	}
+	u.AccessToken = t
+	return err
+}
 
-	return echo.ErrUnauthorized
+func (u *User) GenerateRefreshToken(c echo.Context) error {
+	return nil
 }

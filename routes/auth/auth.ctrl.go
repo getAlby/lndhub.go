@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Register : Register Router
+// Auth : Auth Router
 func (AuthRouter) Auth(c echo.Context) error {
 	type RequestBody struct {
 		Login        string `json:"login"`
@@ -50,10 +50,10 @@ func (AuthRouter) Auth(c echo.Context) error {
 		}
 	}
 
-	//err = user.GenerateAccessToken(c, &user)
-	//if err != nil {
-	//	return err
-	//}
+	err := user.GenerateAccessToken(c)
+	if err != nil {
+		return err
+	}
 
 	//var cookie http.Cookie
 	//

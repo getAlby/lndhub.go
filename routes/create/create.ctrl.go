@@ -1,12 +1,17 @@
 package create
 
 import (
+	"github.com/labstack/gommon/random"
+	"gorm.io/gorm"
+	"math/rand"
+	"net/http"
+
 	"github.com/bumi/lndhub.go/database/models"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	"net/http"
 )
+
+const letterBytes = random.Alphanumeric
 
 func (CreateUserRouter) CreateUser(c echo.Context) error {
 	type RequestBody struct {
@@ -21,16 +26,22 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 	db, _ := c.Get("db").(*gorm.DB)
 
 	user := &models.User{}
-	//ToDo random login func
-	user.Login = "random"
-	//ToDo random password func
-	user.Password = "random"
 
+	user.Login = RandStringBytes(8)
+	user.Password = RandStringBytes(15)
 
 	result := db.Create(&user)
 
 	logrus.Printf("%v", result)
 	return c.JSON(http.StatusOK, echo.Map{
-		"user":  user,
+		"user": user,
 	})
+}
+
+func RandStringBytes(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
