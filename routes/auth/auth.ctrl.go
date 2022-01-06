@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/bumi/lndhub.go/database/models"
-	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 // Register : Register Router
