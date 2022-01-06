@@ -20,14 +20,10 @@ func init() {
 func main() {
 	db, err := database.Connect(os.Getenv("DATABASE_URI"))
 	if err != nil {
-		logrus.Errorf("failed to connect with database")
+		logrus.Errorf("failed to connect with database: %v", err)
 		return
 	}
-	sqlite3db, err := db.DB()
-	if err != nil {
-		return
-	}
-	defer sqlite3db.Close()
+
 	e := echo.New()
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
