@@ -1,6 +1,8 @@
 package database
 
 import (
+	"errors"
+
 	"github.com/bumi/lndhub.go/database/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -8,38 +10,42 @@ import (
 )
 
 var (
-	sqlite3    = "sqlite3"
-	postgresql = "postgres"
+	Sqlite3    = "sqlite3"
+	Postgresql = "postgres"
 )
 
-//func configure() *gorm.Config {
-//
-//}
+func getDbDialect(database string) (*gorm.Dialector, error) {
+	var dbOpen gorm.Dialector
+	var err error
+	if database == Sqlite3 {
+		sqliteDbUri := "./database/data.db"
+		dbOpen = sqlite.Open(sqliteDbUri)
+	} else if database == Postgresql {
+		postgresDbUri := "host=localhost user=gorm1 password=gorm1 dbname=gorm1 port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+		dbOpen = postgres.Open(postgresDbUri)
+	} else {
+		dbOpen = nil
+		err = errors.New("non supported db dialect")
+	}
+	return &dbOpen, err
+}
 
 // Connect : Database connect
-func Connect(database string) *gorm.DB {
-	if database == sqlite3 {
-		db, err := gorm.Open(sqlite.Open("./database/data.db"), &gorm.Config{})
-
-		if err != nil {
-			panic(err)
-		}
-
-		models.Migrate(db)
-
-		return db
-	} else if database == postgresql {
-		dsn := "user=gorm1 password=gorm1 dbname=gorm1 port=5432"
-		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
-		if err != nil {
-			panic(err)
-		}
-
-		models.Migrate(db)
-
-		return db
-	} else {
-		return nil
+func Connect(database string) (*gorm.DB, error) {
+	dbOpen, err := getDbDialect(database)
+	if err != nil {
+		return nil, err
 	}
+
+	db, err := gorm.Open(*dbOpen, &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = models.Migrate(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, err
 }
