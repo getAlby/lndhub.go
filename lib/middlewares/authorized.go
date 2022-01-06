@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"fmt"
+	"github.com/labstack/echo/v4/middleware"
 	"net/http"
 	"os"
 
@@ -12,6 +13,10 @@ import (
 var (
 	jwtKey = os.Getenv("JWT_KEY")
 )
+
+var IsLoggedIn = middleware.JWTWithConfig(middleware.JWTConfig{
+	SigningKey: []byte("secret"),
+})
 
 // Authoriszed : Check Auth
 func Authoriszed(next echo.HandlerFunc) echo.HandlerFunc {

@@ -22,6 +22,8 @@ type User struct {
 func (u *User) GenerateAccessToken(c echo.Context) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": u.ID,
+		"email": u.Email,
+
 	})
 
 	t, err := token.SignedString([]byte("secret"))

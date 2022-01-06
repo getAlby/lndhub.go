@@ -29,6 +29,7 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middlewares.ContextDB(db))
+	//e.Use(middlewares.IsLoggedIn)
 
 	routes.Routes(e.Group(""))
 
