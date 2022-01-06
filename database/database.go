@@ -8,9 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	Sqlite3    = "sqlite3"
-	Postgresql = "postgres"
+const (
+	Sqlite3    string = "sqlite3"
+	Postgresql string = "postgres"
 )
 
 func getDbDialect(database string) (*gorm.Dialector, error) {
