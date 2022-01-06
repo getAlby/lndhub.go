@@ -30,6 +30,7 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
 	e.Use(middlewares.ContextDB(db))
 	//e.Use(middlewares.IsLoggedIn)
