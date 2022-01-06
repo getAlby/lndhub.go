@@ -54,13 +54,21 @@ func (AuthRouter) Auth(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	err = user.GenerateRefreshToken(c)
+	if err != nil {
+		return err
+	}
 
 	if err := db.Model(&user).Where("id = ?", user.ID).Update("access_token", user.AccessToken).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "server error, try again",
 		})
 	}
-
+	if err := db.Model(&user).Where("id = ?", user.ID).Update("refresh_token", user.RefreshToken).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "server error, try again",
+		})
+	}
 	//var cookie http.Cookie
 	//
 	//cookie.Name = "token"

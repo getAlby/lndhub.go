@@ -23,7 +23,6 @@ func (u *User) GenerateAccessToken(c echo.Context) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": u.ID,
 		"email": u.Email,
-
 	})
 
 	t, err := token.SignedString([]byte("secret"))
@@ -35,5 +34,15 @@ func (u *User) GenerateAccessToken(c echo.Context) error {
 }
 
 func (u *User) GenerateRefreshToken(c echo.Context) error {
-	return nil
+	refreshToken := jwt.New(jwt.SigningMethodHS256)
+	rtClaims := refreshToken.Claims.(jwt.MapClaims)
+	rtClaims["sub"] = 1
+
+	rt, err := refreshToken.SignedString([]byte("secret"))
+	if err != nil {
+		return err
+	}
+	u.RefreshToken = rt
+
+	return err
 }
