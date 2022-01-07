@@ -8,7 +8,6 @@ import (
 	"github.com/bumi/lndhub.go/database/models"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
-	"github.com/sirupsen/logrus"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -35,12 +34,16 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 	user.Login = RandStringBytes(8)
 	user.Password = RandStringBytes(15)
 
-	result := db.Create(&user)
+	db.Create(&user)
 
-	logrus.Printf("%v", result)
-	return c.JSON(http.StatusOK, echo.Map{
-		"user": user,
-	})
+	var ResponseBody struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	}
+	ResponseBody.Login = user.Login
+	ResponseBody.Password = user.Password
+
+	return c.JSON(http.StatusOK, &ResponseBody)
 }
 
 func RandStringBytes(n int) string {
