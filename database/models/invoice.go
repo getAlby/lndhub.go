@@ -8,7 +8,7 @@ type Invoice struct {
 	Type               string
 	UserID             uint
 	TransactionEntryID uint
-	Amount             int64
+	Amount             uint
 	Memo               string
 	DescriptionHash    string
 	PaymentRequest     string

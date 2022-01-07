@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/labstack/echo/v4/middleware"
 	"os"
 
 	"github.com/bumi/lndhub.go/database"
@@ -29,9 +30,12 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middlewares.ContextDB(db))
-	//e.Use(middlewares.IsLoggedIn)
 
-	routes.Routes(e.Group(""))
+	jwt := e.Group("")
+	jwt.Use(middleware.JWT([]byte("secret")))
+
+	routes.NoJWTRoutes(e.Group(""))
+	routes.JWTRoutes(jwt)
 
 	e.Logger.Fatal(e.Start(":3000"))
 }

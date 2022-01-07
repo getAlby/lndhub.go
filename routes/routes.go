@@ -8,8 +8,11 @@ import (
 )
 
 // Routes : Init Routes
-func Routes(g *echo.Group) {
+func JWTRoutes(g *echo.Group) {
+	g.POST("/addinvoice", addinvoice.AddInvoiceRouter{}.AddInvoice)
+}
+
+func NoJWTRoutes(g *echo.Group) {
 	g.POST("/auth", auth.AuthRouter{}.Auth)
 	g.POST("/create", create.CreateUserRouter{}.CreateUser)
-	g.POST("/addinvoice", addinvoice.AddInvoiceRouter{}.AddInvoice)
 }
