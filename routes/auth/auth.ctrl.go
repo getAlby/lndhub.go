@@ -21,9 +21,9 @@ func (AuthRouter) Auth(c echo.Context) error {
 
 	var body RequestBody
 
-	body.Login = c.FormValue("login")
-	body.Password = c.FormValue("password")
-	body.RefreshToken = c.FormValue("refresh_token")
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
 
 	if err := c.Validate(&body); err != nil {
 		return err

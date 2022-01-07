@@ -24,8 +24,9 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 	}
 	var body RequestBody
 
-	body.PartnerID = c.FormValue("partnerid")
-	body.AccountType = c.FormValue("accounttype")
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
 
 	db, _ := c.Get("db").(*gorm.DB)
 
