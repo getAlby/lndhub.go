@@ -9,7 +9,7 @@ import (
 
 // Routes : Init Routes
 func Routes(g *echo.Group) {
-	auth.AuthRouter{}.Init(g.Group("/auth"))
-	create.CreateUserRouter{}.Init(g.Group("/create"))
-	addinvoice.AddInvoiceRouter{}.Init(g.Group("/addinvoice"))
+	g.POST("/auth", auth.AuthRouter{}.Auth)
+	g.POST("/create", create.CreateUserRouter{}.CreateUser)
+	g.POST("/addinvoice", addinvoice.AddInvoiceRouter{}.AddInvoice)
 }

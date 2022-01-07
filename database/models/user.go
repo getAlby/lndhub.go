@@ -21,7 +21,7 @@ type User struct {
 // GenerateAccessToken : Generate Access Token
 func (u *User) GenerateAccessToken(c echo.Context) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": u.ID,
+		"sub": u.ID,
 		"email": u.Email,
 	})
 
@@ -36,7 +36,7 @@ func (u *User) GenerateAccessToken(c echo.Context) error {
 func (u *User) GenerateRefreshToken(c echo.Context) error {
 	refreshToken := jwt.New(jwt.SigningMethodHS256)
 	rtClaims := refreshToken.Claims.(jwt.MapClaims)
-	rtClaims["sub"] = 1
+	rtClaims["sub"] = u.ID
 
 	rt, err := refreshToken.SignedString([]byte("secret"))
 	if err != nil {

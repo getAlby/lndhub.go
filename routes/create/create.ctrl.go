@@ -1,18 +1,22 @@
 package create
 
 import (
-	"github.com/labstack/gommon/random"
 	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
 
 	"github.com/bumi/lndhub.go/database/models"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/random"
 	"github.com/sirupsen/logrus"
 )
 
-const letterBytes = random.Alphanumeric
+const alphaNumBytes = random.Alphanumeric
 
+// CreateUserRouter : Create user router struct
+type CreateUserRouter struct{}
+
+// CreateUser : Create user Router
 func (CreateUserRouter) CreateUser(c echo.Context) error {
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
@@ -41,7 +45,7 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 func RandStringBytes(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+		b[i] = alphaNumBytes[rand.Intn(len(alphaNumBytes))]
 	}
 	return string(b)
 }

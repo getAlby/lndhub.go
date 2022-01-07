@@ -8,6 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// AuthRouter : AuthRouter struct
+type AuthRouter struct{}
+
 // Auth : Auth Router
 func (AuthRouter) Auth(c echo.Context) error {
 	type RequestBody struct {
