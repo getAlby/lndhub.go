@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,7 +30,7 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middlewares.ContextDB(db))
-	//e.Use(middlewares.IsLoggedIn)
+	e.Use(middleware.BodyLimit("2M"))
 
 	routes.Routes(e.Group(""))
 
