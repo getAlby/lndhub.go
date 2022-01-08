@@ -27,7 +27,11 @@ func (AuthRouter) Auth(c echo.Context) error {
 	}
 
 	if err := c.Validate(&body); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
+		})
 	}
 
 	if (body.Login == "" || body.Password == "") && body.RefreshToken == "" {
@@ -78,6 +82,7 @@ func (AuthRouter) Auth(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
-		"user": user,
+		"refresh_token": user.RefreshToken.String,
+		"access_token":  user.AccessToken.String,
 	})
 }
