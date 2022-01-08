@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 
 	"github.com/bumi/lndhub.go/database/models"
@@ -40,9 +41,14 @@ func (AuthRouter) Auth(c echo.Context) error {
 	var user models.User
 
 	if body.Login != "" && body.Password != "" {
-		if err := db.Where("login = ? AND password = ?", body.Login, body.Password).First(&user).Error; err != nil {
+		if err := db.Where("login = ?", body.Login).First(&user).Error; err != nil {
 			return c.JSON(http.StatusNotFound, echo.Map{
 				"message": "user not found",
+			})
+		}
+		if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
+			return c.JSON(http.StatusNotFound, echo.Map{
+				"message": "invalid username or password",
 			})
 		}
 	} else if body.RefreshToken != "" {

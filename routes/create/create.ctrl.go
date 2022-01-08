@@ -1,6 +1,7 @@
 package create
 
 import (
+	"github.com/bumi/lndhub.go/lib/security"
 	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
@@ -33,7 +34,7 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 
 	user.Login = RandStringBytes(8)
 	user.Password = RandStringBytes(15)
-
+	security.HashPassword(&user.Password)
 	db.Create(&user)
 
 	var ResponseBody struct {
