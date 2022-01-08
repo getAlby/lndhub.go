@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/bumi/lndhub.go/database/models"
+	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -53,11 +54,11 @@ func (AuthRouter) Auth(c echo.Context) error {
 		}
 	}
 
-	err := user.GenerateAccessToken(c)
+	err := tokens.GenerateAccessToken(c, &user)
 	if err != nil {
 		return err
 	}
-	err = user.GenerateRefreshToken(c)
+	err = tokens.GenerateRefreshToken(c, &user)
 	if err != nil {
 		return err
 	}
