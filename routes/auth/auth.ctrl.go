@@ -30,8 +30,10 @@ func (AuthRouter) Auth(c echo.Context) error {
 		return err
 	}
 
-	if (body.Login == "" && body.Password == "") && body.RefreshToken == "" {
+	if (body.Login == "" || body.Password == "") && body.RefreshToken == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    8,
 			"message": "login and password or refresh token is required",
 		})
 	}
@@ -40,16 +42,20 @@ func (AuthRouter) Auth(c echo.Context) error {
 
 	var user models.User
 
-	if body.Login != "" && body.Password != "" {
+	if body.Login != "" || body.Password != "" {
 		if err := db.Where("login = ? AND password = ?", body.Login, body.Password).First(&user).Error; err != nil {
 			return c.JSON(http.StatusNotFound, echo.Map{
-				"message": "user not found",
+				"error":   true,
+				"code":    1,
+				"message": "bad auth",
 			})
 		}
 	} else if body.RefreshToken != "" {
 		if err := db.Where("refresh_token = ?", body.RefreshToken).First(&user).Error; err != nil {
 			return c.JSON(http.StatusNotFound, echo.Map{
-				"message": "user not found",
+				"error":   true,
+				"code":    1,
+				"message": "bad auth",
 			})
 		}
 	}
@@ -63,23 +69,13 @@ func (AuthRouter) Auth(c echo.Context) error {
 		return err
 	}
 
-	if err := db.Model(&user).Where("id = ?", user.ID).Update("access_token", user.AccessToken).Error; err != nil {
+	if err := db.Save(&user).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "server error, try again",
+			"error":   true,
+			"code":    6,
+			"message": "Something went wrong. Please try again later",
 		})
 	}
-	if err := db.Model(&user).Where("id = ?", user.ID).Update("refresh_token", user.RefreshToken).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "server error, try again",
-		})
-	}
-	//var cookie http.Cookie
-	//
-	//cookie.Name = "token"
-	//cookie.Value = user.AccessToken
-	//cookie.Expires = time.Now().Add(7 * 24 * time.Hour)
-	//
-	//c.SetCookie(&cookie)
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"user": user,
