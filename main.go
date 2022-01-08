@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"github.com/labstack/echo/v4/middleware"
 	"os"
 	"os/signal"
 	"time"
@@ -33,6 +34,7 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middlewares.ContextDB(db))
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 	//e.Use(middlewares.IsLoggedIn)
 
 	routes.Routes(e.Group(""))
