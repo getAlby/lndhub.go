@@ -40,7 +40,7 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	routes.Routes(e.Group(""))
+	routes.Routes(e)
 
 	// Start server
 	go func() {
