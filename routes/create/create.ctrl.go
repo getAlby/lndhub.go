@@ -1,9 +1,10 @@
 package create
 
 import (
-	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
+
+	"gorm.io/gorm"
 
 	"github.com/bumi/lndhub.go/database/models"
 	"github.com/labstack/echo/v4"
@@ -34,7 +35,9 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 	user.Login = RandStringBytes(8)
 	user.Password = RandStringBytes(15)
 
-	db.Create(&user)
+	if err := db.Create(&user).Error; err != nil {
+		return err
+	}
 
 	var ResponseBody struct {
 		Login    string `json:"login"`

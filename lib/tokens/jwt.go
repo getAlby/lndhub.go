@@ -1,6 +1,8 @@
 package tokens
 
 import (
+	"database/sql"
+
 	"github.com/bumi/lndhub.go/database/models"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
@@ -26,7 +28,7 @@ func GenerateAccessToken(c echo.Context, u *models.User) error {
 	if err != nil {
 		return err
 	}
-	u.AccessToken = t
+	u.AccessToken = sql.NullString{String: t}
 
 	return err
 }
@@ -41,7 +43,7 @@ func GenerateRefreshToken(c echo.Context, u *models.User) error {
 		return err
 	}
 
-	u.RefreshToken = rt
+	u.RefreshToken = sql.NullString{String: rt}
 
 	return err
 }
