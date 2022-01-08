@@ -7,12 +7,12 @@ import (
 
 // User : User Model
 type User struct {
-	ID           uint `gorm:"primary_key"`
-	Email        sql.NullString
-	Login        string         `gorm:"index"`
-	Password     string         `gorm:"index"`
-	RefreshToken sql.NullString `gorm:"index"`
-	AccessToken  sql.NullString `gorm:"index"`
+	ID           uint           `gorm:"primary_key"`
+	Email        sql.NullString `gorm:uniqueIndex`
+	Login        string         `gorm:"uniqueIndex;not null"`
+	Password     string         `gorm:"index;not null"`
+	RefreshToken sql.NullString `gorm:"uniqueIndex"`
+	AccessToken  sql.NullString `gorm:"uniqueIndex"`
 	UpdatedAt    time.Time      `gorm:"autoUpdateTime`
 	CreatedAt    time.Time      `gorm:"autoCreateTime"`
 }
