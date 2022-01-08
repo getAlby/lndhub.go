@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"os"
+	"os/signal"
+	"time"
 
 	"github.com/bumi/lndhub.go/database"
 	"github.com/bumi/lndhub.go/lib"
@@ -31,8 +35,25 @@ func main() {
 
 	e.Use(middlewares.ContextDB(db))
 	e.Use(middleware.BodyLimit("250K"))
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	routes.Routes(e.Group(""))
 
-	e.Logger.Fatal(e.Start(":3000"))
+	// Start server
+	go func() {
+		if err := e.Start(":3000"); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("shutting down the server")
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
+	// Use a buffered channel to avoid missing signals as recommended for signal.Notify
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
 }
