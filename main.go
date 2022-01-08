@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"github.com/labstack/echo/v4/middleware"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -35,13 +35,8 @@ func main() {
 
 	e.Use(middlewares.ContextDB(db))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
-	//e.Use(middlewares.IsLoggedIn)
 
-	jwt := e.Group("")
-	jwt.Use(middleware.JWT([]byte("secret")))
-
-	routes.NoJWTRoutes(e.Group(""))
-	routes.JWTRoutes(jwt)
+	routes.Routes(e)
 
 	// Start server
 	go func() {
