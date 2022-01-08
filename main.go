@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"net/http"
-	"github.com/labstack/echo/v4/middleware"
 	"os"
 	"os/signal"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,8 +34,8 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middlewares.ContextDB(db))
+	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
-	//e.Use(middlewares.IsLoggedIn)
 
 	routes.Routes(e.Group(""))
 
