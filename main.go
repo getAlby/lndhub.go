@@ -33,6 +33,9 @@ func main() {
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
 	e.Use(middlewares.ContextDB(db))
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
