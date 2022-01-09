@@ -28,7 +28,7 @@ func GenerateAccessToken(c echo.Context, u *models.User) error {
 	if err != nil {
 		return err
 	}
-	u.AccessToken = sql.NullString{String: t}
+	u.AccessToken = sql.NullString{String: t, Valid: true}
 
 	return err
 }
@@ -36,14 +36,14 @@ func GenerateAccessToken(c echo.Context, u *models.User) error {
 func GenerateRefreshToken(c echo.Context, u *models.User) error {
 	refreshToken := jwt.New(jwt.SigningMethodHS256)
 	rtClaims := refreshToken.Claims.(jwt.MapClaims)
-	rtClaims["sub"] = u.ID
+	rtClaims["id"] = u.ID
 
 	rt, err := refreshToken.SignedString([]byte("secret"))
 	if err != nil {
 		return err
 	}
 
-	u.RefreshToken = sql.NullString{String: rt}
+	u.RefreshToken = sql.NullString{String: rt, Valid: true}
 
 	return err
 }
