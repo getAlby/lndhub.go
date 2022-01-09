@@ -1,22 +1,24 @@
 package database
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/bumi/lndhub.go/database/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"strings"
 )
 
 func getDbDialect(databaseURI string) (*gorm.Dialector, error) {
 	var dbOpen gorm.Dialector
 	var err error
-	if strings.Contains(databaseURI, "postgresql") {
-		postgresDbUri := databaseURI
-		dbOpen = postgres.Open(postgresDbUri)
+	if strings.HasPrefix(databaseURI, "postgresql:") {
+		dbOpen = postgres.Open(databaseURI)
+	} else if strings.HasPrefix(databaseURI, "sqlite:") {
+		dbOpen = sqlite.Open(strings.Replace(databaseURI, "sqlite://", "", 1))
 	} else {
-		sqliteDbUri := databaseURI
-		dbOpen = sqlite.Open(sqliteDbUri)
+		err = errors.New("Invalid Database configuration.")
 	}
 
 	return &dbOpen, err
