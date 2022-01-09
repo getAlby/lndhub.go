@@ -18,7 +18,7 @@ type AddInvoiceRouter struct{}
 func (AddInvoiceRouter) AddInvoice(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
-	userID := claims["sub"].(float64)
+	userID := claims["id"].(float64)
 
 	type RequestBody struct {
 		Amt             uint   `json:"amt" validate:"required"`
