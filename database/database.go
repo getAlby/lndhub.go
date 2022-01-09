@@ -1,37 +1,30 @@
 package database
 
 import (
-	"errors"
 	"github.com/bumi/lndhub.go/database/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"strings"
 )
 
-const (
-	Sqlite3    string = "sqlite3"
-	Postgresql string = "postgres"
-)
-
-func getDbDialect(database string) (*gorm.Dialector, error) {
+func getDbDialect(databaseURI string) (*gorm.Dialector, error) {
 	var dbOpen gorm.Dialector
 	var err error
-	if database == Sqlite3 {
-		sqliteDbUri := "./database/data.db"
-		dbOpen = sqlite.Open(sqliteDbUri)
-	} else if database == Postgresql {
-		postgresDbUri := "host=localhost user=gorm2 password=gorm2 dbname=gorm2 port=5432 sslmode=disable"
+	if strings.Contains(databaseURI, "postgresql") {
+		postgresDbUri := databaseURI
 		dbOpen = postgres.Open(postgresDbUri)
 	} else {
-		dbOpen = nil
-		err = errors.New("non supported db dialect")
+		sqliteDbUri := databaseURI
+		dbOpen = sqlite.Open(sqliteDbUri)
 	}
+
 	return &dbOpen, err
 }
 
 // Connect : Database connect
-func Connect(database string) (*gorm.DB, error) {
-	dbOpen, err := getDbDialect(database)
+func Connect(databaseURI string) (*gorm.DB, error) {
+	dbOpen, err := getDbDialect(databaseURI)
 	if err != nil {
 		return nil, err
 	}
