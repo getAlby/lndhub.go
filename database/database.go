@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/bumi/lndhub.go/database/models"
+	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
