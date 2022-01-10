@@ -1,21 +1,22 @@
-package addinvoice
+package controllers
 
 import (
 	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/database/models"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
+
+	"github.com/bumi/lndhub.go/pkg/database/models"
 )
 
-// AddInvoiceRouter : Add invoice router struct
-type AddInvoiceRouter struct{}
+// AddInvoiceController : Add invoice controller struct
+type AddInvoiceController struct{}
 
-// AddInvoice : Add invoice Router
-func (AddInvoiceRouter) AddInvoice(c echo.Context) error {
+// AddInvoice : Add invoice Controller
+func (AddInvoiceController) AddInvoice(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	userID := claims["id"].(float64)
