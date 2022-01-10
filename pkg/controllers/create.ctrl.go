@@ -13,11 +13,11 @@ import (
 
 const alphaNumBytes = random.Alphanumeric
 
-// CreateUserRouter : Create user router struct
-type CreateUserRouter struct{}
+// CreateUserController : Create user controller struct
+type CreateUserController struct{}
 
-// CreateUser : Create user Router
-func (CreateUserRouter) CreateUser(c echo.Context) error {
+// CreateUser : Create user Controller
+func (CreateUserController) CreateUser(c echo.Context) error {
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
 		AccountType string `json:"accounttype"`

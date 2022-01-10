@@ -13,7 +13,7 @@ import (
 // AuthController : AuthController struct
 type AuthController struct{}
 
-// Auth : Auth Router
+// Auth : Auth Controller
 func (AuthController) Auth(c echo.Context) error {
 	type RequestBody struct {
 		Login        string `json:"login"`

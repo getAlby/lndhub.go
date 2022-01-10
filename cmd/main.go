@@ -46,8 +46,8 @@ func main() {
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	e.POST("/auth", controllers.AuthController{}.Auth)
-	e.POST("/create", controllers.CreateUserRouter{}.CreateUser)
-	e.POST("/addinvoice", controllers.AddInvoiceRouter{}.AddInvoice, middleware.JWT([]byte("secret")))
+	e.POST("/create", controllers.CreateUserController{}.CreateUser)
+	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
 
 	// Start server
 	go func() {
