@@ -1,14 +1,14 @@
-package create
+package controllers
 
 import (
+	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
 
-	"gorm.io/gorm"
-
-	"github.com/bumi/lndhub.go/database/models"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
+
+	"github.com/bumi/lndhub.go/pkg/database/models"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -32,8 +32,8 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 
 	user := &models.User{}
 
-	user.Login = RandStringBytes(8)
-	user.Password = RandStringBytes(15)
+	user.Login = randStringBytes(8)
+	user.Password = randStringBytes(15)
 
 	if err := db.Create(&user).Error; err != nil {
 		return err
@@ -49,7 +49,7 @@ func (CreateUserRouter) CreateUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, &ResponseBody)
 }
 
-func RandStringBytes(n int) string {
+func randStringBytes(n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = alphaNumBytes[rand.Intn(len(alphaNumBytes))]

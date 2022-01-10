@@ -2,12 +2,12 @@ package database
 
 import (
 	"errors"
-	"strings"
-
-	"github.com/bumi/lndhub.go/database/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"strings"
+
+	"github.com/bumi/lndhub.go/pkg/database/models"
 )
 
 func getDbDialect(databaseURI string) (*gorm.Dialector, error) {
@@ -18,7 +18,7 @@ func getDbDialect(databaseURI string) (*gorm.Dialector, error) {
 	} else if strings.HasPrefix(databaseURI, "sqlite:") {
 		dbOpen = sqlite.Open(strings.Replace(databaseURI, "sqlite://", "", 1))
 	} else {
-		err = errors.New("Invalid Database configuration.")
+		err = errors.New("invalid database configuration")
 	}
 
 	return &dbOpen, err

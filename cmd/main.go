@@ -7,19 +7,24 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/bumi/lndhub.go/database"
-	"github.com/bumi/lndhub.go/lib"
-	"github.com/bumi/lndhub.go/lib/middlewares"
-	"github.com/bumi/lndhub.go/routes"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
+
+	"github.com/bumi/lndhub.go/pkg/controllers"
+	"github.com/bumi/lndhub.go/pkg/database"
+	"github.com/bumi/lndhub.go/pkg/lib"
+	"github.com/bumi/lndhub.go/pkg/lib/middlewares"
 )
 
 func init() {
-	godotenv.Load(".env")
+	err := godotenv.Load(".env")
+	if err != nil {
+		logrus.Errorf("failed to get env value")
+		return
+	}
 }
 
 func main() {
@@ -40,7 +45,9 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	routes.Routes(e)
+	e.POST("/auth", controllers.AuthController{}.Auth)
+	e.POST("/create", controllers.CreateUserRouter{}.CreateUser)
+	e.POST("/addinvoice", controllers.AddInvoiceRouter{}.AddInvoice, middleware.JWT([]byte("secret")))
 
 	// Start server
 	go func() {

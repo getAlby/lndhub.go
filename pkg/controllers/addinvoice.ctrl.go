@@ -1,14 +1,15 @@
-package addinvoice
+package controllers
 
 import (
 	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/database/models"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
+
+	"github.com/bumi/lndhub.go/pkg/database/models"
 )
 
 // AddInvoiceRouter : Add invoice router struct

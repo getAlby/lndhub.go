@@ -1,19 +1,20 @@
-package auth
+package controllers
 
 import (
+	"gorm.io/gorm"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/database/models"
-	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
+
+	"github.com/bumi/lndhub.go/pkg/database/models"
+	"github.com/bumi/lndhub.go/pkg/lib/tokens"
 )
 
-// AuthRouter : AuthRouter struct
-type AuthRouter struct{}
+// AuthController : AuthController struct
+type AuthController struct{}
 
 // Auth : Auth Router
-func (AuthRouter) Auth(c echo.Context) error {
+func (AuthController) Auth(c echo.Context) error {
 	type RequestBody struct {
 		Login        string `json:"login"`
 		Password     string `json:"password"`
@@ -64,11 +65,11 @@ func (AuthRouter) Auth(c echo.Context) error {
 		}
 	}
 
-	err := tokens.GenerateAccessToken(c, &user)
+	err := tokens.GenerateAccessToken(&user)
 	if err != nil {
 		return err
 	}
-	err = tokens.GenerateRefreshToken(c, &user)
+	err = tokens.GenerateRefreshToken(&user)
 	if err != nil {
 		return err
 	}
