@@ -2,7 +2,8 @@ package tokens
 
 import (
 	"database/sql"
-	models2 "github.com/bumi/lndhub.go/pkg/database/models"
+
+	"github.com/bumi/lndhub.go/pkg/database/models"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -16,7 +17,7 @@ type jwtCustomClaims struct {
 }
 
 // GenerateAccessToken : Generate Access Token
-func GenerateAccessToken(u *models2.User) error {
+func GenerateAccessToken(u *models.User) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtCustomClaims{
 		ID:    u.ID,
 		Email: u.Email.String,
@@ -33,7 +34,7 @@ func GenerateAccessToken(u *models2.User) error {
 }
 
 // GenerateRefreshToken : Generate Refresh Token
-func GenerateRefreshToken(u *models2.User) error {
+func GenerateRefreshToken(u *models.User) error {
 	rToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": u.ID,
 	})
