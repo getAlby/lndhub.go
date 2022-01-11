@@ -2,10 +2,11 @@ package database
 
 import (
 	"errors"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"strings"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	"github.com/bumi/lndhub.go/pkg/database/models"
 )
