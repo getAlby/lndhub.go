@@ -48,6 +48,7 @@ func main() {
 	e.POST("/auth", controllers.AuthController{}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
 	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
+	e.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
 
 	// Start server
 	go func() {
