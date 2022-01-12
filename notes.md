@@ -71,6 +71,18 @@ Get all transactions
 + created_at (datetime)
 ```
 
+#### tokens
+
+```
++ id (primary key)
++ user_id (foreign_key)
++ name (string - optional name of the application)
++ access_token (string auto generated on /auth call)
++ refresh_token (string auto generated on /auth call)
++ expires_at (datetime / created_at + 2 weeks)
++ created_at (datetime)
+
+
 #### invoices
 
 ```
