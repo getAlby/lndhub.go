@@ -81,7 +81,7 @@ Get all transactions
 + refresh_token (string auto generated on /auth call)
 + expires_at (datetime / created_at + 2 weeks)
 + created_at (datetime)
-
+```
 
 #### invoices
 
