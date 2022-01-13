@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 
-	"github.com/bumi/lndhub.go/lib/security"
 	"github.com/bumi/lndhub.go/pkg/database/models"
+	"github.com/bumi/lndhub.go/pkg/lib/security"
 )
 
 const alphaNumBytes = random.Alphanumeric
