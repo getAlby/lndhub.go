@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"net/http"
 
@@ -48,11 +49,16 @@ func (AuthController) Auth(c echo.Context) error {
 	var user models.User
 
 	if body.Login != "" || body.Password != "" {
-		if err := db.Where("login = ? AND password = ?", body.Login, body.Password).First(&user).Error; err != nil {
+		if err := db.Where("login = ?", body.Login).First(&user).Error; err != nil {
 			return c.JSON(http.StatusNotFound, echo.Map{
 				"error":   true,
 				"code":    1,
 				"message": "bad auth",
+			})
+		}
+		if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
+			return c.JSON(http.StatusNotFound, echo.Map{
+				"message": "invalid username or password",
 			})
 		}
 	} else if body.RefreshToken != "" {

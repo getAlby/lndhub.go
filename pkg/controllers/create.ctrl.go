@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/gommon/random"
 
 	"github.com/bumi/lndhub.go/pkg/database/models"
+	"github.com/bumi/lndhub.go/pkg/lib/security"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -34,11 +35,11 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 
 	user.Login = randStringBytes(8)
 	user.Password = randStringBytes(15)
+	security.HashPassword(&user.Password)
 
 	if err := db.Create(&user).Error; err != nil {
 		return err
 	}
-
 	var ResponseBody struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
