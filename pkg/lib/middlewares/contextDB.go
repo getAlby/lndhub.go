@@ -1,8 +1,9 @@
 package middlewares
 
 import (
-	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
+
+	"github.com/labstack/echo/v4"
 )
 
 // ContextDB : pass db
