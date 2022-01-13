@@ -5,7 +5,9 @@ import (
 )
 
 // HashPassword : Hash Password
-func HashPassword(password *string) {
-	bytes, _ := bcrypt.GenerateFromPassword([]byte(*password), bcrypt.DefaultCost)
-	*password = string(bytes)
+func HashPassword(password string) string {
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	password = string(bytes)
+
+	return password
 }
