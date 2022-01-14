@@ -1,9 +1,10 @@
 package controllers
 
 import (
+	"net/http"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"net/http"
 
 	"github.com/labstack/echo/v4"
 

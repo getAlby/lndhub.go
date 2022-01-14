@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -32,6 +33,21 @@ func main() {
 	if err != nil {
 		logrus.Errorf("failed to connect with database: %v", err)
 		return
+	}
+
+	sentryDsn := os.Getenv("SENTRY_DSN")
+
+	switch sentryDsn {
+	case "":
+		//ignore
+		break
+	default:
+		if err = sentry.Init(sentry.ClientOptions{
+			Dsn: os.Getenv("SENTRY_DSN"),
+		}); err != nil {
+			logrus.Fatalf("sentry init error: %v", err)
+		}
+		defer sentry.Flush(2 * time.Second)
 	}
 
 	e := echo.New()
