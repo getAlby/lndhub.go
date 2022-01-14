@@ -49,6 +49,7 @@ func main() {
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
 	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
 	e.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
+	e.GET("/gettxs", controllers.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
 	e.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
 	e.GET("/balance", controllers.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
 
