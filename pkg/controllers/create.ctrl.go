@@ -34,8 +34,9 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 	user := &models.User{}
 
 	user.Login = randStringBytes(8)
-	user.Password = randStringBytes(15)
-	security.HashPassword(&user.Password)
+	password := randStringBytes(15)
+	hashedPassword := security.HashPassword(password)
+	user.Password = hashedPassword
 
 	if err := db.Create(&user).Error; err != nil {
 		return err
@@ -45,7 +46,7 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 		Password string `json:"password"`
 	}
 	ResponseBody.Login = user.Login
-	ResponseBody.Password = user.Password
+	ResponseBody.Password = password
 
 	return c.JSON(http.StatusOK, &ResponseBody)
 }
