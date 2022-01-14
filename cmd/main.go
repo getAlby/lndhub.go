@@ -40,8 +40,7 @@ func main() {
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
-	if os.Getenv("log_file_path") != "" {
-		logrus.Errorf("vleze")
+	if os.Getenv("LOG_FILE_PATH") != "" {
 		file, err := logging.GetLoggingFile(os.Getenv("LOG_FILE_PATH"))
 		if err != nil {
 			logrus.Errorf("failed to create logging file: %v", err)
