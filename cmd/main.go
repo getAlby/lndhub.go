@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,6 +17,7 @@ import (
 	"github.com/bumi/lndhub.go/pkg/controllers"
 	"github.com/bumi/lndhub.go/pkg/database"
 	"github.com/bumi/lndhub.go/pkg/lib"
+	"github.com/bumi/lndhub.go/pkg/lib/logging"
 	"github.com/bumi/lndhub.go/pkg/lib/middlewares"
 )
 
@@ -37,6 +39,17 @@ func main() {
 	e := echo.New()
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+
+	if os.Getenv("log_file_path") != "" {
+		logrus.Errorf("vleze")
+		file, err := logging.GetLoggingFile(os.Getenv("LOG_FILE_PATH"))
+		if err != nil {
+			logrus.Errorf("failed to create logging file: %v", err)
+		}
+		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+			Output: io.Writer(file),
+		}))
+	}
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
