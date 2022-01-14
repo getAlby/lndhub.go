@@ -56,10 +56,11 @@ func main() {
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
-	if os.Getenv("LOG_FILE_PATH") != "" {
-		file, err := logging.GetLoggingFile(os.Getenv("LOG_FILE_PATH"))
+	logFilePath := os.Getenv("LOG_FILE_PATH")
+	if logFilePath != "" {
+		file, err := logging.GetLoggingFile(logFilePath)
 		if err != nil {
-			logrus.Errorf("failed to create logging file: %v", err)
+			logrus.Fatalf("failed to create logging file: %v", err)
 		}
 		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 			Output: io.Writer(file),
