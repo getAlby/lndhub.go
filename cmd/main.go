@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"

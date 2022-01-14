@@ -1,9 +1,10 @@
 package controllers
 
 import (
+	"net/http"
+
 	"github.com/bumi/lndhub.go/pkg/database/models"
 	"github.com/labstack/echo/v4"
-	"net/http"
 )
 
 // GetTXSController : GetTXSController struct

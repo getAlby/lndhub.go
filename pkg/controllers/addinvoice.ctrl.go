@@ -1,9 +1,10 @@
 package controllers
 
 import (
-	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
+
+	"gorm.io/gorm"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
