@@ -21,8 +21,6 @@ type jwtCustomClaims struct {
 func GenerateAccessToken(u *models.User) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtCustomClaims{
 		ID:    u.ID,
-		Email: u.Email.String,
-		Login: u.Login,
 		StandardClaims: jwt.StandardClaims{
 			// one week expiration
 			ExpiresAt: time.Now().Add(time.Hour * 168).Unix(),
