@@ -5,10 +5,11 @@ import (
 	"net/http"
 
 	"github.com/bumi/lndhub.go/db/models"
+	"gorm.io/gorm"
+
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
-	"github.com/uptrace/bun"
 )
 
 // AddInvoiceController : Add invoice controller struct
@@ -40,7 +41,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
-	db, _ := c.Get("db").(*bun.DB)
+	db, _ := c.Get("db").(*gorm.DB)
 
 	invoice := models.Invoice{
 		Type:               "",
@@ -54,8 +55,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		State:              "",
 	}
 
-	db.
-	(&invoice)
+	db.Create(&invoice)
 
 	var responseBody struct {
 		RHash          string `json:"r_hash"`
