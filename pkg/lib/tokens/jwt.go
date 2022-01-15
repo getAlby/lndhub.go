@@ -2,6 +2,7 @@ package tokens
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/bumi/lndhub.go/pkg/database/models"
 
@@ -22,6 +23,10 @@ func GenerateAccessToken(u *models.User) error {
 		ID:    u.ID,
 		Email: u.Email.String,
 		Login: u.Login,
+		StandardClaims: jwt.StandardClaims{
+			// one week expiration
+			ExpiresAt: time.Now().Add(time.Hour * 168).Unix(),
+		},
 	})
 
 	t, err := token.SignedString([]byte("secret"))
