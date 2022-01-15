@@ -1,27 +1,25 @@
 package tests
 
 import (
+	"github.com/bumi/lndhub.go/pkg/controllers"
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
+	"net/http"
+	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/suite"
 )
 
-type CreateUserTestSuite struct {
-	suite.Suite
-}
+func TestCreateUser(t *testing.T) {
+	e := echo.New()
 
-func (CreateUserTestSuite) SetupSuite() {
+	req := httptest.NewRequest(http.MethodPost, "/create", nil)
+	rec := httptest.NewRecorder()
 
-}
+	c := e.NewContext(req, rec)
+	c.SetParamNames("login", "password")
+	c.SetParamValues("test-login", "test-password")
 
-func (CreateUserTestSuite) TearDownSuite() {
-
-}
-
-func (CreateUserTestSuite) TestCreate() {
-
-}
-
-func TestCreateUserTestSuite(t *testing.T) {
-	suite.Run(t, new(CreateUserTestSuite))
+	if assert.NoError(t, controllers.CreateUserController{}.CreateUser(c)) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+	}
 }
