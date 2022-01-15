@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -9,12 +10,20 @@ import (
 
 // User : User Model
 type User struct {
-	bun.BaseModel `bun:"user"`
-
-	ID        uint           `gorm:"primary_key"`
-	Email     sql.NullString `gorm:"uniqueIndex"`
-	Login     string         `gorm:"uniqueIndex;not null"`
-	Password  string         `gorm:"index;not null"`
-	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
-	CreatedAt time.Time      `gorm:"autoCreateTime"`
+	ID        int64          `bun:",pk,autoincrement"`
+	Email     sql.NullString `bun:",unique"`
+	Login     string         `bun:",unique,notnull"`
+	Password  string         `gorm:",notnull"`
+	CreatedAt time.Time      `bun:",nullzero,notnull,default:current_timestamp"`
+	UpdatedAt bun.NullTime
 }
+
+func (u *User) BeforeAppendModel(ctx context.Context, query bun.Query) error {
+	switch query.(type) {
+	case *bun.UpdateQuery:
+		u.UpdatedAt = bun.NullTime{Time: time.Now()}
+	}
+	return nil
+}
+
+var _ bun.BeforeAppendModelHook = (*User)(nil)

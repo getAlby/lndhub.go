@@ -10,6 +10,7 @@ import (
 
 	"github.com/bumi/lndhub.go/controllers"
 	"github.com/bumi/lndhub.go/db"
+	"github.com/bumi/lndhub.go/db/migrations"
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/logging"
 	"github.com/bumi/lndhub.go/lib/middlewares"
@@ -19,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun/migrate"
 )
 
 func main() {
@@ -62,6 +64,19 @@ func main() {
 		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 			Output: io.Writer(file),
 		}))
+	}
+
+	ctx := context.Background()
+	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
+	err = migrator.Init(ctx)
+	if err != nil {
+		logrus.Fatalf("failed to init migrations: %v", err)
+	}
+
+	//TODO: possibly print what has been migrated
+	_, err = migrator.Migrate(ctx)
+	if err != nil {
+		logrus.Fatalf("failed to run migrations: %v", err)
 	}
 
 	e.Use(middleware.Logger())
