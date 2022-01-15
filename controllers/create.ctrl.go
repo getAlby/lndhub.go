@@ -19,7 +19,7 @@ type CreateUserController struct{}
 
 // CreateUser : Create user Controller
 func (CreateUserController) CreateUser(c echo.Context) error {
-	ctx := c.(lib.IndhubContext)
+	ctx := c.(*lib.IndhubContext)
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
 		AccountType string `json:"accounttype"`
@@ -32,7 +32,7 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 
 	db := ctx.DB
 
-	user := &models.User{}
+	user := models.User{}
 
 	user.Login = randStringBytes(8)
 	password := randStringBytes(15)
