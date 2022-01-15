@@ -8,7 +8,9 @@ import (
 
 var Migrations = migrate.NewMigrations()
 
-//go:embed *.sql
+// remove the first of 3 slashes to enable sql migrations
+// probably not needed as we are targeting several dialects
+///go:embed *.sql
 var sqlMigrations embed.FS
 
 func init() {
