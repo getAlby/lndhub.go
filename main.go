@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"time"
 
-	controllers2 "github.com/bumi/lndhub.go/controllers"
-	"github.com/bumi/lndhub.go/database"
+	"github.com/bumi/lndhub.go/controllers"
+	"github.com/bumi/lndhub.go/db"
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/logging"
 	"github.com/bumi/lndhub.go/lib/middlewares"
@@ -21,18 +21,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func init() {
+func main() {
 	err := godotenv.Load(".env")
 	if err != nil {
 		logrus.Errorf("failed to get env value")
 		return
 	}
-}
 
-func main() {
-	db, err := database.Connect(os.Getenv("DATABASE_URI"))
+	dbConn, err := db.Open(os.Getenv("DATABASE_URI"))
 	if err != nil {
-		logrus.Errorf("failed to connect with database: %v", err)
+		logrus.Fatalf("failed to connect to database: %v", err)
 		return
 	}
 
@@ -69,17 +67,17 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	e.Use(middlewares.ContextDB(db))
+	e.Use(middlewares.ContextDB(dbConn))
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	e.POST("/auth", controllers2.AuthController{}.Auth)
-	e.POST("/create", controllers2.CreateUserController{}.CreateUser)
-	e.POST("/addinvoice", controllers2.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
-	e.POST("/payinvoice", controllers2.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
-	e.GET("/gettxs", controllers2.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
-	e.GET("/checkpayment/:payment_hash", controllers2.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
-	e.GET("/balance", controllers2.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
+	e.POST("/auth", controllers.AuthController{}.Auth)
+	e.POST("/create", controllers.CreateUserController{}.CreateUser)
+	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
+	e.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
+	e.GET("/gettxs", controllers.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
+	e.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
+	e.GET("/balance", controllers.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
 
 	// Start server
 	go func() {

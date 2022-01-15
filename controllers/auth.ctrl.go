@@ -3,7 +3,7 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/bumi/lndhub.go/database/models"
+	"github.com/bumi/lndhub.go/db/models"
 	"github.com/bumi/lndhub.go/lib/tokens"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -71,11 +71,11 @@ func (AuthController) Auth(c echo.Context) error {
 		}
 	}
 
-	err := tokens.GenerateAccessToken(&user)
+	accessToken, err := tokens.GenerateAccessToken(&user)
 	if err != nil {
 		return err
 	}
-	err = tokens.GenerateRefreshToken(&user)
+	refreshToken, err := tokens.GenerateRefreshToken(&user)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (AuthController) Auth(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
-		"refresh_token": user.RefreshToken.String,
-		"access_token":  user.AccessToken.String,
+		"refresh_token": refreshToken,
+		"access_token":  accessToken,
 	})
 }

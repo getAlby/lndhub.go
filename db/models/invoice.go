@@ -1,9 +1,15 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/uptrace/bun"
+)
 
 // Invoice : Invoice Model
 type Invoice struct {
+	bun.BaseModel `bun:"invoice"`
+
 	ID                 uint      `gorm:"primary_key" json:"id"`
 	Type               string    `json:"type"`
 	UserID             uint      `json:"user_id"`

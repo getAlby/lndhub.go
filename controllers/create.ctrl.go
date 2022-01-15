@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/database/models"
+	"github.com/bumi/lndhub.go/db/models"
 	"github.com/bumi/lndhub.go/lib/security"
 	"gorm.io/gorm"
 

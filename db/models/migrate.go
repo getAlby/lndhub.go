@@ -16,7 +16,7 @@ func Migrate(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	err = db.AutoMigrate(&TransactionEntries{})
+	err = db.AutoMigrate(&TransactionEntry{})
 	if err != nil {
 		return err
 	}
