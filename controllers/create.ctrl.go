@@ -1,16 +1,15 @@
 package controllers
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 
-	"gorm.io/gorm"
-
+	"github.com/bumi/lndhub.go/db/models"
+	"github.com/bumi/lndhub.go/lib"
+	"github.com/bumi/lndhub.go/lib/security"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
-
-	"github.com/bumi/lndhub.go/pkg/database/models"
-	"github.com/bumi/lndhub.go/pkg/lib/security"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -20,6 +19,7 @@ type CreateUserController struct{}
 
 // CreateUser : Create user Controller
 func (CreateUserController) CreateUser(c echo.Context) error {
+	ctx := c.(*lib.IndhubContext)
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
 		AccountType string `json:"accounttype"`
@@ -30,16 +30,16 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 		return err
 	}
 
-	db, _ := c.Get("db").(*gorm.DB)
+	db := ctx.DB
 
-	user := &models.User{}
+	user := models.User{}
 
 	user.Login = randStringBytes(8)
 	password := randStringBytes(15)
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
 
-	if err := db.Create(&user).Error; err != nil {
+	if _, err := db.NewInsert().Model(&user).Exec(context.TODO()); err != nil {
 		return err
 	}
 	var ResponseBody struct {
