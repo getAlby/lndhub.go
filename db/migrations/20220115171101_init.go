@@ -15,10 +15,20 @@ Once this has been deployed some place - we need to start introducing subsequent
 */
 func init() {
 	Migrations.MustRegister(func(ctx context.Context, db *bun.DB) error {
-		_, err := db.NewCreateTable().Model((*models.User)(nil)).
-			NewCreateTable().Model((*models.Invoice)(nil)).
-			NewCreateTable().Model((*models.Account)(nil)).
-			NewCreateTable().Model((*models.TransactionEntry)(nil)).Exec(ctx)
-		return err
+
+		if _, err := db.NewCreateTable().Model((*models.User)(nil)).Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := db.NewCreateTable().Model((*models.Invoice)(nil)).Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := db.NewCreateTable().Model((*models.Account)(nil)).Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := db.NewCreateTable().Model((*models.TransactionEntry)(nil)).Exec(ctx); err != nil {
+			return err
+		}
+
+		return nil
 	}, nil)
 }
