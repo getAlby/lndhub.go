@@ -16,34 +16,47 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun/migrate"
 )
 
+type Config struct {
+	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
+	SentryDSN   string `envconfig:"SENTRY_DSN"`
+	LogFilePath string `envconfig:"LOG_FILE_PATH"`
+}
+
 func main() {
+	var c Config
 	err := godotenv.Load(".env")
 	if err != nil {
-		logrus.Errorf("failed to get env value")
-		return
+		logrus.Fatal("failed to get env value")
 	}
 
-	dbConn, err := db.Open(os.Getenv("DATABASE_URI"))
+	err = envconfig.Process("", &c)
+	if err != nil {
+		logrus.Fatal(err.Error())
+	}
+
+	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
 		logrus.Fatalf("failed to connect to database: %v", err)
 		return
 	}
 
-	sentryDsn := os.Getenv("SENTRY_DSN")
+	sentryDsn := c.SentryDSN
 
 	switch sentryDsn {
 	case "":
 		//ignore
 		break
 	default:
+		//TODO: Add middleware
 		if err = sentry.Init(sentry.ClientOptions{
-			Dsn: os.Getenv("SENTRY_DSN"),
+			Dsn: sentryDsn,
 		}); err != nil {
 			logrus.Fatalf("sentry init error: %v", err)
 		}
