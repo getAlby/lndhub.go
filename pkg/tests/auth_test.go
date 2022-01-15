@@ -1,27 +1,26 @@
 package tests
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
+	"github.com/bumi/lndhub.go/pkg/controllers"
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 )
 
-type UserAuthTestSuite struct {
-	suite.Suite
-}
+func TestAuth(t *testing.T) {
+	e := echo.New()
 
-func (UserAuthTestSuite) SetupSuite() {
+	req := httptest.NewRequest(http.MethodPost, "/auth", nil)
+	rec := httptest.NewRecorder()
 
-}
+	c := e.NewContext(req, rec)
+	c.SetParamNames("access_token", "test-access-token")
+	c.SetParamValues("refresh_token", "test-refresh-token")
 
-func (UserAuthTestSuite) TearDownSuite() {
-
-}
-
-func (UserAuthTestSuite) TestAuth() {
-
-}
-
-func TestUserAuthTestSuite(t *testing.T) {
-	suite.Run(t, new(UserAuthTestSuite))
+	if assert.NoError(t, controllers.AuthController{}.Auth(c)) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+	}
 }
