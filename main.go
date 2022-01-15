@@ -13,7 +13,6 @@ import (
 	"github.com/bumi/lndhub.go/db/migrations"
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/logging"
-	"github.com/bumi/lndhub.go/lib/middlewares"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -82,17 +81,26 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	e.Use(middlewares.ContextDB(dbConn))
+	// Initialise a custom context
+	// Same context we will later add the user to and possible other things
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			cc := &lib.IndhubContext{Context: c, DB: dbConn}
+			return next(cc)
+		}
+	})
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	e.POST("/auth", controllers.AuthController{}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
-	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
-	e.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
-	e.GET("/gettxs", controllers.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
-	e.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
-	e.GET("/balance", controllers.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
+
+	secured := e.Group("", middleware.JWT([]byte("secret")))
+	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
+	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
+	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)
+	secured.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment)
+	secured.GET("/balance", controllers.BalanceController{}.Balance)
 
 	// Start server
 	go func() {
