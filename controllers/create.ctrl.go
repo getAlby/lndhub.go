@@ -1,13 +1,13 @@
 package controllers
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 
 	"github.com/bumi/lndhub.go/db/models"
+	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/security"
-	"gorm.io/gorm"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 )
@@ -19,6 +19,7 @@ type CreateUserController struct{}
 
 // CreateUser : Create user Controller
 func (CreateUserController) CreateUser(c echo.Context) error {
+	ctx := c.(lib.IndhubContext)
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
 		AccountType string `json:"accounttype"`
@@ -29,7 +30,7 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 		return err
 	}
 
-	db, _ := c.Get("db").(*gorm.DB)
+	db := ctx.DB
 
 	user := &models.User{}
 
@@ -38,7 +39,7 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
 
-	if err := db.Create(&user).Error; err != nil {
+	if _, err := db.NewInsert().Model(&user).Exec(context.TODO()); err != nil {
 		return err
 	}
 	var ResponseBody struct {

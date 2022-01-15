@@ -18,7 +18,6 @@ require (
 	github.com/uptrace/bun/driver/pgdriver v1.0.21
 	github.com/uptrace/bun/driver/sqliteshim v1.0.21
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
-	gorm.io/gorm v1.22.4
 )
 
 require (
@@ -27,7 +26,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/jinzhu/now v1.1.3 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.11 // indirect

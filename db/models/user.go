@@ -13,7 +13,7 @@ type User struct {
 	ID        int64          `bun:",pk,autoincrement"`
 	Email     sql.NullString `bun:",unique"`
 	Login     string         `bun:",unique,notnull"`
-	Password  string         `gorm:",notnull"`
+	Password  string         `bun:",notnull"`
 	CreatedAt time.Time      `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt bun.NullTime
 }

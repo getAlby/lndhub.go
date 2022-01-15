@@ -1,14 +1,14 @@
 package controllers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/bumi/lndhub.go/db/models"
+	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/tokens"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
-
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AuthController : AuthController struct
@@ -16,6 +16,7 @@ type AuthController struct{}
 
 // Auth : Auth Controller
 func (AuthController) Auth(c echo.Context) error {
+	ctx := c.(lib.IndhubContext)
 	type RequestBody struct {
 		Login        string `json:"login"`
 		Password     string `json:"password"`
@@ -36,7 +37,38 @@ func (AuthController) Auth(c echo.Context) error {
 		})
 	}
 
-	if (body.Login == "" || body.Password == "") && body.RefreshToken == "" {
+	db := ctx.DB
+	var user models.User
+
+	switch {
+	case body.Login != "" || body.Password != "":
+		{
+			if err := db.NewSelect().Model(&user).Where("login = ?", body.Login).Scan(context.TODO()); err != nil {
+				return c.JSON(http.StatusNotFound, echo.Map{
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
+				})
+			}
+			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
+				return c.JSON(http.StatusNotFound, echo.Map{
+					"message": "invalid username or password",
+				})
+			}
+		}
+	case body.RefreshToken != "":
+		{
+			// TODO: currently not supported
+			// I'd love to remove this from the auth handler, as the refresh token
+			// is usually a part of the JWT middleware: https://webdevstation.com/posts/user-authentication-with-go-using-jwt-token/
+			// if the current client depends on that - we can incorporate the refresh JWT code into here
+			return c.JSON(http.StatusNotFound, echo.Map{
+				"error":   true,
+				"code":    1,
+				"message": "bad auth",
+			})
+		}
+	default:
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    8,
@@ -44,43 +76,17 @@ func (AuthController) Auth(c echo.Context) error {
 		})
 	}
 
-	db, _ := c.Get("db").(*gorm.DB)
-
-	var user models.User
-
-	if body.Login != "" || body.Password != "" {
-		if err := db.Where("login = ?", body.Login).First(&user).Error; err != nil {
-			return c.JSON(http.StatusNotFound, echo.Map{
-				"error":   true,
-				"code":    1,
-				"message": "bad auth",
-			})
-		}
-		if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
-			return c.JSON(http.StatusNotFound, echo.Map{
-				"message": "invalid username or password",
-			})
-		}
-	} else if body.RefreshToken != "" {
-		if err := db.Where("refresh_token = ?", body.RefreshToken).First(&user).Error; err != nil {
-			return c.JSON(http.StatusNotFound, echo.Map{
-				"error":   true,
-				"code":    1,
-				"message": "bad auth",
-			})
-		}
-	}
-
 	accessToken, err := tokens.GenerateAccessToken(&user)
 	if err != nil {
 		return err
 	}
+
 	refreshToken, err := tokens.GenerateRefreshToken(&user)
 	if err != nil {
 		return err
 	}
 
-	if err := db.Save(&user).Error; err != nil {
+	if _, err := db.NewInsert().Model(&user).Exec(context.TODO()); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":   true,
 			"code":    6,

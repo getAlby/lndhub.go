@@ -1,15 +1,16 @@
 package controllers
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 
 	"github.com/bumi/lndhub.go/db/models"
-	"gorm.io/gorm"
-
+	"github.com/bumi/lndhub.go/lib"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
+	"github.com/sirupsen/logrus"
 )
 
 // AddInvoiceController : Add invoice controller struct
@@ -17,6 +18,7 @@ type AddInvoiceController struct{}
 
 // AddInvoice : Add invoice Controller
 func (AddInvoiceController) AddInvoice(c echo.Context) error {
+	ctx := c.(lib.IndhubContext)
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	userID := claims["id"].(float64)
@@ -41,7 +43,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
-	db, _ := c.Get("db").(*gorm.DB)
+	db := ctx.DB
 
 	invoice := models.Invoice{
 		Type:               "",
@@ -55,7 +57,13 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		State:              "",
 	}
 
-	db.Create(&invoice)
+	// TODO: move this to a service layer and call a method
+	_, err := db.NewInsert().Model(&invoice).Exec(context.TODO())
+	if err != nil {
+		logrus.Errorf("error saving an invoice: %v", err)
+		// TODO: better error handling, possibly panic and catch in an error handler
+		return c.JSON(http.StatusInternalServerError, nil)
+	}
 
 	var responseBody struct {
 		RHash          string `json:"r_hash"`
