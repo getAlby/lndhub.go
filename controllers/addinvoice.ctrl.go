@@ -4,13 +4,12 @@ import (
 	"math/rand"
 	"net/http"
 
+	"github.com/bumi/lndhub.go/database/models"
 	"gorm.io/gorm"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
-
-	"github.com/bumi/lndhub.go/pkg/database/models"
 )
 
 // AddInvoiceController : Add invoice controller struct

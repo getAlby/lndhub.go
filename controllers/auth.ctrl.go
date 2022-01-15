@@ -3,13 +3,12 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/bumi/lndhub.go/database/models"
+	"github.com/bumi/lndhub.go/lib/tokens"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"github.com/labstack/echo/v4"
-
-	"github.com/bumi/lndhub.go/pkg/database/models"
-	"github.com/bumi/lndhub.go/pkg/lib/tokens"
 )
 
 // AuthController : AuthController struct

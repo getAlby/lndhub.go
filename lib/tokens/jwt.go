@@ -3,8 +3,7 @@ package tokens
 import (
 	"database/sql"
 
-	"github.com/bumi/lndhub.go/pkg/database/models"
-
+	"github.com/bumi/lndhub.go/database/models"
 	"github.com/dgrijalva/jwt-go"
 )
 

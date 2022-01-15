@@ -3,7 +3,7 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/bumi/lndhub.go/pkg/database/models"
+	"github.com/bumi/lndhub.go/database/models"
 	"github.com/labstack/echo/v4"
 )
 

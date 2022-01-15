@@ -4,11 +4,10 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/bumi/lndhub.go/database/models"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-
-	"github.com/bumi/lndhub.go/pkg/database/models"
 )
 
 func getDbDialect(databaseURI string) (*gorm.Dialector, error) {

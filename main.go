@@ -8,18 +8,17 @@ import (
 	"os/signal"
 	"time"
 
+	controllers2 "github.com/bumi/lndhub.go/controllers"
+	"github.com/bumi/lndhub.go/database"
+	"github.com/bumi/lndhub.go/lib"
+	"github.com/bumi/lndhub.go/lib/logging"
+	"github.com/bumi/lndhub.go/lib/middlewares"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
-
-	"github.com/bumi/lndhub.go/pkg/controllers"
-	"github.com/bumi/lndhub.go/pkg/database"
-	"github.com/bumi/lndhub.go/pkg/lib"
-	"github.com/bumi/lndhub.go/pkg/lib/logging"
-	"github.com/bumi/lndhub.go/pkg/lib/middlewares"
 )
 
 func init() {
@@ -74,13 +73,13 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	e.POST("/auth", controllers.AuthController{}.Auth)
-	e.POST("/create", controllers.CreateUserController{}.CreateUser)
-	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
-	e.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
-	e.GET("/gettxs", controllers.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
-	e.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
-	e.GET("/balance", controllers.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
+	e.POST("/auth", controllers2.AuthController{}.Auth)
+	e.POST("/create", controllers2.CreateUserController{}.CreateUser)
+	e.POST("/addinvoice", controllers2.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
+	e.POST("/payinvoice", controllers2.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
+	e.GET("/gettxs", controllers2.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
+	e.GET("/checkpayment/:payment_hash", controllers2.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
+	e.GET("/balance", controllers2.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
 
 	// Start server
 	go func() {
