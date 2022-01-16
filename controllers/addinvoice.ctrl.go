@@ -18,7 +18,7 @@ type AddInvoiceController struct{}
 
 // AddInvoice : Add invoice Controller
 func (AddInvoiceController) AddInvoice(c echo.Context) error {
-	ctx := c.(*lib.IndhubContext)
+	ctx := c.(*lib.LndhubContext)
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	userID := claims["id"].(float64)
