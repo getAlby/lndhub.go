@@ -8,44 +8,55 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/bumi/lndhub.go/controllers"
+	"github.com/bumi/lndhub.go/db"
+	"github.com/bumi/lndhub.go/db/migrations"
+	"github.com/bumi/lndhub.go/lib"
+	"github.com/bumi/lndhub.go/lib/logging"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
-
-	"github.com/bumi/lndhub.go/pkg/controllers"
-	"github.com/bumi/lndhub.go/pkg/database"
-	"github.com/bumi/lndhub.go/pkg/lib"
-	"github.com/bumi/lndhub.go/pkg/lib/logging"
-	"github.com/bumi/lndhub.go/pkg/lib/middlewares"
+	"github.com/uptrace/bun/migrate"
 )
 
-func init() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		logrus.Errorf("failed to get env value")
-		return
-	}
+type Config struct {
+	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
+	SentryDSN   string `envconfig:"SENTRY_DSN"`
+	LogFilePath string `envconfig:"LOG_FILE_PATH"`
 }
 
 func main() {
-	db, err := database.Connect(os.Getenv("DATABASE_URI"))
+	var c Config
+	err := godotenv.Load(".env")
 	if err != nil {
-		logrus.Errorf("failed to connect with database: %v", err)
+		logrus.Fatal("failed to get env value")
+	}
+
+	err = envconfig.Process("", &c)
+	if err != nil {
+		logrus.Fatal(err.Error())
+	}
+
+	dbConn, err := db.Open(c.DatabaseUri)
+	if err != nil {
+		logrus.Fatalf("failed to connect to database: %v", err)
 		return
 	}
 
-	sentryDsn := os.Getenv("SENTRY_DSN")
+	sentryDsn := c.SentryDSN
 
 	switch sentryDsn {
 	case "":
 		//ignore
 		break
 	default:
+		//TODO: Add middleware
 		if err = sentry.Init(sentry.ClientOptions{
-			Dsn: os.Getenv("SENTRY_DSN"),
+			Dsn: sentryDsn,
 		}); err != nil {
 			logrus.Fatalf("sentry init error: %v", err)
 		}
@@ -67,20 +78,42 @@ func main() {
 		}))
 	}
 
+	ctx := context.Background()
+	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
+	err = migrator.Init(ctx)
+	if err != nil {
+		logrus.Fatalf("failed to init migrations: %v", err)
+	}
+
+	//TODO: possibly print what has been migrated
+	_, err = migrator.Migrate(ctx)
+	if err != nil {
+		logrus.Fatalf("failed to run migrations: %v", err)
+	}
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	e.Use(middlewares.ContextDB(db))
+	// Initialise a custom context
+	// Same context we will later add the user to and possible other things
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			cc := &lib.IndhubContext{Context: c, DB: dbConn}
+			return next(cc)
+		}
+	})
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	e.POST("/auth", controllers.AuthController{}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
-	e.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice, middleware.JWT([]byte("secret")))
-	e.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice, middleware.JWT([]byte("secret")))
-	e.GET("/gettxs", controllers.GetTXSController{}.GetTXS, middleware.JWT([]byte("secret")))
-	e.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment, middleware.JWT([]byte("secret")))
-	e.GET("/balance", controllers.BalanceController{}.Balance, middleware.JWT([]byte("secret")))
+
+	secured := e.Group("", middleware.JWT([]byte("secret")))
+	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
+	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
+	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)
+	secured.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment)
+	secured.GET("/balance", controllers.BalanceController{}.Balance)
 
 	// Start server
 	go func() {

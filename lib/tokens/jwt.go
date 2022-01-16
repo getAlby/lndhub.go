@@ -1,15 +1,12 @@
 package tokens
 
 import (
-	"database/sql"
-
-	"github.com/bumi/lndhub.go/pkg/database/models"
-
+	"github.com/bumi/lndhub.go/db/models"
 	"github.com/dgrijalva/jwt-go"
 )
 
 type jwtCustomClaims struct {
-	ID    uint   `json:"id"`
+	ID    int64  `json:"id"`
 	Email string `json:"email"`
 	Login string `json:"login"`
 
@@ -17,7 +14,7 @@ type jwtCustomClaims struct {
 }
 
 // GenerateAccessToken : Generate Access Token
-func GenerateAccessToken(u *models.User) error {
+func GenerateAccessToken(u *models.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtCustomClaims{
 		ID:    u.ID,
 		Email: u.Email.String,
@@ -26,25 +23,22 @@ func GenerateAccessToken(u *models.User) error {
 
 	t, err := token.SignedString([]byte("secret"))
 	if err != nil {
-		return err
+		return "", err
 	}
-	u.AccessToken = sql.NullString{String: t, Valid: true}
 
-	return err
+	return t, nil
 }
 
 // GenerateRefreshToken : Generate Refresh Token
-func GenerateRefreshToken(u *models.User) error {
-	rToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+func GenerateRefreshToken(u *models.User) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": u.ID,
 	})
 
-	rt, err := rToken.SignedString([]byte("secret"))
+	t, err := token.SignedString([]byte("secret"))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	u.RefreshToken = sql.NullString{String: rt, Valid: true}
-
-	return err
+	return t, nil
 }

@@ -1,4 +1,4 @@
-package tests
+package integration_tests
 
 import (
 	"net/http"
@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateUser(t *testing.T) {
+func TestAuth(t *testing.T) {
 	e := echo.New()
 
-	req := httptest.NewRequest(http.MethodPost, "/create", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth", nil)
 	rec := httptest.NewRecorder()
 
 	c := e.NewContext(req, rec)
-	c.SetParamNames("login", "password")
-	c.SetParamValues("test-login", "test-password")
+	c.SetParamNames("access_token", "test-access-token")
+	c.SetParamValues("refresh_token", "test-refresh-token")
 
-	if assert.NoError(t, controllers.CreateUserController{}.CreateUser(c)) {
+	if assert.NoError(t, controllers.AuthController{}.Auth(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 	}
 }
