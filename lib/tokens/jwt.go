@@ -16,16 +16,17 @@ import (
 )
 
 func Middleware(secret []byte) echo.MiddlewareFunc {
-	config := middleware.JWTConfig{
-		ContextKey: "UserJwt",
-		SigningKey: secret,
-		SuccessHandler: func(c echo.Context) {
-			token := c.Get("UserJwt").(*jwt.Token)
-			claims := token.Claims.(jwt.MapClaims)
-			c.Set("UserID", claims["id"])
+	config := middleware.DefaultJWTConfig
 
-		},
+	config.ContextKey = "UserJwt"
+	config.SigningKey = secret
+	config.SuccessHandler = func(c echo.Context) {
+		token := c.Get("UserJwt").(*jwt.Token)
+		claims := token.Claims.(jwt.MapClaims)
+		c.Set("UserID", claims["id"])
+
 	}
+
 	return middleware.JWTWithConfig(config)
 }
 
