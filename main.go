@@ -33,7 +33,7 @@ func main() {
 	var c Config
 	err := godotenv.Load(".env")
 	if err != nil {
-		logrus.Fatal("failed to get env value")
+		logrus.Warn("Failed to load .env file")
 	}
 
 	err = envconfig.Process("", &c)
