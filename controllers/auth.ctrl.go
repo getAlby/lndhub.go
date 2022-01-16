@@ -8,7 +8,6 @@ import (
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -53,7 +52,9 @@ func (AuthController) Auth(c echo.Context) error {
 			}
 			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
 				return c.JSON(http.StatusNotFound, echo.Map{
-					"message": "invalid username or password",
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
 				})
 			}
 		}
@@ -85,17 +86,6 @@ func (AuthController) Auth(c echo.Context) error {
 	refreshToken, err := tokens.GenerateRefreshToken(&user)
 	if err != nil {
 		return err
-	}
-
-	if _, err := db.NewUpdate().Model(&user).WherePK().Exec(context.TODO()); err != nil {
-		// TODO: this should cause an exception notification
-		// How to properly log errors with useful debug information?
-		logrus.Error(err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":   true,
-			"code":    6,
-			"message": "Something went wrong. Please try again later",
-		})
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
