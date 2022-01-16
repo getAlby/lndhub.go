@@ -12,10 +12,12 @@ import (
 )
 
 // AuthController : AuthController struct
-type AuthController struct{}
+type AuthController struct {
+	JWTSecret []byte
+}
 
 // Auth : Auth Controller
-func (AuthController) Auth(c echo.Context) error {
+func (ctrl AuthController) Auth(c echo.Context) error {
 	ctx := c.(*lib.LndhubContext)
 	type RequestBody struct {
 		Login        string `json:"login"`
@@ -78,12 +80,12 @@ func (AuthController) Auth(c echo.Context) error {
 		})
 	}
 
-	accessToken, err := tokens.GenerateAccessToken(&user)
+	accessToken, err := tokens.GenerateAccessToken(ctrl.JWTSecret, &user)
 	if err != nil {
 		return err
 	}
 
-	refreshToken, err := tokens.GenerateRefreshToken(&user)
+	refreshToken, err := tokens.GenerateRefreshToken(ctrl.JWTSecret, &user)
 	if err != nil {
 		return err
 	}
