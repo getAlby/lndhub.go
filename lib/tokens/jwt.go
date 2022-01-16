@@ -21,7 +21,7 @@ func Middleware() echo.MiddlewareFunc {
 		ContextKey: "UserJwt",
 		SigningKey: []byte("secret"),
 		SuccessHandler: func(c echo.Context) {
-			ctx := c.(*lib.IndhubContext)
+			ctx := c.(*lib.LndhubContext)
 			token := ctx.Get("UserJwt").(*jwt.Token)
 			claims := token.Claims.(jwt.MapClaims)
 			userId := claims["id"].(float64)
