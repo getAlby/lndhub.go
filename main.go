@@ -13,6 +13,7 @@ import (
 	"github.com/bumi/lndhub.go/db/migrations"
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/logging"
+	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -108,7 +109,7 @@ func main() {
 	e.POST("/auth", controllers.AuthController{}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
 
-	secured := e.Group("", middleware.JWT([]byte("secret")))
+	secured := e.Group("", tokens.Middleware())
 	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
 	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
 	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)
