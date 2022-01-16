@@ -52,7 +52,9 @@ func (AuthController) Auth(c echo.Context) error {
 			}
 			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
 				return c.JSON(http.StatusNotFound, echo.Map{
-					"message": "invalid username or password",
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
 				})
 			}
 		}
@@ -84,14 +86,6 @@ func (AuthController) Auth(c echo.Context) error {
 	refreshToken, err := tokens.GenerateRefreshToken(&user)
 	if err != nil {
 		return err
-	}
-
-	if _, err := db.NewInsert().Model(&user).Exec(context.TODO()); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":   true,
-			"code":    6,
-			"message": "Something went wrong. Please try again later",
-		})
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
