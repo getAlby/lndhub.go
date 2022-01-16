@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/bumi/lndhub.go/db/models"
 	"github.com/bumi/lndhub.go/lib"
@@ -56,11 +58,17 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 
 // GenerateAccessToken : Generate Access Token
 func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": u.ID,
-	})
+	claims := jwt.MapClaims{
+		"id":  u.ID,
+		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
+	}
+	if err := claims.Valid(); err != nil {
+		return "", fmt.Errorf("invalid claims: %e", err)
+	}
 
-	t, err := token.SignedString([]byte("secret"))
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	t, err := token.SignedString(secret)
 	if err != nil {
 		return "", err
 	}
@@ -70,11 +78,18 @@ func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
 
 // GenerateRefreshToken : Generate Refresh Token
 func GenerateRefreshToken(secret []byte, u *models.User) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": u.ID,
-	})
+	claims := jwt.MapClaims{
+		"id":         u.ID,
+		"exp":        time.Now().Add(time.Hour * 24 * 30).Unix(),
+		"is_refresh": true,
+	}
 
-	t, err := token.SignedString([]byte("secret"))
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	if err := claims.Valid(); err != nil {
+		return "", fmt.Errorf("invalid claims: %e", err)
+	}
+
+	t, err := token.SignedString(secret)
 	if err != nil {
 		return "", err
 	}
