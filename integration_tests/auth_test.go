@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bumi/lndhub.go/pkg/controllers"
+	"github.com/bumi/lndhub.go/controllers"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
