@@ -8,6 +8,7 @@ import (
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -86,7 +87,10 @@ func (AuthController) Auth(c echo.Context) error {
 		return err
 	}
 
-	if _, err := db.NewInsert().Model(&user).Exec(context.TODO()); err != nil {
+	if _, err := db.NewUpdate().Model(&user).WherePK().Exec(context.TODO()); err != nil {
+		// TODO: this should cause an exception notification
+		// How to properly log errors with useful debug information?
+		logrus.Error(err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":   true,
 			"code":    6,
