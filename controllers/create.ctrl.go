@@ -19,7 +19,7 @@ type CreateUserController struct{}
 
 // CreateUser : Create user Controller
 func (CreateUserController) CreateUser(c echo.Context) error {
-	ctx := c.(*lib.IndhubContext)
+	ctx := c.(*lib.LndhubContext)
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
 		AccountType string `json:"accounttype"`

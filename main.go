@@ -98,7 +98,7 @@ func main() {
 	// Same context we will later add the user to and possible other things
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			cc := &lib.IndhubContext{Context: c, DB: dbConn}
+			cc := &lib.LndhubContext{Context: c, DB: dbConn}
 			return next(cc)
 		}
 	})

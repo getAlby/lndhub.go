@@ -5,7 +5,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type IndhubContext struct {
+type LndhubContext struct {
 	echo.Context
 
 	DB *bun.DB
