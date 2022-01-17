@@ -9,6 +9,7 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/driver/sqliteshim"
+	"github.com/uptrace/bun/extra/bundebug"
 )
 
 func Open(dsn string) (*bun.DB, error) {
@@ -24,6 +25,14 @@ func Open(dsn string) (*bun.DB, error) {
 		}
 		db = bun.NewDB(dbConn, sqlitedialect.New())
 	}
+
+	db.AddQueryHook(bundebug.NewQueryHook(
+		// disable the hook
+		bundebug.WithEnabled(false),
+		// BUNDEBUG=1 logs failed queries
+		// BUNDEBUG=2 logs all queries
+		bundebug.FromEnv("BUNDEBUG"),
+	))
 
 	return db, nil
 }
