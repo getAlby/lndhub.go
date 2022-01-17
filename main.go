@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,13 +15,14 @@ import (
 	"github.com/bumi/lndhub.go/lib/logging"
 	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun/migrate"
+	"github.com/ziflex/lecho/v3"
 )
 
 type Config struct {
@@ -35,66 +36,55 @@ func main() {
 	var c Config
 	err := godotenv.Load(".env")
 	if err != nil {
-		logrus.Warn("Failed to load .env file")
+		fmt.Println("Failed to load .env file")
 	}
 
 	err = envconfig.Process("", &c)
 	if err != nil {
-		logrus.Fatal(err.Error())
+		fmt.Println(err)
 	}
 
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
-		logrus.Fatalf("failed to connect to database: %v", err)
-		return
-	}
-
-	sentryDsn := c.SentryDSN
-
-	switch sentryDsn {
-	case "":
-		//ignore
-		break
-	default:
-		//TODO: Add middleware
-		if err = sentry.Init(sentry.ClientOptions{
-			Dsn: sentryDsn,
-		}); err != nil {
-			logrus.Fatalf("sentry init error: %v", err)
-		}
-		defer sentry.Flush(2 * time.Second)
+		panic(err)
 	}
 
 	e := echo.New()
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
-	logFilePath := os.Getenv("LOG_FILE_PATH")
-	if logFilePath != "" {
-		file, err := logging.GetLoggingFile(logFilePath)
-		if err != nil {
-			logrus.Fatalf("failed to create logging file: %v", err)
+	e.Use(middleware.Recover())
+
+	logger := logging.Logger(c.LogFilePath)
+	e.Logger = logger
+	e.Use(middleware.RequestID())
+	e.Use(lecho.Middleware(lecho.Config{
+		Logger: logger,
+	}))
+
+	if c.SentryDSN != "" {
+		//TODO: Add middleware
+		if err = sentry.Init(sentry.ClientOptions{
+			Dsn: c.SentryDSN,
+		}); err != nil {
+			logger.Errorf("sentry init error: %v", err)
 		}
-		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-			Output: io.Writer(file),
-		}))
+		defer sentry.Flush(2 * time.Second)
+		e.Use(sentryecho.New(sentryecho.Options{}))
 	}
 
 	ctx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
 	if err != nil {
-		logrus.Fatalf("failed to init migrations: %v", err)
+		logger.Fatalf("failed to init migrations: %v", err)
 	}
 
 	//TODO: possibly print what has been migrated
 	_, err = migrator.Migrate(ctx)
 	if err != nil {
-		logrus.Fatalf("failed to run migrations: %v", err)
+		logger.Fatalf("failed to run migrations: %v", err)
 	}
-
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
 
 	// Initialise a custom context
 	// Same context we will later add the user to and possible other things
