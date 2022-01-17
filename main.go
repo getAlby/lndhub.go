@@ -26,10 +26,13 @@ import (
 )
 
 type Config struct {
-	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
-	SentryDSN   string `envconfig:"SENTRY_DSN"`
-	LogFilePath string `envconfig:"LOG_FILE_PATH"`
-	JWTSecret   []byte `envconfig:"JWT_SECRET" default:"secret"`
+	DatabaseUri    string `envconfig:"DATABASE_URI" required:"true"`
+	SentryDSN      string `envconfig:"SENTRY_DSN"`
+	LogFilePath    string `envconfig:"LOG_FILE_PATH"`
+	JWTSecret      []byte `envconfig:"JWT_SECRET" default:"secret"`
+	LNDAddress     string `envconfig:"LND_ADDRESS" required:"true"`
+	LNDMacaroonHex string `envconfig:"LND_MACAROON_HEX" required:"true"`
+	LNDCertHex     string `envconfig:"LND_CERT_HEX"`
 }
 
 func main() {
@@ -95,11 +98,9 @@ func main() {
 	}
 
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:      "",
-		CertFile:     "",
-		CertHex:      "",
-		MacaroonFile: "",
-		MacaroonHex:  "",
+		Address:     c.LNDAddress,
+		MacaroonHex: c.LNDMacaroonHex,
+		CertHex:     c.LNDCertHex,
 	})
 
 	e.Use(middleware.Logger())

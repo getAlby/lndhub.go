@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/macaroon.v2"
-
-	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
 // LNDoptions are the options for the connection to the lnd node.
@@ -50,8 +50,6 @@ func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
 			return result, err
 		}
 		creds = credsFromFile // make it available outside of the else if block
-	} else {
-		return result, fmt.Errorf("LND credential is missing")
 	}
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
@@ -79,6 +77,10 @@ func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
 		return result, err
 	}
 
+	if creds == nil {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	}
 	conn, err := grpc.Dial(lndOptions.Address, opts...)
 	if err != nil {
 		return result, err
