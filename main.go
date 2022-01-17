@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"github.com/bumi/lndhub.go/lib/grpc"
+	"github.com/bumi/lndhub.go/lnd"
 	"io"
 	"net/http"
 	"os"
@@ -92,6 +94,15 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("failed to run migrations: %v", err)
 	}
+
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:      "",
+		CertFile:     "",
+		CertHex:      "",
+		MacaroonFile: "",
+		MacaroonHex:  "",
+	})
+	e.Use(grpc.LNDClient(&lndClient))
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
