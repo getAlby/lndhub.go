@@ -41,7 +41,7 @@ func main() {
 
 	err = envconfig.Process("", &c)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
 
 	dbConn, err := db.Open(c.DatabaseUri)
