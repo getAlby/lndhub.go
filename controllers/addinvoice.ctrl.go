@@ -7,7 +7,6 @@ import (
 
 	"github.com/bumi/lndhub.go/db/models"
 	"github.com/bumi/lndhub.go/lib"
-	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 	"github.com/sirupsen/logrus"
@@ -19,9 +18,7 @@ type AddInvoiceController struct{}
 // AddInvoice : Add invoice Controller
 func (AddInvoiceController) AddInvoice(c echo.Context) error {
 	ctx := c.(*lib.LndhubContext)
-	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-	userID := claims["id"].(float64)
+	user := ctx.User
 
 	type RequestBody struct {
 		Amt             uint   `json:"amt" validate:"required"`
@@ -47,7 +44,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 
 	invoice := models.Invoice{
 		Type:               "",
-		UserID:             uint(userID),
+		UserID:             user.ID,
 		TransactionEntryID: 0,
 		Amount:             body.Amt,
 		Memo:               body.Memo,

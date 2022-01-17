@@ -13,6 +13,7 @@ import (
 	"github.com/bumi/lndhub.go/db/migrations"
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/logging"
+	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -27,6 +28,7 @@ type Config struct {
 	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
 	SentryDSN   string `envconfig:"SENTRY_DSN"`
 	LogFilePath string `envconfig:"LOG_FILE_PATH"`
+	JWTSecret   []byte `envconfig:"JWT_SECRET" default:"secret"`
 }
 
 func main() {
@@ -105,10 +107,10 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	e.POST("/auth", controllers.AuthController{}.Auth)
+	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
 
-	secured := e.Group("", middleware.JWT([]byte("secret")))
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), tokens.UserMiddleware(dbConn))
 	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
 	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
 	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)

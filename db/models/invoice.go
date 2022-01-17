@@ -11,7 +11,7 @@ import (
 type Invoice struct {
 	ID                 uint         `json:"id" bun:",pk,autoincrement"`
 	Type               string       `json:"type"`
-	UserID             uint         `json:"user_id"`
+	UserID             int64        `json:"user_id"`
 	TransactionEntryID uint         `json:"transaction_entry_id"`
 	Amount             uint         `json:"amount"`
 	Memo               string       `json:"memo"`
