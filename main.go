@@ -13,6 +13,7 @@ import (
 	"github.com/bumi/lndhub.go/db/migrations"
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/tokens"
+	"github.com/bumi/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
@@ -20,47 +21,54 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 )
 
 type Config struct {
-	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
-	SentryDSN   string `envconfig:"SENTRY_DSN"`
-	LogFilePath string `envconfig:"LOG_FILE_PATH"`
-	JWTSecret   []byte `envconfig:"JWT_SECRET" required:"true"`
-	JWTExpiry   int    `envconfig:"JWT_EXPIRY" default:"604800"` // in seconds
+	DatabaseUri    string `envconfig:"DATABASE_URI" required:"true"`
+	SentryDSN      string `envconfig:"SENTRY_DSN"`
+	LogFilePath    string `envconfig:"LOG_FILE_PATH"`
+	JWTSecret      []byte `envconfig:"JWT_SECRET" required:"true"`
+	JWTExpiry      int    `envconfig:"JWT_EXPIRY" default:"604800"` // in seconds
+	LNDAddress     string `envconfig:"LND_ADDRESS" required:"true"`
+	LNDMacaroonHex string `envconfig:"LND_MACAROON_HEX" required:"true"`
+	LNDCertHex     string `envconfig:"LND_CERT_HEX"`
 }
 
 func main() {
 	var c Config
+
+	// Load configruation from environment variables
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Println("Failed to load .env file")
 	}
-
 	err = envconfig.Process("", &c)
 	if err != nil {
 		panic(err)
 	}
 
+	// Open a DB connection based on the configured DATABASE_URI
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
 		panic(err)
 	}
 
+	// Migrate the DB
 	ctx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
 	if err != nil {
 		panic(err)
 	}
-
 	_, err = migrator.Migrate(ctx)
 	if err != nil {
 		panic(err)
 	}
 
+	// New Echo app
 	e := echo.New()
 	e.HideBanner = true
 
@@ -70,6 +78,7 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
+	// Setup logging to STDOUT or a configrued log file
 	logger := lib.Logger(c.LogFilePath)
 	e.Logger = logger
 	e.Use(middleware.RequestID())
@@ -77,6 +86,7 @@ func main() {
 		Logger: logger,
 	}))
 
+	// Setup exception tracking with Sentry if configured
 	if c.SentryDSN != "" {
 		if err = sentry.Init(sentry.ClientOptions{
 			Dsn: c.SentryDSN,
@@ -87,11 +97,25 @@ func main() {
 		e.Use(sentryecho.New(sentryecho.Options{}))
 	}
 
-	// Initialise a custom context
-	// Same context we will later add the user to and possible other things
+	// Init new LND client
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:     c.LNDAddress,
+		MacaroonHex: c.LNDMacaroonHex,
+		CertHex:     c.LNDCertHex,
+	})
+	if err != nil {
+		panic(err)
+	}
+	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		panic(err)
+	}
+	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+
+	// Initialize a custom context with
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			cc := &lib.LndhubContext{Context: c, DB: dbConn}
+			cc := &lib.LndhubContext{Context: c, DB: dbConn, LndClient: &lndClient}
 			return next(cc)
 		}
 	})
