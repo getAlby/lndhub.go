@@ -9,7 +9,6 @@ import (
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
-	"github.com/sirupsen/logrus"
 )
 
 // AddInvoiceController : Add invoice controller struct
@@ -57,7 +56,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 	// TODO: move this to a service layer and call a method
 	_, err := db.NewInsert().Model(&invoice).Exec(context.TODO())
 	if err != nil {
-		logrus.Errorf("error saving an invoice: %v", err)
+		c.Logger().Errorf("error saving an invoice: %v", err)
 		// TODO: better error handling, possibly panic and catch in an error handler
 		return c.JSON(http.StatusInternalServerError, nil)
 	}

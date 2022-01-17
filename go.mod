@@ -9,30 +9,33 @@ require (
 	github.com/joho/godotenv v1.4.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo/v4 v4.6.1
-	github.com/labstack/gommon v0.3.0
-	github.com/sirupsen/logrus v1.8.1
+	github.com/labstack/gommon v0.3.1
 	github.com/stretchr/testify v1.7.0
 	github.com/uptrace/bun v1.0.21
 	github.com/uptrace/bun/dialect/pgdialect v1.0.21
 	github.com/uptrace/bun/dialect/sqlitedialect v1.0.21
 	github.com/uptrace/bun/driver/pgdriver v1.0.21
 	github.com/uptrace/bun/driver/sqliteshim v1.0.21
+	github.com/uptrace/bun/extra/bundebug v1.0.21
+	github.com/ziflex/lecho/v3 v3.1.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/mattn/go-colorable v0.1.11 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-sqlite3 v1.14.10 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
+	github.com/rs/zerolog v1.26.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
