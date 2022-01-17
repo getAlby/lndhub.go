@@ -6,16 +6,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"gopkg.in/macaroon.v2"
-	"io/ioutil"
-	"log"
-	"os"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"gopkg.in/macaroon.v2"
+	"io/ioutil"
 )
 
-var stdOutLogger = log.New(os.Stdout, "", log.LstdFlags)
 
 type Invoice struct {
 	PaymentHash    string `json:"payment_hash"`
@@ -42,7 +38,6 @@ type LNDclient struct {
 func (c LNDclient) AddInvoice(value int64, memo string) (Invoice, error) {
 	result := Invoice{}
 
-	stdOutLogger.Printf("Adding invoice: memo=%s value=%v", memo, value)
 	invoice := lnrpc.Invoice{
 		Memo:            memo,
 		Value:           value,
@@ -53,7 +48,6 @@ func (c LNDclient) AddInvoice(value int64, memo string) (Invoice, error) {
 	}
 
 	result.PaymentHash = hex.EncodeToString(res.RHash)
-	result.PaymentHash = "kurac"
 	return result, nil
 }
 
