@@ -17,7 +17,7 @@ import (
 
 type jwtCustomClaims struct {
 	ID        int64 `json:"id"`
-	IsRefresh bool  `json:isRefresh`
+	IsRefresh bool  `json:"isRefresh"`
 	jwt.StandardClaims
 }
 
@@ -71,9 +71,9 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 // GenerateAccessToken : Generate Access Token
 func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
 	claims := &jwtCustomClaims{
-		u.ID,
-		false,
-		jwt.StandardClaims{
+		ID:        u.ID,
+		IsRefresh: false,
+		StandardClaims: jwt.StandardClaims{
 			// one week expiration
 			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
 		},
@@ -92,9 +92,9 @@ func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
 // GenerateRefreshToken : Generate Refresh Token
 func GenerateRefreshToken(secret []byte, u *models.User) (string, error) {
 	claims := &jwtCustomClaims{
-		u.ID,
-		true,
-		jwt.StandardClaims{
+		ID:        u.ID,
+		IsRefresh: true,
+		StandardClaims: jwt.StandardClaims{
 			// one week expiration
 			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
 		},
