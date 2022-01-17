@@ -49,6 +49,7 @@ func main() {
 	}
 
 	e := echo.New()
+	e.HideBanner = true
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
