@@ -28,7 +28,8 @@ type Config struct {
 	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
 	SentryDSN   string `envconfig:"SENTRY_DSN"`
 	LogFilePath string `envconfig:"LOG_FILE_PATH"`
-	JWTSecret   []byte `envconfig:"JWT_SECRET" default:"secret"`
+	JWTSecret   []byte `envconfig:"JWT_SECRET" required:"true"`
+	JWTExpiry   int    `envconfig:"JWT_Expiry" default:"604800"` // in seconds
 }
 
 func main() {
@@ -97,7 +98,7 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret}.Auth)
+	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret, JWTExpiry: c.JWTExpiry}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
 
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), tokens.UserMiddleware(dbConn))

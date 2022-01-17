@@ -27,7 +27,8 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 	config.Claims = &jwtCustomClaims{}
 	config.ContextKey = "UserJwt"
 	config.SigningKey = secret
-	config.ErrorHandler = func(err error) error {
+	config.ErrorHandlerWithContext = func(err error, c echo.Context) error {
+		c.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    1,
@@ -63,19 +64,19 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 
 			ctx.User = &user
 
-			return next(c)
+			return next(ctx)
 		}
 	}
 }
 
 // GenerateAccessToken : Generate Access Token
-func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
+func GenerateAccessToken(secret []byte, expiryInSeconds int, u *models.User) (string, error) {
 	claims := &jwtCustomClaims{
 		ID:        u.ID,
 		IsRefresh: false,
 		StandardClaims: jwt.StandardClaims{
 			// one week expiration
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			ExpiresAt: time.Now().Add(time.Second * time.Duration(expiryInSeconds)).Unix(),
 		},
 	}
 
@@ -90,13 +91,13 @@ func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
 }
 
 // GenerateRefreshToken : Generate Refresh Token
-func GenerateRefreshToken(secret []byte, u *models.User) (string, error) {
+func GenerateRefreshToken(secret []byte, expiryInSeconds int, u *models.User) (string, error) {
 	claims := &jwtCustomClaims{
 		ID:        u.ID,
 		IsRefresh: true,
 		StandardClaims: jwt.StandardClaims{
 			// one week expiration
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			ExpiresAt: time.Now().Add(time.Second * time.Duration(expiryInSeconds)).Unix(),
 		},
 	}
 
