@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/bumi/lndhub.go/lib/grpc"
-	"github.com/bumi/lndhub.go/lnd"
 	"io"
 	"net/http"
 	"os"
@@ -16,6 +14,7 @@ import (
 	"github.com/bumi/lndhub.go/lib"
 	"github.com/bumi/lndhub.go/lib/logging"
 	"github.com/bumi/lndhub.go/lib/tokens"
+	"github.com/bumi/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -102,7 +101,6 @@ func main() {
 		MacaroonFile: "",
 		MacaroonHex:  "",
 	})
-	e.Use(grpc.LNDClient(&lndClient))
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
@@ -111,7 +109,7 @@ func main() {
 	// Same context we will later add the user to and possible other things
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			cc := &lib.LndhubContext{Context: c, DB: dbConn}
+			cc := &lib.LndhubContext{Context: c, DB: dbConn, LndClient: &lndClient}
 			return next(cc)
 		}
 	})

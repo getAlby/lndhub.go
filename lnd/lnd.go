@@ -5,19 +5,14 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
-	"github.com/lightningnetwork/lnd/lnrpc"
+	"io/ioutil"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/macaroon.v2"
-	"io/ioutil"
+
+	"github.com/lightningnetwork/lnd/lnrpc"
 )
-
-
-type Invoice struct {
-	PaymentHash    string `json:"payment_hash"`
-	PaymentRequest string `json:"payment_request"`
-	Settled        bool   `json:"settled"`
-}
 
 // LNDoptions are the options for the connection to the lnd node.
 type LNDoptions struct {
@@ -32,23 +27,6 @@ type LNDclient struct {
 	lndClient lnrpc.LightningClient
 	ctx       context.Context
 	conn      *grpc.ClientConn
-}
-
-// AddInvoice generates an invoice with the given price and memo.
-func (c LNDclient) AddInvoice(value int64, memo string) (Invoice, error) {
-	result := Invoice{}
-
-	invoice := lnrpc.Invoice{
-		Memo:            memo,
-		Value:           value,
-	}
-	res, err := c.lndClient.AddInvoice(c.ctx, &invoice)
-	if err != nil {
-		return result, err
-	}
-
-	result.PaymentHash = hex.EncodeToString(res.RHash)
-	return result, nil
 }
 
 func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
