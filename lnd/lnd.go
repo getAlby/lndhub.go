@@ -1,13 +1,13 @@
 package lnd
 
 import (
-	"context"
 	"crypto/x509"
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"io/ioutil"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/macaroons"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,14 +23,7 @@ type LNDoptions struct {
 	MacaroonHex  string
 }
 
-type LNDclient struct {
-	lndClient lnrpc.LightningClient
-	ctx       context.Context
-	conn      *grpc.ClientConn
-}
-
-func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
-	result := LNDclient{}
+func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
 
 	// Get credentials either from a hex string or a file
 	var creds credentials.TransportCredentials
@@ -39,7 +32,7 @@ func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
 		cp := x509.NewCertPool()
 		cert, err := hex.DecodeString(lndOptions.CertHex)
 		if err != nil {
-			return result, err
+			return nil, err
 		}
 		cp.AppendCertsFromPEM(cert)
 		creds = credentials.NewClientTLSFromCert(cp, "")
@@ -47,7 +40,7 @@ func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
 	} else if lndOptions.CertFile != "" {
 		credsFromFile, err := credentials.NewClientTLSFromFile(lndOptions.CertFile, "")
 		if err != nil {
-			return result, err
+			return nil, err
 		}
 		creds = credsFromFile // make it available outside of the else if block
 	}
@@ -59,40 +52,38 @@ func NewLNDclient(lndOptions LNDoptions) (LNDclient, error) {
 	if lndOptions.MacaroonHex != "" {
 		macBytes, err := hex.DecodeString(lndOptions.MacaroonHex)
 		if err != nil {
-			return result, err
+			return nil, err
 		}
 		macaroonData = macBytes
 	} else if lndOptions.MacaroonFile != "" {
 		macBytes, err := ioutil.ReadFile(lndOptions.MacaroonFile)
 		if err != nil {
-			return result, err
+			return nil, err
 		}
 		macaroonData = macBytes // make it available outside of the else if block
 	} else {
-		return result, fmt.Errorf("LND macaroon is missing")
+		return nil, errors.New("LND macaroon is missing")
 	}
 
 	mac := &macaroon.Macaroon{}
 	if err := mac.UnmarshalBinary(macaroonData); err != nil {
-		return result, err
+		return nil, err
 	}
+	macCred, err := macaroons.NewMacaroonCredential(mac)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, grpc.WithPerRPCCredentials(macCred))
 
+	// disable transport security if no certificate is configured
 	if creds == nil {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	}
 	conn, err := grpc.Dial(lndOptions.Address, opts...)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
-	c := lnrpc.NewLightningClient(conn)
-
-	result = LNDclient{
-		conn:      conn,
-		ctx:       context.Background(),
-		lndClient: c,
-	}
-
-	return result, nil
+	return lnrpc.NewLightningClient(conn), nil
 }
