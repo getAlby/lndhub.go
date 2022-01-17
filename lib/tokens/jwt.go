@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -17,15 +16,29 @@ import (
 	"github.com/uptrace/bun"
 )
 
+type jwtCustomClaims struct {
+	ID        int64 `json:"id"`
+	IsRefresh bool  `json:isRefresh`
+	jwt.StandardClaims
+}
+
 func Middleware(secret []byte) echo.MiddlewareFunc {
 	config := middleware.DefaultJWTConfig
 
+	config.Claims = &jwtCustomClaims{}
 	config.ContextKey = "UserJwt"
 	config.SigningKey = secret
+	config.ErrorHandler = func(err error) error {
+		return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    1,
+			"message": "bad auth",
+		})
+	}
 	config.SuccessHandler = func(c echo.Context) {
 		token := c.Get("UserJwt").(*jwt.Token)
-		claims := token.Claims.(jwt.MapClaims)
-		c.Set("UserID", claims["id"])
+		claims := token.Claims.(*jwtCustomClaims)
+		c.Set("UserID", claims.ID)
 
 	}
 
@@ -35,8 +48,8 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			ctx := c.(lib.LndhubContext)
-			userId := c.Get("UserID").(int64)
+			ctx := c.(*lib.LndhubContext)
+			userId := c.Get("UserID")
 
 			var user models.User
 
@@ -51,19 +64,20 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 
 			ctx.User = &user
 
-			return nil
+			return next(c)
 		}
 	}
 }
 
 // GenerateAccessToken : Generate Access Token
 func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
-	claims := jwt.MapClaims{
-		"id":  u.ID,
-		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
-	}
-	if err := claims.Valid(); err != nil {
-		return "", fmt.Errorf("invalid claims: %e", err)
+	claims := &jwtCustomClaims{
+		u.ID,
+		false,
+		jwt.StandardClaims{
+			// one week expiration
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -78,16 +92,16 @@ func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
 
 // GenerateRefreshToken : Generate Refresh Token
 func GenerateRefreshToken(secret []byte, u *models.User) (string, error) {
-	claims := jwt.MapClaims{
-		"id":         u.ID,
-		"exp":        time.Now().Add(time.Hour * 24 * 30).Unix(),
-		"is_refresh": true,
+	claims := &jwtCustomClaims{
+		u.ID,
+		true,
+		jwt.StandardClaims{
+			// one week expiration
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	if err := claims.Valid(); err != nil {
-		return "", fmt.Errorf("invalid claims: %e", err)
-	}
 
 	t, err := token.SignedString(secret)
 	if err != nil {
