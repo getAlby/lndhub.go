@@ -49,12 +49,26 @@ func main() {
 		panic(err)
 	}
 
+	ctx := context.Background()
+	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
+	err = migrator.Init(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = migrator.Migrate(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	e := echo.New()
 	e.HideBanner = true
 
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	e.Use(middleware.Recover())
+	e.Use(middleware.BodyLimit("250K"))
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	logger := lib.Logger(c.LogFilePath)
 	e.Logger = logger
@@ -64,7 +78,6 @@ func main() {
 	}))
 
 	if c.SentryDSN != "" {
-		//TODO: Add middleware
 		if err = sentry.Init(sentry.ClientOptions{
 			Dsn: c.SentryDSN,
 		}); err != nil {
@@ -72,19 +85,6 @@ func main() {
 		}
 		defer sentry.Flush(2 * time.Second)
 		e.Use(sentryecho.New(sentryecho.Options{}))
-	}
-
-	ctx := context.Background()
-	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
-	err = migrator.Init(ctx)
-	if err != nil {
-		logger.Fatalf("failed to init migrations: %v", err)
-	}
-
-	//TODO: possibly print what has been migrated
-	_, err = migrator.Migrate(ctx)
-	if err != nil {
-		logger.Fatalf("failed to run migrations: %v", err)
 	}
 
 	// Initialise a custom context
@@ -95,8 +95,6 @@ func main() {
 			return next(cc)
 		}
 	})
-	e.Use(middleware.BodyLimit("250K"))
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret, JWTExpiry: c.JWTExpiry}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
