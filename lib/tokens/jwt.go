@@ -12,13 +12,12 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
 )
 
 type jwtCustomClaims struct {
 	ID        int64 `json:"id"`
-	IsRefresh bool  `json:isRefresh`
+	IsRefresh bool  `json:"isRefresh"`
 	jwt.StandardClaims
 }
 
@@ -28,7 +27,8 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 	config.Claims = &jwtCustomClaims{}
 	config.ContextKey = "UserJwt"
 	config.SigningKey = secret
-	config.ErrorHandler = func(err error) error {
+	config.ErrorHandlerWithContext = func(err error, c echo.Context) error {
+		c.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    1,
@@ -53,30 +53,30 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 
 			var user models.User
 
-			err := db.NewSelect().Model(&user).Where("id = ?", userId).Scan(context.TODO())
+			err := db.NewSelect().Model(&user).Where("id = ?", userId).Limit(1).Scan(context.TODO())
 			switch {
 			case errors.Is(err, sql.ErrNoRows):
 				return echo.NewHTTPError(http.StatusNotFound, "user with given ID is not found")
 			case err != nil:
-				logrus.Errorf("database error: %v", err)
+				c.Logger().Errorf("database error: %v", err)
 				return echo.NewHTTPError(http.StatusInternalServerError)
 			}
 
 			ctx.User = &user
 
-			return next(c)
+			return next(ctx)
 		}
 	}
 }
 
 // GenerateAccessToken : Generate Access Token
-func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
+func GenerateAccessToken(secret []byte, expiryInSeconds int, u *models.User) (string, error) {
 	claims := &jwtCustomClaims{
-		u.ID,
-		false,
-		jwt.StandardClaims{
+		ID:        u.ID,
+		IsRefresh: false,
+		StandardClaims: jwt.StandardClaims{
 			// one week expiration
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			ExpiresAt: time.Now().Add(time.Second * time.Duration(expiryInSeconds)).Unix(),
 		},
 	}
 
@@ -91,13 +91,13 @@ func GenerateAccessToken(secret []byte, u *models.User) (string, error) {
 }
 
 // GenerateRefreshToken : Generate Refresh Token
-func GenerateRefreshToken(secret []byte, u *models.User) (string, error) {
+func GenerateRefreshToken(secret []byte, expiryInSeconds int, u *models.User) (string, error) {
 	claims := &jwtCustomClaims{
-		u.ID,
-		true,
-		jwt.StandardClaims{
+		ID:        u.ID,
+		IsRefresh: true,
+		StandardClaims: jwt.StandardClaims{
 			// one week expiration
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			ExpiresAt: time.Now().Add(time.Second * time.Duration(expiryInSeconds)).Unix(),
 		},
 	}
 

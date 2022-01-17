@@ -14,6 +14,7 @@ import (
 // AuthController : AuthController struct
 type AuthController struct {
 	JWTSecret []byte
+	JWTExpiry int
 }
 
 // Auth : Auth Controller
@@ -80,12 +81,12 @@ func (ctrl AuthController) Auth(c echo.Context) error {
 		})
 	}
 
-	accessToken, err := tokens.GenerateAccessToken(ctrl.JWTSecret, &user)
+	accessToken, err := tokens.GenerateAccessToken(ctrl.JWTSecret, ctrl.JWTExpiry, &user)
 	if err != nil {
 		return err
 	}
 
-	refreshToken, err := tokens.GenerateRefreshToken(ctrl.JWTSecret, &user)
+	refreshToken, err := tokens.GenerateRefreshToken(ctrl.JWTSecret, ctrl.JWTExpiry, &user)
 	if err != nil {
 		return err
 	}
