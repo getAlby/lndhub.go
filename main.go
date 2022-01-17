@@ -12,7 +12,6 @@ import (
 	"github.com/bumi/lndhub.go/db"
 	"github.com/bumi/lndhub.go/db/migrations"
 	"github.com/bumi/lndhub.go/lib"
-	"github.com/bumi/lndhub.go/lib/logging"
 	"github.com/bumi/lndhub.go/lib/tokens"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
@@ -55,7 +54,7 @@ func main() {
 
 	e.Use(middleware.Recover())
 
-	logger := logging.Logger(c.LogFilePath)
+	logger := lib.Logger(c.LogFilePath)
 	e.Logger = logger
 	e.Use(middleware.RequestID())
 	e.Use(lecho.Middleware(lecho.Config{
