@@ -29,7 +29,7 @@ type Config struct {
 	SentryDSN   string `envconfig:"SENTRY_DSN"`
 	LogFilePath string `envconfig:"LOG_FILE_PATH"`
 	JWTSecret   []byte `envconfig:"JWT_SECRET" required:"true"`
-	JWTExpiry   int    `envconfig:"JWT_Expiry" default:"604800"` // in seconds
+	JWTExpiry   int    `envconfig:"JWT_EXPIRY" default:"604800"` // in seconds
 }
 
 func main() {
