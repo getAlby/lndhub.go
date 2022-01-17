@@ -12,7 +12,6 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
 )
 
@@ -58,7 +57,7 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 			case errors.Is(err, sql.ErrNoRows):
 				return echo.NewHTTPError(http.StatusNotFound, "user with given ID is not found")
 			case err != nil:
-				logrus.Errorf("database error: %v", err)
+				c.Logger().Errorf("database error: %v", err)
 				return echo.NewHTTPError(http.StatusInternalServerError)
 			}
 
