@@ -53,7 +53,7 @@ func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 
 			var user models.User
 
-			err := db.NewSelect().Model(&user).Where("id = ?", userId).Scan(context.TODO())
+			err := db.NewSelect().Model(&user).Where("id = ?", userId).Limit(1).Scan(context.TODO())
 			switch {
 			case errors.Is(err, sql.ErrNoRows):
 				return echo.NewHTTPError(http.StatusNotFound, "user with given ID is not found")
