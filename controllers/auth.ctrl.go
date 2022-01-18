@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/db/models"
-	"github.com/bumi/lndhub.go/lib"
-	"github.com/bumi/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )

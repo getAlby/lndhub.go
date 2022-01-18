@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/db/models"
-	"github.com/bumi/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 )
