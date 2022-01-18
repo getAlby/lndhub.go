@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bumi/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )

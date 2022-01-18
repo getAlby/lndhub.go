@@ -1,7 +1,7 @@
 package lib
 
 import (
-	"github.com/bumi/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"

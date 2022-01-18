@@ -3,7 +3,7 @@ package migrations
 import (
 	"context"
 
-	"github.com/bumi/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/uptrace/bun"
 )
 

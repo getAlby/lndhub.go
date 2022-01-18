@@ -1,4 +1,4 @@
-module github.com/bumi/lndhub.go
+module github.com/getAlby/lndhub.go
 
 go 1.17
 
