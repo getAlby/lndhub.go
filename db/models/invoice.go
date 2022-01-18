@@ -9,11 +9,11 @@ import (
 
 // Invoice : Invoice Model
 type Invoice struct {
-	ID                 uint         `json:"id" bun:",pk,autoincrement"`
+	ID                 int64        `json:"id" bun:",pk,autoincrement"`
 	Type               string       `json:"type"`
 	UserID             int64        `json:"user_id"`
-	TransactionEntryID uint         `json:"transaction_entry_id"`
-	Amount             uint         `json:"amount"`
+	TransactionEntryID int64        `json:"transaction_entry_id"`
+	Amount             int64        `json:"amount"`
 	Memo               string       `json:"memo"`
 	DescriptionHash    string       `json:"description_hash"`
 	PaymentRequest     string       `json:"payment_request"`

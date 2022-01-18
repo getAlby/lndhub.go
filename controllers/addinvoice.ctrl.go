@@ -7,6 +7,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 )
@@ -20,7 +21,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 	user := ctx.User
 
 	type RequestBody struct {
-		Amt             uint   `json:"amt" validate:"required"`
+		Amt             int64  `json:"amt" validate:"required"`
 		Memo            string `json:"memo"`
 		DescriptionHash string `json:"description_hash"`
 	}
@@ -39,6 +40,15 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
+	rPreimage := makePreimageHex()
+
+	lndProducer := lnd.NewLNDInterface(ctx)
+	inv, err := lndProducer.AddInvoice(ctx.Context, body.Amt, body.Memo, rPreimage, 3600*24)
+	if err != nil {
+		c.Logger().Errorf("add invoice lnd client error: %v", err)
+		return c.JSON(http.StatusBadGateway, nil)
+	}
+
 	db := ctx.DB
 
 	invoice := models.Invoice{
@@ -48,13 +58,13 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		Amount:             body.Amt,
 		Memo:               body.Memo,
 		DescriptionHash:    body.DescriptionHash,
-		PaymentRequest:     "",
-		RHash:              "",
+		PaymentRequest:     inv.PaymentRequest,
+		RHash:              inv.PaymentHash,
 		State:              "",
 	}
 
 	// TODO: move this to a service layer and call a method
-	_, err := db.NewInsert().Model(&invoice).Exec(context.TODO())
+	_, err = db.NewInsert().Model(&invoice).Exec(context.TODO())
 	if err != nil {
 		c.Logger().Errorf("error saving an invoice: %v", err)
 		// TODO: better error handling, possibly panic and catch in an error handler
@@ -67,17 +77,19 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		PayReq         string `json:"pay_req"`
 	}
 
-	responseBody.PayReq = makePreimageHex()
+	responseBody.PayReq = inv.PaymentRequest
+	responseBody.PaymentRequest = inv.PaymentRequest
+	responseBody.RHash = inv.PaymentHash
 
 	return c.JSON(http.StatusOK, &responseBody)
 }
 
 const hexBytes = random.Hex
 
-func makePreimageHex() string {
+func makePreimageHex() []byte {
 	b := make([]byte, 32)
 	for i := range b {
 		b[i] = hexBytes[rand.Intn(len(hexBytes))]
 	}
-	return string(b)
+	return b
 }
