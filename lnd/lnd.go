@@ -1,6 +1,7 @@
 package lnd
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
@@ -10,7 +11,6 @@ import (
 	"github.com/lightningnetwork/lnd/macaroons"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/macaroon.v2"
 )
 
@@ -25,7 +25,7 @@ type LNDoptions struct {
 
 func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
 
-	// Get credentials either from a hex string or a file
+	// Get credentials either from a hex string, a file or the system's certificate store
 	var creds credentials.TransportCredentials
 	// if a hex string is provided
 	if lndOptions.CertHex != "" {
@@ -43,6 +43,8 @@ func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
 			return nil, err
 		}
 		creds = credsFromFile // make it available outside of the else if block
+	} else {
+		creds = credentials.NewTLS(&tls.Config{})
 	}
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
@@ -75,11 +77,6 @@ func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
 	}
 	opts = append(opts, grpc.WithPerRPCCredentials(macCred))
 
-	// disable transport security if no certificate is configured
-	if creds == nil {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	}
 	conn, err := grpc.Dial(lndOptions.Address, opts...)
 	if err != nil {
 		return nil, err
