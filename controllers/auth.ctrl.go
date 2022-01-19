@@ -15,11 +15,11 @@ import (
 type AuthController struct {
 	JWTSecret []byte
 	JWTExpiry int
+	svc       *lib.LndhubService
 }
 
 // Auth : Auth Controller
-func (ctrl AuthController) Auth(c echo.Context) error {
-	ctx := c.(*lib.LndhubService)
+func (controller *AuthController) Auth(c echo.Context) error {
 	type RequestBody struct {
 		Login        string `json:"login"`
 		Password     string `json:"password"`
@@ -40,13 +40,12 @@ func (ctrl AuthController) Auth(c echo.Context) error {
 		})
 	}
 
-	db := ctx.DB
 	var user models.User
 
 	switch {
 	case body.Login != "" || body.Password != "":
 		{
-			if err := db.NewSelect().Model(&user).Where("login = ?", body.Login).Scan(context.TODO()); err != nil {
+			if err := controller.svc.DB.NewSelect().Model(&user).Where("login = ?", body.Login).Scan(context.TODO()); err != nil {
 				return c.JSON(http.StatusNotFound, echo.Map{
 					"error":   true,
 					"code":    1,
@@ -81,12 +80,12 @@ func (ctrl AuthController) Auth(c echo.Context) error {
 		})
 	}
 
-	accessToken, err := tokens.GenerateAccessToken(ctrl.JWTSecret, ctrl.JWTExpiry, &user)
+	accessToken, err := tokens.GenerateAccessToken(controller.JWTSecret, controller.JWTExpiry, &user)
 	if err != nil {
 		return err
 	}
 
-	refreshToken, err := tokens.GenerateRefreshToken(ctrl.JWTSecret, ctrl.JWTExpiry, &user)
+	refreshToken, err := tokens.GenerateRefreshToken(controller.JWTSecret, controller.JWTExpiry, &user)
 	if err != nil {
 		return err
 	}
