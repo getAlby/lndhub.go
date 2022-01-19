@@ -8,17 +8,34 @@ import (
 )
 
 // CheckPaymentController : CheckPaymentController struct
-type CheckPaymentController struct{}
+type CheckPaymentController struct {
+	svc *service.LndhubService
+}
 
 func NewCheckPaymentController(svc *service.LndhubService) *CheckPaymentController {
-	return &CheckPaymentController{}
+	return &CheckPaymentController{svc: svc}
 }
 
 // CheckPayment : Check Payment Controller
-func (CheckPaymentController) CheckPayment(c echo.Context) error {
-	_ = c.Param("payment_hash")
+func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
+	userId := c.Get("UserID").(int64)
+	rHash := c.Param("payment_hash")
 
-	return c.JSON(http.StatusBadRequest, echo.Map{
-		"paid": true,
-	})
+	invoice, err := controller.svc.FindInvoiceByPaymentHash(userId, rHash)
+
+	// Probably we did not find the invoice
+	if err != nil {
+		c.Logger().Errorf("Invalid checkpayment request payment_hash=%s", rHash)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
+		})
+	}
+
+	var responseBody struct {
+		IsPaid bool `json:"paid"`
+	}
+	responseBody.IsPaid = !invoice.SettledAt.IsZero()
+	return c.JSON(http.StatusOK, &responseBody)
 }

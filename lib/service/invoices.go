@@ -10,6 +10,16 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
+func (svc *LndhubService) FindInvoiceByPaymentHash(userId int64, rHash string) (*models.Invoice, error) {
+	var invoice models.Invoice
+
+	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.user_id = ? AND invoice.r_hash = ?", userId, rHash).Limit(1).Scan(context.TODO())
+	if err != nil {
+		return &invoice, err
+	}
+	return &invoice, nil
+}
+
 func (svc *LndhubService) Payinvoice(userId int64, invoice string) error {
 	debitAccount, err := svc.AccountFor(context.TODO(), "current", userId)
 	if err != nil {
