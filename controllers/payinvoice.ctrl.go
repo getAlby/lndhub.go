@@ -33,14 +33,15 @@ func (PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 
 	db := ctx.DB
-	debitAccount := models.Account{}
-	creditAccount := models.Account{}
-	if err := db.NewSelect().Model(&debitAccount).Where("user_id = ? AND type= ?", ctx.User.ID, "current").Limit(1).Scan(context.TODO()); err != nil {
+	debitAccount, err := ctx.User.AccountFor("current", context.TODO(), db)
+	if err != nil {
 		return err
 	}
-	if err := db.NewSelect().Model(&creditAccount).Where("user_id = ? AND type= ?", ctx.User.ID, "outgoing").Limit(1).Scan(context.TODO()); err != nil {
+	creditAccount, err := ctx.User.AccountFor("outgoing", context.TODO(), db)
+	if err != nil {
 		return err
 	}
+
 	entry := models.TransactionEntry{
 		UserID:          ctx.User.ID,
 		CreditAccountID: creditAccount.ID,
