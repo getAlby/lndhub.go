@@ -21,7 +21,7 @@ type CreateUserController struct{}
 
 // CreateUser : Create user Controller
 func (CreateUserController) CreateUser(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
+	ctx := c.(*lib.LndhubService)
 
 	// optional parameters that we currently do not use
 	type RequestBody struct {

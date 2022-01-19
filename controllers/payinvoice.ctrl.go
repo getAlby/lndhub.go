@@ -14,7 +14,7 @@ type PayInvoiceController struct{}
 
 // PayInvoice : Pay invoice Controller
 func (PayInvoiceController) PayInvoice(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
+	ctx := c.(*lib.LndhubService)
 	var reqBody struct {
 		Invoice string `json:"invoice" validate:"required"`
 		Amount  int    `json:"amount" validate:"omitempty,gte=0"`

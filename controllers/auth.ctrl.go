@@ -19,7 +19,7 @@ type AuthController struct {
 
 // Auth : Auth Controller
 func (ctrl AuthController) Auth(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
+	ctx := c.(*lib.LndhubService)
 	type RequestBody struct {
 		Login        string `json:"login"`
 		Password     string `json:"password"`

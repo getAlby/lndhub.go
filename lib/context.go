@@ -7,7 +7,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type LndhubContext struct {
+type LndhubService struct {
 	echo.Context
 
 	DB        *bun.DB

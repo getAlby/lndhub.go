@@ -48,7 +48,7 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			ctx := c.(*lib.LndhubContext)
+			ctx := c.(*lib.LndhubService)
 			userId := c.Get("UserID")
 
 			var user models.User

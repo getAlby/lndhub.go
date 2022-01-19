@@ -13,7 +13,7 @@ type BalanceController struct{}
 
 // Balance : Balance Controller
 func (BalanceController) Balance(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
+	ctx := c.(*lib.LndhubService)
 	c.Logger().Warn(ctx.User.ID)
 
 	db := ctx.DB

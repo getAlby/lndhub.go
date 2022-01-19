@@ -115,7 +115,7 @@ func main() {
 	// Initialize a custom context with
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			cc := &lib.LndhubContext{Context: c, DB: dbConn, LndClient: &lndClient}
+			cc := &lib.LndhubService{Context: c, DB: dbConn, LndClient: &lndClient}
 			return next(cc)
 		}
 	})

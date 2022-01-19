@@ -16,7 +16,7 @@ type AddInvoiceController struct{}
 
 // AddInvoice : Add invoice Controller
 func (AddInvoiceController) AddInvoice(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
+	ctx := c.(*lib.LndhubService)
 	user := ctx.User
 
 	type RequestBody struct {
