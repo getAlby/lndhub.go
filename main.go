@@ -118,7 +118,9 @@ func main() {
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 
-	secured.GET("/getbtc", controllers.NewGetBtcController(svc).GetBtc)
+	blankController := controllers.NewBlankController(svc)
+	secured.GET("/getbtc", blankController.GetBtc)
+	secured.GET("/getpending", blankController.GetPending)
 
 	// Start server
 	go func() {
