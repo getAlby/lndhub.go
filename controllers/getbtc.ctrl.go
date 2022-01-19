@@ -17,7 +17,7 @@ func NewGetBtcController(svc *service.LndhubService) *GetBtcController {
 // GetBtc : Get Btc handler
 //
 // We do NOT support onchain transactions thus we only return an empty array for backwards compatibility
-func (GetBtcController) GetBtc(c echo.Context) error {
+func (controller *GetBtcController) GetBtc(c echo.Context) error {
 	addresses := []string{}
 
 	return c.JSON(http.StatusOK, &addresses)
