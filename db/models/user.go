@@ -28,4 +28,21 @@ func (u *User) BeforeAppendModel(ctx context.Context, query bun.Query) error {
 	return nil
 }
 
+func (u *User) AccountFor(accountType string, ctx context.Context, db bun.IDB) (Account, error) {
+	account := Account{}
+	err := db.NewSelect().Model(&account).Where("user_id = ? AND type= ?", u.ID, accountType).Limit(1).Scan(ctx)
+	return account, err
+}
+
+func (u *User) CurrentBalance(ctx context.Context, db bun.IDB) (int64, error) {
+	var balance int64
+
+	account, err := u.AccountFor("current", ctx, db)
+	if err != nil {
+		return balance, err
+	}
+	err = db.NewSelect().Table("account_ledgers").ColumnExpr("sum(account_ledgers.amount) as balance").Where("account_ledgers.account_id = ?", account.ID).Scan(context.TODO(), &balance)
+	return balance, err
+}
+
 var _ bun.BeforeAppendModelHook = (*User)(nil)
