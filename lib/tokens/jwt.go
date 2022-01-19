@@ -34,7 +34,6 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 		token := c.Get("UserJwt").(*jwt.Token)
 		claims := token.Claims.(*jwtCustomClaims)
 		c.Set("UserID", claims.ID)
-
 	}
 
 	return middleware.JWTWithConfig(config)
