@@ -118,6 +118,8 @@ func main() {
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 
+	secured.GET("/getbtc", controllers.NewGetBtcController(svc).GetBtc)
+
 	// Start server
 	go func() {
 		if err := e.Start(":3000"); err != nil && err != http.ErrServerClosed {
