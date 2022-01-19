@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// GetBtcController : GetBtcController struct
+// GetInfoController : GetInfoController struct
 type GetInfoController struct {
 	svc *service.LndhubService
 }
@@ -18,7 +18,6 @@ func NewGetInfoController(svc *service.LndhubService) *GetInfoController {
 }
 
 // GetInfo : GetInfo handler
-//
 func (controller *GetInfoController) GetInfo(c echo.Context) error {
 
 	// TODO: add some caching for this GetInfo call. No need to always hit the node

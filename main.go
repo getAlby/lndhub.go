@@ -121,7 +121,7 @@ func main() {
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
 
-	// These endpoints are not supported and we return a blank response for backwards compatibility
+	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
 	secured.GET("/getbtc", blankController.GetBtc)
 	secured.GET("/getpending", blankController.GetPending)
