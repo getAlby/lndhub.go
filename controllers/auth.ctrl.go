@@ -9,16 +9,12 @@ import (
 
 // AuthController : AuthController struct
 type AuthController struct {
-	JWTSecret []byte
-	JWTExpiry int
-	svc       *lib.LndhubService
+	svc *lib.LndhubService
 }
 
 func NewAuthController(svc *lib.LndhubService) *AuthController {
 	return &AuthController{
-		svc:       svc,
-		JWTSecret: svc.Config.JWTSecret,
-		JWTExpiry: svc.Config.JWTExpiry,
+		svc: svc,
 	}
 }
 
