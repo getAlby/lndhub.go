@@ -16,6 +16,10 @@ type AddInvoiceController struct {
 	svc *lib.LndhubService
 }
 
+func NewAddInvoiceController(svc *lib.LndhubService) *AddInvoiceController {
+	return &AddInvoiceController{svc: svc}
+}
+
 // AddInvoice : Add invoice Controller
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)

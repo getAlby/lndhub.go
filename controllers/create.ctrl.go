@@ -21,6 +21,10 @@ type CreateUserController struct {
 	svc *lib.LndhubService
 }
 
+func NewCreateUserController(svc *lib.LndhubService) *CreateUserController {
+	return &CreateUserController{svc: svc}
+}
+
 // CreateUser : Create user Controller
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	// optional parameters that we currently do not use

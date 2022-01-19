@@ -112,15 +112,20 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
-	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret, JWTExpiry: c.JWTExpiry}.Auth)
-	e.POST("/create", controllers.CreateUserController{}.CreateUser)
+	svc := &lib.LndhubService{
+		DB:        dbConn,
+		LndClient: &lndClient,
+	}
+
+	e.POST("/auth", controllers.NewAuthController(svc, c.JWTSecret, c.JWTExpiry).Auth)
+	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
 
 	secured := e.Group("", tokens.Middleware(c.JWTSecret))
-	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
-	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
-	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)
-	secured.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment)
-	secured.GET("/balance", controllers.BalanceController{}.Balance)
+	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
+	secured.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
+	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
+	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
+	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 
 	// Start server
 	go func() {

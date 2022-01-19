@@ -14,6 +14,10 @@ type PayInvoiceController struct {
 	svc *lib.LndhubService
 }
 
+func NewPayInvoiceController(svc *lib.LndhubService) *PayInvoiceController {
+	return &PayInvoiceController{svc: svc}
+}
+
 // PayInvoice : Pay invoice Controller
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userId := c.Get("UserID").(int64)

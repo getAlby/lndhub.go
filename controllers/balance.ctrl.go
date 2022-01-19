@@ -13,6 +13,10 @@ type BalanceController struct {
 	svc *lib.LndhubService
 }
 
+func NewBalanceController(svc *lib.LndhubService) *BalanceController {
+	return &BalanceController{svc: svc}
+}
+
 // Balance : Balance Controller
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)

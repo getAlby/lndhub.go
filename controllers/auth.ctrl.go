@@ -18,6 +18,14 @@ type AuthController struct {
 	svc       *lib.LndhubService
 }
 
+func NewAuthController(svc *lib.LndhubService, secret []byte, expiry int) *AuthController {
+	return &AuthController{
+		svc:       svc,
+		JWTSecret: secret,
+		JWTExpiry: expiry,
+	}
+}
+
 // Auth : Auth Controller
 func (controller *AuthController) Auth(c echo.Context) error {
 	type RequestBody struct {
