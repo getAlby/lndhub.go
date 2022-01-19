@@ -12,6 +12,7 @@ import (
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
@@ -26,26 +27,15 @@ import (
 	"github.com/ziflex/lecho/v3"
 )
 
-type Config struct {
-	DatabaseUri    string `envconfig:"DATABASE_URI" required:"true"`
-	SentryDSN      string `envconfig:"SENTRY_DSN"`
-	LogFilePath    string `envconfig:"LOG_FILE_PATH"`
-	JWTSecret      []byte `envconfig:"JWT_SECRET" required:"true"`
-	JWTExpiry      int    `envconfig:"JWT_EXPIRY" default:"604800"` // in seconds
-	LNDAddress     string `envconfig:"LND_ADDRESS" required:"true"`
-	LNDMacaroonHex string `envconfig:"LND_MACAROON_HEX" required:"true"`
-	LNDCertHex     string `envconfig:"LND_CERT_HEX"`
-}
-
 func main() {
-	var c Config
+	c := &service.Config{}
 
 	// Load configruation from environment variables
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Println("Failed to load .env file")
 	}
-	err = envconfig.Process("", &c)
+	err = envconfig.Process("", c)
 	if err != nil {
 		panic(err)
 	}
@@ -112,23 +102,21 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
-	// Initialize a custom context with
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			cc := &lib.LndhubContext{Context: c, DB: dbConn, LndClient: &lndClient}
-			return next(cc)
-		}
-	})
+	svc := &service.LndhubService{
+		Config:    c,
+		DB:        dbConn,
+		LndClient: &lndClient,
+	}
 
-	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret, JWTExpiry: c.JWTExpiry}.Auth)
-	e.POST("/create", controllers.CreateUserController{}.CreateUser)
+	e.POST("/auth", controllers.NewAuthController(svc).Auth)
+	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
 
-	secured := e.Group("", tokens.Middleware(c.JWTSecret), tokens.UserMiddleware(dbConn))
-	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
-	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
-	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)
-	secured.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment)
-	secured.GET("/balance", controllers.BalanceController{}.Balance)
+	secured := e.Group("", tokens.Middleware(c.JWTSecret))
+	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
+	secured.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
+	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
+	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
+	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 
 	// Start server
 	go func() {

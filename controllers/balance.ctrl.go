@@ -4,21 +4,23 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
 
 // BalanceController : BalanceController struct
-type BalanceController struct{}
+type BalanceController struct {
+	svc *service.LndhubService
+}
+
+func NewBalanceController(svc *service.LndhubService) *BalanceController {
+	return &BalanceController{svc: svc}
+}
 
 // Balance : Balance Controller
-func (BalanceController) Balance(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
-	c.Logger().Warn(ctx.User.ID)
-
-	db := ctx.DB
-
-	balance, err := ctx.User.CurrentBalance(context.TODO(), db)
+func (controller *BalanceController) Balance(c echo.Context) error {
+	userId := c.Get("UserID").(int64)
+	balance, err := controller.svc.CurrentBalance(context.TODO(), userId)
 	if err != nil {
 		return err
 	}

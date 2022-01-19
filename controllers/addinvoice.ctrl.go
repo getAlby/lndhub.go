@@ -1,24 +1,26 @@
 package controllers
 
 import (
-	"context"
 	"math/rand"
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 )
 
 // AddInvoiceController : Add invoice controller struct
-type AddInvoiceController struct{}
+type AddInvoiceController struct {
+	svc *service.LndhubService
+}
+
+func NewAddInvoiceController(svc *service.LndhubService) *AddInvoiceController {
+	return &AddInvoiceController{svc: svc}
+}
 
 // AddInvoice : Add invoice Controller
-func (AddInvoiceController) AddInvoice(c echo.Context) error {
-	ctx := c.(*lib.LndhubContext)
-	user := ctx.User
-
+func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
+	userID := c.Get("UserID").(int64)
 	type RequestBody struct {
 		Amt             uint   `json:"amt" validate:"required"`
 		Memo            string `json:"memo"`
@@ -39,35 +41,20 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
-	db := ctx.DB
-
-	invoice := models.Invoice{
-		Type:               "",
-		UserID:             user.ID,
-		TransactionEntryID: 0,
-		Amount:             body.Amt,
-		Memo:               body.Memo,
-		DescriptionHash:    body.DescriptionHash,
-		PaymentRequest:     "",
-		RHash:              "",
-		State:              "",
-	}
-
-	// TODO: move this to a service layer and call a method
-	_, err := db.NewInsert().Model(&invoice).Exec(context.TODO())
+	invoice, err := controller.svc.AddInvoice(userID, body.Amt, body.Memo, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("error saving an invoice: %v", err)
-		// TODO: better error handling, possibly panic and catch in an error handler
 		return c.JSON(http.StatusInternalServerError, nil)
 	}
-
 	var responseBody struct {
 		RHash          string `json:"r_hash"`
 		PaymentRequest string `json:"payment_request"`
 		PayReq         string `json:"pay_req"`
 	}
 
+	//TODO
 	responseBody.PayReq = makePreimageHex()
+	responseBody.PaymentRequest = invoice.PaymentRequest
 
 	return c.JSON(http.StatusOK, &responseBody)
 }
