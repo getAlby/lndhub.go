@@ -2,118 +2,129 @@ package main
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
-	"github.com/bumi/lndhub.go/controllers"
-	"github.com/bumi/lndhub.go/db"
-	"github.com/bumi/lndhub.go/db/migrations"
-	"github.com/bumi/lndhub.go/lib"
-	"github.com/bumi/lndhub.go/lib/logging"
+	"github.com/getAlby/lndhub.go/controllers"
+	"github.com/getAlby/lndhub.go/db"
+	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sirupsen/logrus"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun/migrate"
+	"github.com/ziflex/lecho/v3"
 )
 
-type Config struct {
-	DatabaseUri string `envconfig:"DATABASE_URI" required:"true"`
-	SentryDSN   string `envconfig:"SENTRY_DSN"`
-	LogFilePath string `envconfig:"LOG_FILE_PATH"`
-}
-
 func main() {
-	var c Config
+	c := &service.Config{}
+
+	// Load configruation from environment variables
 	err := godotenv.Load(".env")
 	if err != nil {
-		logrus.Fatal("failed to get env value")
+		fmt.Println("Failed to load .env file")
 	}
-
-	err = envconfig.Process("", &c)
+	err = envconfig.Process("", c)
 	if err != nil {
-		logrus.Fatal(err.Error())
+		panic(err)
 	}
 
+	// Open a DB connection based on the configured DATABASE_URI
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
-		logrus.Fatalf("failed to connect to database: %v", err)
-		return
+		panic(err)
 	}
 
-	sentryDsn := c.SentryDSN
-
-	switch sentryDsn {
-	case "":
-		//ignore
-		break
-	default:
-		//TODO: Add middleware
-		if err = sentry.Init(sentry.ClientOptions{
-			Dsn: sentryDsn,
-		}); err != nil {
-			logrus.Fatalf("sentry init error: %v", err)
-		}
-		defer sentry.Flush(2 * time.Second)
-	}
-
-	e := echo.New()
-
-	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-
-	logFilePath := os.Getenv("LOG_FILE_PATH")
-	if logFilePath != "" {
-		file, err := logging.GetLoggingFile(logFilePath)
-		if err != nil {
-			logrus.Fatalf("failed to create logging file: %v", err)
-		}
-		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-			Output: io.Writer(file),
-		}))
-	}
-
+	// Migrate the DB
 	ctx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
 	if err != nil {
-		logrus.Fatalf("failed to init migrations: %v", err)
+		panic(err)
 	}
-
-	//TODO: possibly print what has been migrated
 	_, err = migrator.Migrate(ctx)
 	if err != nil {
-		logrus.Fatalf("failed to run migrations: %v", err)
+		panic(err)
 	}
 
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
+	// New Echo app
+	e := echo.New()
+	e.HideBanner = true
 
-	// Initialise a custom context
-	// Same context we will later add the user to and possible other things
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			cc := &lib.IndhubContext{Context: c, DB: dbConn}
-			return next(cc)
-		}
-	})
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+
+	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	e.POST("/auth", controllers.AuthController{}.Auth)
-	e.POST("/create", controllers.CreateUserController{}.CreateUser)
+	// Setup logging to STDOUT or a configrued log file
+	logger := lib.Logger(c.LogFilePath)
+	e.Logger = logger
+	e.Use(middleware.RequestID())
+	e.Use(lecho.Middleware(lecho.Config{
+		Logger: logger,
+	}))
 
-	secured := e.Group("", middleware.JWT([]byte("secret")))
-	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
-	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
-	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)
-	secured.GET("/checkpayment/:payment_hash", controllers.CheckPaymentController{}.CheckPayment)
-	secured.GET("/balance", controllers.BalanceController{}.Balance)
+	// Setup exception tracking with Sentry if configured
+	if c.SentryDSN != "" {
+		if err = sentry.Init(sentry.ClientOptions{
+			Dsn: c.SentryDSN,
+		}); err != nil {
+			logger.Errorf("sentry init error: %v", err)
+		}
+		defer sentry.Flush(2 * time.Second)
+		e.Use(sentryecho.New(sentryecho.Options{}))
+	}
+
+	// Init new LND client
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:     c.LNDAddress,
+		MacaroonHex: c.LNDMacaroonHex,
+		CertHex:     c.LNDCertHex,
+	})
+	if err != nil {
+		panic(err)
+	}
+	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		panic(err)
+	}
+	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+
+	svc := &service.LndhubService{
+		Config:    c,
+		DB:        dbConn,
+		LndClient: &lndClient,
+	}
+
+	// Public endpoints for account creation and authentication
+	e.POST("/auth", controllers.NewAuthController(svc).Auth)
+	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
+
+	// Secured endpoints which require a Authorization token (JWT)
+	secured := e.Group("", tokens.Middleware(c.JWTSecret))
+	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
+	secured.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
+	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
+	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
+	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
+	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
+
+	// These endpoints are currently not supported and we return a blank response for backwards compatibility
+	blankController := controllers.NewBlankController(svc)
+	secured.GET("/getbtc", blankController.GetBtc)
+	secured.GET("/getpending", blankController.GetPending)
 
 	// Start server
 	go func() {

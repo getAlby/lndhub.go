@@ -16,6 +16,8 @@ type User struct {
 	Password  string         `bun:",notnull"`
 	CreatedAt time.Time      `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt bun.NullTime
+	Invoices  []*Invoice `bun:"rel:has-many,join:id=user_id"`
+	Accounts  []*Account `bun:"rel:has-many,join:id=user_id"`
 }
 
 func (u *User) BeforeAppendModel(ctx context.Context, query bun.Query) error {

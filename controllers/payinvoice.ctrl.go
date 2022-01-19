@@ -3,17 +3,25 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
 
 // PayInvoiceController : Pay invoice controller struct
-type PayInvoiceController struct{}
+type PayInvoiceController struct {
+	svc *service.LndhubService
+}
+
+func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
+	return &PayInvoiceController{svc: svc}
+}
 
 // PayInvoice : Pay invoice Controller
-func (PayInvoiceController) PayInvoice(c echo.Context) error {
+func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
+	userId := c.Get("UserID").(int64)
 	var reqBody struct {
 		Invoice string `json:"invoice" validate:"required"`
-		Amount  int    `json:"amount" validate:"gt=0"`
+		Amount  int    `json:"amount" validate:"omitempty,gte=0"`
 	}
 
 	if err := c.Bind(&reqBody); err != nil {
@@ -27,6 +35,6 @@ func (PayInvoiceController) PayInvoice(c echo.Context) error {
 			"message": "invalid request",
 		})
 	}
-
-	return nil
+	//TODO json response
+	return controller.svc.Payinvoice(userId, reqBody.Invoice)
 }
