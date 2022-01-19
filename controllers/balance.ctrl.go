@@ -9,16 +9,14 @@ import (
 )
 
 // BalanceController : BalanceController struct
-type BalanceController struct{}
+type BalanceController struct {
+	svc *lib.LndhubService
+}
 
 // Balance : Balance Controller
-func (BalanceController) Balance(c echo.Context) error {
-	ctx := c.(*lib.LndhubService)
-	c.Logger().Warn(ctx.User.ID)
-
-	db := ctx.DB
-
-	balance, err := ctx.User.CurrentBalance(context.TODO(), db)
+func (controller *BalanceController) Balance(c echo.Context) error {
+	userId := c.Get("UserID").(int64)
+	balance, err := controller.svc.CurrentBalance(context.TODO(), userId)
 	if err != nil {
 		return err
 	}
