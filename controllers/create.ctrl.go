@@ -17,12 +17,12 @@ import (
 const alphaNumBytes = random.Alphanumeric
 
 // CreateUserController : Create user controller struct
-type CreateUserController struct{}
+type CreateUserController struct {
+	svc *lib.LndhubService
+}
 
 // CreateUser : Create user Controller
-func (CreateUserController) CreateUser(c echo.Context) error {
-	ctx := c.(*lib.LndhubService)
-
+func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	// optional parameters that we currently do not use
 	type RequestBody struct {
 		PartnerID   string `json:"partnerid"`
@@ -33,8 +33,6 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-
-	db := ctx.DB
 
 	user := models.User{}
 
@@ -48,14 +46,14 @@ func (CreateUserController) CreateUser(c echo.Context) error {
 	// Create user and the user's accounts
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
-	err := db.RunInTx(context.TODO(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+	err := controller.svc.DB.RunInTx(context.TODO(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(&user).Exec(ctx); err != nil {
 			return err
 		}
 		accountTypes := []string{"incoming", "current", "outgoing", "fees"}
 		for _, accountType := range accountTypes {
 			account := models.Account{UserID: user.ID, Type: accountType}
-			if _, err := db.NewInsert().Model(&account).Exec(ctx); err != nil {
+			if _, err := controller.svc.DB.NewInsert().Model(&account).Exec(ctx); err != nil {
 				return err
 			}
 		}
