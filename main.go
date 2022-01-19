@@ -12,6 +12,7 @@ import (
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
@@ -27,7 +28,7 @@ import (
 )
 
 func main() {
-	c := &lib.Config{}
+	c := &service.Config{}
 
 	// Load configruation from environment variables
 	err := godotenv.Load(".env")
@@ -101,7 +102,7 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
-	svc := &lib.LndhubService{
+	svc := &service.LndhubService{
 		Config:    c,
 		DB:        dbConn,
 		LndClient: &lndClient,

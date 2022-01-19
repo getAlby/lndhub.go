@@ -3,16 +3,16 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
 
 // AuthController : AuthController struct
 type AuthController struct {
-	svc *lib.LndhubService
+	svc *service.LndhubService
 }
 
-func NewAuthController(svc *lib.LndhubService) *AuthController {
+func NewAuthController(svc *service.LndhubService) *AuthController {
 	return &AuthController{
 		svc: svc,
 	}

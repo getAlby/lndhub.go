@@ -3,16 +3,16 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
 
 // PayInvoiceController : Pay invoice controller struct
 type PayInvoiceController struct {
-	svc *lib.LndhubService
+	svc *service.LndhubService
 }
 
-func NewPayInvoiceController(svc *lib.LndhubService) *PayInvoiceController {
+func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
 	return &PayInvoiceController{svc: svc}
 }
 

@@ -3,14 +3,14 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
 
 // CheckPaymentController : CheckPaymentController struct
 type CheckPaymentController struct{}
 
-func NewCheckPaymentController(svc *lib.LndhubService) *CheckPaymentController {
+func NewCheckPaymentController(svc *service.LndhubService) *CheckPaymentController {
 	return &CheckPaymentController{}
 }
 

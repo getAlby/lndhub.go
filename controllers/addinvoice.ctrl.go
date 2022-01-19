@@ -4,17 +4,17 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 )
 
 // AddInvoiceController : Add invoice controller struct
 type AddInvoiceController struct {
-	svc *lib.LndhubService
+	svc *service.LndhubService
 }
 
-func NewAddInvoiceController(svc *lib.LndhubService) *AddInvoiceController {
+func NewAddInvoiceController(svc *service.LndhubService) *AddInvoiceController {
 	return &AddInvoiceController{svc: svc}
 }
 

@@ -1,4 +1,4 @@
-package lib
+package service
 
 type Config struct {
 	DatabaseUri    string `envconfig:"DATABASE_URI" required:"true"`

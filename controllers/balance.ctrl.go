@@ -4,16 +4,16 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
 
 // BalanceController : BalanceController struct
 type BalanceController struct {
-	svc *lib.LndhubService
+	svc *service.LndhubService
 }
 
-func NewBalanceController(svc *lib.LndhubService) *BalanceController {
+func NewBalanceController(svc *service.LndhubService) *BalanceController {
 	return &BalanceController{svc: svc}
 }
 
