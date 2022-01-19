@@ -1,12 +1,10 @@
 package controllers
 
 import (
-	"math/rand"
 	"net/http"
 
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/random"
 )
 
 // AddInvoiceController : Add invoice controller struct
@@ -22,7 +20,7 @@ func NewAddInvoiceController(svc *service.LndhubService) *AddInvoiceController {
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	type RequestBody struct {
-		Amt             uint   `json:"amt" validate:"required"`
+		Amt             int64  `json:"amt" validate:"required,gte=0"` // amount in Satoshi
 		Memo            string `json:"memo"`
 		DescriptionHash string `json:"description_hash"`
 	}
@@ -30,41 +28,41 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	var body RequestBody
 
 	if err := c.Bind(&body); err != nil {
+		c.Logger().Errorf("Failed to load addinvoice request body: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
-			"message": "failed to bind json, amt field with positive value is required",
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
 		})
 	}
 
 	if err := c.Validate(&body); err != nil {
+		c.Logger().Errorf("Invalid addinvoice request body: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
-			"message": "amt with positive value is required",
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
 		})
 	}
 
+	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, body.Amt, body.DescriptionHash)
+
 	invoice, err := controller.svc.AddInvoice(userID, body.Amt, body.Memo, body.DescriptionHash)
 	if err != nil {
-		c.Logger().Errorf("error saving an invoice: %v", err)
+		c.Logger().Errorf("Error creating invoice: %v", err)
+		// TODO: sentry notification
 		return c.JSON(http.StatusInternalServerError, nil)
 	}
+
 	var responseBody struct {
 		RHash          string `json:"r_hash"`
 		PaymentRequest string `json:"payment_request"`
 		PayReq         string `json:"pay_req"`
 	}
 
-	//TODO
-	responseBody.PayReq = makePreimageHex()
+	responseBody.RHash = invoice.RHash
 	responseBody.PaymentRequest = invoice.PaymentRequest
+	responseBody.PayReq = invoice.PaymentRequest
 
 	return c.JSON(http.StatusOK, &responseBody)
-}
-
-const hexBytes = random.Hex
-
-func makePreimageHex() string {
-	b := make([]byte, 32)
-	for i := range b {
-		b[i] = hexBytes[rand.Intn(len(hexBytes))]
-	}
-	return string(b)
 }
