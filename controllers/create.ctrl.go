@@ -28,7 +28,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	user, err := controller.svc.Create()
+	user, err := controller.svc.CreateUser()
 	//todo json response
 	if err != nil {
 		return err

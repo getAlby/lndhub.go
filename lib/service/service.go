@@ -62,7 +62,7 @@ func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) 
 	}
 	return accessToken, refreshToken, nil
 }
-func (svc *LndhubService) Create() (user *models.User, err error) {
+func (svc *LndhubService) CreateUser() (user *models.User, err error) {
 
 	user = &models.User{}
 
@@ -77,18 +77,20 @@ func (svc *LndhubService) Create() (user *models.User, err error) {
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
 	err = svc.DB.RunInTx(context.TODO(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(&user).Exec(ctx); err != nil {
+		if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
 			return err
 		}
 		accountTypes := []string{"incoming", "current", "outgoing", "fees"}
 		for _, accountType := range accountTypes {
 			account := models.Account{UserID: user.ID, Type: accountType}
-			if _, err := svc.DB.NewInsert().Model(&account).Exec(ctx); err != nil {
+			if _, err := tx.NewInsert().Model(&account).Exec(ctx); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+	//return actual password in the response, not the hashed one
+	user.Password = password
 	return user, err
 }
 
