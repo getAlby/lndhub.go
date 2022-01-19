@@ -103,3 +103,24 @@ func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) 
 	}
 	return accessToken, refreshToken, nil
 }
+
+func (svc *LndhubService) Payinvoice(userId int64, invoice string) error {
+	debitAccount, err := svc.AccountFor(context.TODO(), "current", userId)
+	if err != nil {
+		return err
+	}
+	creditAccount, err := svc.AccountFor(context.TODO(), "outgoing", userId)
+	if err != nil {
+		return err
+	}
+
+	entry := models.TransactionEntry{
+		UserID:          userId,
+		CreditAccountID: creditAccount.ID,
+		DebitAccountID:  debitAccount.ID,
+		Amount:          1000,
+	}
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(context.TODO())
+	return err
+
+}

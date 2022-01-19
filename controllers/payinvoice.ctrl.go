@@ -1,10 +1,8 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/labstack/echo/v4"
 )
@@ -37,25 +35,6 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 			"message": "invalid request",
 		})
 	}
-
-	debitAccount, err := controller.svc.AccountFor(context.TODO(), "current", userId)
-	if err != nil {
-		return err
-	}
-	creditAccount, err := controller.svc.AccountFor(context.TODO(), "outgoing", userId)
-	if err != nil {
-		return err
-	}
-
-	entry := models.TransactionEntry{
-		UserID:          userId,
-		CreditAccountID: creditAccount.ID,
-		DebitAccountID:  debitAccount.ID,
-		Amount:          1000,
-	}
-	if _, err := controller.svc.DB.NewInsert().Model(&entry).Exec(context.TODO()); err != nil {
-		return err
-	}
-
-	return nil
+	//TODO json response
+	return controller.svc.Payinvoice(userId, reqBody.Invoice)
 }
