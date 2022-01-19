@@ -19,7 +19,7 @@ func Logger(logFilePath string) *lecho.Logger {
 	if logFilePath != "" {
 		file, err := GetLoggingFile(logFilePath)
 		if err != nil {
-			logger.Error("failed to create logging file: %v", err)
+			logger.Errorf("failed to create logging file: %v", err)
 		}
 		logger.SetOutput(file)
 	}

@@ -1,11 +1,9 @@
 package controllers
 
 import (
-	"context"
 	"math/rand"
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
@@ -43,33 +41,20 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
-	invoice := models.Invoice{
-		Type:               "",
-		UserID:             userID,
-		TransactionEntryID: 0,
-		Amount:             body.Amt,
-		Memo:               body.Memo,
-		DescriptionHash:    body.DescriptionHash,
-		PaymentRequest:     "",
-		RHash:              "",
-		State:              "",
-	}
-
-	// TODO: move this to a service layer and call a method
-	_, err := controller.svc.DB.NewInsert().Model(&invoice).Exec(context.TODO())
+	invoice, err := controller.svc.AddInvoice(userID, body.Amt, body.Memo, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("error saving an invoice: %v", err)
-		// TODO: better error handling, possibly panic and catch in an error handler
 		return c.JSON(http.StatusInternalServerError, nil)
 	}
-
 	var responseBody struct {
 		RHash          string `json:"r_hash"`
 		PaymentRequest string `json:"payment_request"`
 		PayReq         string `json:"pay_req"`
 	}
 
+	//TODO
 	responseBody.PayReq = makePreimageHex()
+	responseBody.PaymentRequest = invoice.PaymentRequest
 
 	return c.JSON(http.StatusOK, &responseBody)
 }

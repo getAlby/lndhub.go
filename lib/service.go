@@ -2,10 +2,13 @@ package lib
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type LndhubService struct {
@@ -39,4 +42,64 @@ func (svc *LndhubService) AccountFor(ctx context.Context, accountType string, us
 	account := models.Account{}
 	err := svc.DB.NewSelect().Model(&account).Where("user_id = ? AND type= ?", userId, accountType).Limit(1).Scan(ctx)
 	return account, err
+}
+
+func (svc *LndhubService) AddInvoice(userID int64, amount uint, memo, descriptionHash string) (*models.Invoice, error) {
+	invoice := &models.Invoice{
+		Type:               "",
+		UserID:             userID,
+		TransactionEntryID: 0,
+		Amount:             amount,
+		Memo:               memo,
+		DescriptionHash:    descriptionHash,
+		PaymentRequest:     "",
+		RHash:              "",
+		State:              "",
+	}
+
+	// TODO: move this to a service layer and call a method
+	_, err := svc.DB.NewInsert().Model(invoice).Exec(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	return invoice, nil
+}
+func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
+	var user models.User
+
+	switch {
+	case login != "" || password != "":
+		{
+			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(context.TODO()); err != nil {
+				return "", "", fmt.Errorf("bad auth")
+			}
+			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+				return "", "", fmt.Errorf("bad auth")
+
+			}
+		}
+	case inRefreshToken != "":
+		{
+			// TODO: currently not supported
+			// I'd love to remove this from the auth handler, as the refresh token
+			// is usually a part of the JWT middleware: https://webdevstation.com/posts/user-authentication-with-go-using-jwt-token/
+			// if the current client depends on that - we can incorporate the refresh JWT code into here
+			return "", "", fmt.Errorf("bad auth")
+		}
+	default:
+		{
+			return "", "", fmt.Errorf("login and password or refresh token is required")
+		}
+	}
+
+	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTExpiry, &user)
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTExpiry, &user)
+	if err != nil {
+		return "", "", err
+	}
+	return accessToken, refreshToken, nil
 }
