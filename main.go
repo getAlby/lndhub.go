@@ -112,18 +112,10 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
-	// Initialize a custom context with
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			cc := &lib.LndhubService{Context: c, DB: dbConn, LndClient: &lndClient}
-			return next(cc)
-		}
-	})
-
 	e.POST("/auth", controllers.AuthController{JWTSecret: c.JWTSecret, JWTExpiry: c.JWTExpiry}.Auth)
 	e.POST("/create", controllers.CreateUserController{}.CreateUser)
 
-	secured := e.Group("", tokens.Middleware(c.JWTSecret), tokens.UserMiddleware(dbConn))
+	secured := e.Group("", tokens.Middleware(c.JWTSecret))
 	secured.POST("/addinvoice", controllers.AddInvoiceController{}.AddInvoice)
 	secured.POST("/payinvoice", controllers.PayInvoiceController{}.PayInvoice)
 	secured.GET("/gettxs", controllers.GetTXSController{}.GetTXS)

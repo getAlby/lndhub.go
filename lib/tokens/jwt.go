@@ -1,18 +1,13 @@
 package tokens
 
 import (
-	"context"
-	"database/sql"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/lib"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/uptrace/bun"
 )
 
 type jwtCustomClaims struct {
@@ -43,30 +38,6 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 	}
 
 	return middleware.JWTWithConfig(config)
-}
-
-func UserMiddleware(db *bun.DB) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			ctx := c.(*lib.LndhubService)
-			userId := c.Get("UserID")
-
-			var user models.User
-
-			err := db.NewSelect().Model(&user).Where("id = ?", userId).Limit(1).Scan(context.TODO())
-			switch {
-			case errors.Is(err, sql.ErrNoRows):
-				return echo.NewHTTPError(http.StatusNotFound, "user with given ID is not found")
-			case err != nil:
-				c.Logger().Errorf("database error: %v", err)
-				return echo.NewHTTPError(http.StatusInternalServerError)
-			}
-
-			ctx.User = &user
-
-			return next(ctx)
-		}
-	}
 }
 
 // GenerateAccessToken : Generate Access Token
