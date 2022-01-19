@@ -94,11 +94,11 @@ func main() {
 		CertHex:     c.LNDCertHex,
 	})
 	if err != nil {
-		e.Logger.Fatalf("Error initializing the LND connection: %s.", err)
+		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
 	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
-		e.Logger.Fatalf("Error getting node info: %s.", err)
+		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
