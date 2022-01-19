@@ -108,9 +108,11 @@ func main() {
 		LndClient: &lndClient,
 	}
 
+	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
 
+	// Secured endpoints which require a Authorization token (JWT)
 	secured := e.Group("", tokens.Middleware(c.JWTSecret))
 	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
 	secured.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
@@ -118,6 +120,7 @@ func main() {
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 
+	// These endpoints are not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
 	secured.GET("/getbtc", blankController.GetBtc)
 	secured.GET("/getpending", blankController.GetPending)
