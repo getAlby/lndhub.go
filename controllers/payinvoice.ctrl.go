@@ -10,11 +10,13 @@ import (
 )
 
 // PayInvoiceController : Pay invoice controller struct
-type PayInvoiceController struct{}
+type PayInvoiceController struct {
+	svc *lib.LndhubService
+}
 
 // PayInvoice : Pay invoice Controller
-func (PayInvoiceController) PayInvoice(c echo.Context) error {
-	ctx := c.(*lib.LndhubService)
+func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
+	userId := c.Get("UserID").(int64)
 	var reqBody struct {
 		Invoice string `json:"invoice" validate:"required"`
 		Amount  int    `json:"amount" validate:"omitempty,gte=0"`
@@ -32,23 +34,22 @@ func (PayInvoiceController) PayInvoice(c echo.Context) error {
 		})
 	}
 
-	db := ctx.DB
-	debitAccount, err := ctx.User.AccountFor("current", context.TODO(), db)
+	debitAccount, err := controller.svc.AccountFor(context.TODO(), "current", userId)
 	if err != nil {
 		return err
 	}
-	creditAccount, err := ctx.User.AccountFor("outgoing", context.TODO(), db)
+	creditAccount, err := controller.svc.AccountFor(context.TODO(), "outgoing", userId)
 	if err != nil {
 		return err
 	}
 
 	entry := models.TransactionEntry{
-		UserID:          ctx.User.ID,
+		UserID:          userId,
 		CreditAccountID: creditAccount.ID,
 		DebitAccountID:  debitAccount.ID,
 		Amount:          1000,
 	}
-	if _, err := db.NewInsert().Model(&entry).Exec(context.TODO()); err != nil {
+	if _, err := controller.svc.DB.NewInsert().Model(&entry).Exec(context.TODO()); err != nil {
 		return err
 	}
 
