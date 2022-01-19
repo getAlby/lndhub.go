@@ -12,6 +12,7 @@ type Invoice struct {
 	ID                 uint         `json:"id" bun:",pk,autoincrement"`
 	Type               string       `json:"type"`
 	UserID             int64        `json:"user_id"`
+	User               *User        `bun:"rel:belongs-to,join:user_id=id"`
 	TransactionEntryID uint         `json:"transaction_entry_id"`
 	Amount             uint         `json:"amount"`
 	Memo               string       `json:"memo"`
