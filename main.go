@@ -26,26 +26,15 @@ import (
 	"github.com/ziflex/lecho/v3"
 )
 
-type Config struct {
-	DatabaseUri    string `envconfig:"DATABASE_URI" required:"true"`
-	SentryDSN      string `envconfig:"SENTRY_DSN"`
-	LogFilePath    string `envconfig:"LOG_FILE_PATH"`
-	JWTSecret      []byte `envconfig:"JWT_SECRET" required:"true"`
-	JWTExpiry      int    `envconfig:"JWT_EXPIRY" default:"604800"` // in seconds
-	LNDAddress     string `envconfig:"LND_ADDRESS" required:"true"`
-	LNDMacaroonHex string `envconfig:"LND_MACAROON_HEX" required:"true"`
-	LNDCertHex     string `envconfig:"LND_CERT_HEX"`
-}
-
 func main() {
-	var c Config
+	c := &lib.Config{}
 
 	// Load configruation from environment variables
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Println("Failed to load .env file")
 	}
-	err = envconfig.Process("", &c)
+	err = envconfig.Process("", c)
 	if err != nil {
 		panic(err)
 	}
@@ -113,11 +102,12 @@ func main() {
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &lib.LndhubService{
+		Config:    c,
 		DB:        dbConn,
 		LndClient: &lndClient,
 	}
 
-	e.POST("/auth", controllers.NewAuthController(svc, c.JWTSecret, c.JWTExpiry).Auth)
+	e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
 
 	secured := e.Group("", tokens.Middleware(c.JWTSecret))

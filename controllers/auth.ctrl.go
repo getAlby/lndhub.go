@@ -18,11 +18,11 @@ type AuthController struct {
 	svc       *lib.LndhubService
 }
 
-func NewAuthController(svc *lib.LndhubService, secret []byte, expiry int) *AuthController {
+func NewAuthController(svc *lib.LndhubService) *AuthController {
 	return &AuthController{
 		svc:       svc,
-		JWTSecret: secret,
-		JWTExpiry: expiry,
+		JWTSecret: svc.Config.JWTSecret,
+		JWTExpiry: svc.Config.JWTExpiry,
 	}
 }
 
