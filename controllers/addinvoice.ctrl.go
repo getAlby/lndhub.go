@@ -12,13 +12,13 @@ import (
 )
 
 // AddInvoiceController : Add invoice controller struct
-type AddInvoiceController struct{}
+type AddInvoiceController struct {
+	svc *lib.LndhubService
+}
 
 // AddInvoice : Add invoice Controller
-func (AddInvoiceController) AddInvoice(c echo.Context) error {
-	ctx := c.(*lib.LndhubService)
-	user := ctx.User
-
+func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
+	userID := c.Get("UserID").(int64)
 	type RequestBody struct {
 		Amt             uint   `json:"amt" validate:"required"`
 		Memo            string `json:"memo"`
@@ -39,11 +39,9 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
-	db := ctx.DB
-
 	invoice := models.Invoice{
 		Type:               "",
-		UserID:             user.ID,
+		UserID:             userID,
 		TransactionEntryID: 0,
 		Amount:             body.Amt,
 		Memo:               body.Memo,
@@ -54,7 +52,7 @@ func (AddInvoiceController) AddInvoice(c echo.Context) error {
 	}
 
 	// TODO: move this to a service layer and call a method
-	_, err := db.NewInsert().Model(&invoice).Exec(context.TODO())
+	_, err := controller.svc.DB.NewInsert().Model(&invoice).Exec(context.TODO())
 	if err != nil {
 		c.Logger().Errorf("error saving an invoice: %v", err)
 		// TODO: better error handling, possibly panic and catch in an error handler
