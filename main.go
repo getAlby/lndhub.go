@@ -117,6 +117,7 @@ func main() {
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
+	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
 
 	// Start server
 	go func() {
