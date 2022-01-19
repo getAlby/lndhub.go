@@ -20,7 +20,7 @@ func NewBalanceController(svc *service.LndhubService) *BalanceController {
 // Balance : Balance Controller
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
-	balance, err := controller.svc.CurrentBalance(context.TODO(), userId)
+	balance, err := controller.svc.CurrentUserBalance(context.TODO(), userId)
 	if err != nil {
 		return err
 	}
