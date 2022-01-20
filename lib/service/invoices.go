@@ -114,12 +114,14 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 
 func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string, decodedInvoice zpay32.Invoice) (*models.Invoice, error) {
 	// Initialize new DB invoice
+	destinationPubkey := hex.EncodeToString(decodedInvoice.Destination.SerializeCompressed())
 	invoice := models.Invoice{
-		Type:           "outgoing",
-		UserID:         userID,
-		Memo:           *decodedInvoice.Description,
-		PaymentRequest: paymentRequest,
-		State:          "initialized",
+		Type:              "outgoing",
+		UserID:            userID,
+		Memo:              *decodedInvoice.Description,
+		PaymentRequest:    paymentRequest,
+		State:             "initialized",
+		DestinationPubKey: destinationPubkey,
 	}
 	if decodedInvoice.DescriptionHash != nil {
 		dh := *decodedInvoice.DescriptionHash
@@ -176,6 +178,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	invoice.PaymentRequest = lnInvoiceResult.PaymentRequest
 	invoice.RHash = hex.EncodeToString(lnInvoiceResult.RHash)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
+	invoice.DestinationPubKey = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
 	invoice.State = "created"
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(context.TODO())

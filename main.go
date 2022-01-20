@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -102,12 +104,21 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
+	hexPubkey, err := hex.DecodeString(getInfo.IdentityPubkey)
+	if err != nil {
+		logger.Fatalf("Failed to decode IdentityPubkey: %v", err)
+	}
+	identityPubKey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
+	if err != nil {
+		logger.Fatalf("Failed to parse node IdentityPubkey: %v", err)
+	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
-		Config:    c,
-		DB:        dbConn,
-		LndClient: lndClient,
+		Config:         c,
+		DB:             dbConn,
+		LndClient:      lndClient,
+		IdentityPubkey: identityPubKey,
 	}
 
 	// Public endpoints for account creation and authentication

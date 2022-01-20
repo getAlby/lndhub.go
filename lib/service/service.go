@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/labstack/gommon/random"
@@ -15,9 +16,10 @@ import (
 const alphaNumBytes = random.Alphanumeric
 
 type LndhubService struct {
-	Config    *Config
-	DB        *bun.DB
-	LndClient lnrpc.LightningClient
+	Config         *Config
+	DB             *bun.DB
+	LndClient      lnrpc.LightningClient
+	IdentityPubkey *btcec.PublicKey
 }
 
 func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
