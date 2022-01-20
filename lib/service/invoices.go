@@ -15,8 +15,13 @@ import (
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/zpay32"
+	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
 )
+
+type SendPaymentResponse struct {
+	PreimageHex string
+}
 
 func (svc *LndhubService) FindInvoiceByPaymentHash(userId int64, rHash string) (*models.Invoice, error) {
 	var invoice models.Invoice
@@ -26,6 +31,93 @@ func (svc *LndhubService) FindInvoiceByPaymentHash(userId int64, rHash string) (
 		return &invoice, err
 	}
 	return &invoice, nil
+}
+
+func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
+	sendPaymentResponse := SendPaymentResponse{}
+	//SendInternalPayment()
+	// find invoice
+	var incomingInvoice models.Invoice
+	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "created").Limit(1).Scan(context.TODO())
+	if err != nil {
+		// invoice not found or already settled
+		// TODO: logging
+		tx.Rollback()
+		return sendPaymentResponse, err
+	}
+	// Get the user's current and outgoing account for the transaction entry
+	recipientCreditAccount, err := svc.AccountFor(context.TODO(), "current", incomingInvoice.UserID)
+	if err != nil {
+		return sendPaymentResponse, err
+	}
+	recipientDebitAccount, err := svc.AccountFor(context.TODO(), "incoming", incomingInvoice.UserID)
+	if err != nil {
+		return sendPaymentResponse, err
+	}
+	// create recipient entry
+	recipientEntry := models.TransactionEntry{
+		UserID:          incomingInvoice.UserID,
+		InvoiceID:       incomingInvoice.ID,
+		CreditAccountID: recipientCreditAccount.ID,
+		DebitAccountID:  recipientDebitAccount.ID,
+		Amount:          invoice.Amount,
+	}
+	_, err = tx.NewInsert().Model(&recipientEntry).Exec(context.TODO())
+	if err != nil {
+		tx.Rollback()
+		return sendPaymentResponse, err
+	}
+	// We do not have a preimage for internal transactions
+	// marking this transaction entry as an internal one that has no lightning settlement
+	preimageHex := fmt.Sprintf("internal;(to:%v from:%v)", incomingInvoice.UserID, invoice.UserID)
+
+	sendPaymentResponse.PreimageHex = preimageHex
+	incomingInvoice.Preimage = preimageHex
+	incomingInvoice.State = "settled"
+	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
+	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
+	if err != nil {
+		// could not save the invoice of the recipient
+		tx.Rollback()
+		return sendPaymentResponse, err
+	}
+
+	return sendPaymentResponse, nil
+}
+
+func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
+	sendPaymentResponse := SendPaymentResponse{}
+	// TODO: set fee limit
+	feeLimit := lnrpc.FeeLimit{
+		Limit: &lnrpc.FeeLimit_Percent{
+			Percent: 2,
+		},
+	}
+
+	// Prepare the LNRPC call
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoice.PaymentRequest,
+		Amt:            invoice.Amount,
+		FeeLimit:       &feeLimit,
+	}
+
+	// Execute the payment
+	sendPaymentResult, err := svc.LndClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
+	if err != nil {
+		tx.Rollback()
+		return sendPaymentResponse, err
+	}
+
+	// If there was a payment error we rollback and return an error
+	if sendPaymentResult.GetPaymentError() != "" || sendPaymentResult.GetPaymentPreimage() == nil {
+		tx.Rollback()
+		// TODO: log the error / sentry?
+		return sendPaymentResponse, errors.New(sendPaymentResult.GetPaymentError())
+	}
+
+	preimage := sendPaymentResult.GetPaymentPreimage()
+	sendPaymentResponse.PreimageHex = hex.EncodeToString(preimage[:])
+	return sendPaymentResponse, nil
 }
 
 func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.TransactionEntry, error) {
@@ -64,10 +156,9 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 		return &entry, err
 	}
 
-	// TODO: split this up in different functions
 	// TODO: maybe save errors on the invoice?
 
-	var preimageHex string
+	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
 	destinationPubkey, err := invoice.DestinationPubkey()
 	if err != nil {
@@ -75,87 +166,21 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 		return &entry, err
 	}
 	if svc.IdentityPubkey.IsEqual(destinationPubkey) {
-
-		// find invoice
-		var incomingInvoice models.Invoice
-		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "created").Limit(1).Scan(context.TODO())
+		paymentResponse, err = svc.SendInternalPayment(&tx, invoice)
 		if err != nil {
-			// invoice not found or already settled
-			// TODO: logging
-			tx.Rollback()
-			return &entry, err
-		}
-		// Get the user's current and outgoing account for the transaction entry
-		recipientCreditAccount, err := svc.AccountFor(context.TODO(), "current", incomingInvoice.UserID)
-		if err != nil {
-			return nil, err
-		}
-		recipientDebitAccount, err := svc.AccountFor(context.TODO(), "incoming", incomingInvoice.UserID)
-		if err != nil {
-			return nil, err
-		}
-		// create recipient entry
-		recipientEntry := models.TransactionEntry{
-			UserID:          incomingInvoice.UserID,
-			InvoiceID:       incomingInvoice.ID,
-			CreditAccountID: recipientCreditAccount.ID,
-			DebitAccountID:  recipientDebitAccount.ID,
-			Amount:          invoice.Amount,
-		}
-		_, err = tx.NewInsert().Model(&recipientEntry).Exec(context.TODO())
-		if err != nil {
-			tx.Rollback()
-			return &entry, err
-		}
-		// We do not have a preimage for internal transactions
-		// marking this transaction entry as an internal one that has no lightning settlement
-		preimageHex = fmt.Sprintf("internal;(to:%v from:%v)", incomingInvoice.UserID, invoice.UserID)
-
-		incomingInvoice.Preimage = preimageHex
-		incomingInvoice.State = "settled"
-		incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
-		_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
-		if err != nil {
-			// could not save the invoice of the recipient
 			tx.Rollback()
 			return &entry, err
 		}
 	} else {
-		// TODO: set fee limit
-		feeLimit := lnrpc.FeeLimit{
-			Limit: &lnrpc.FeeLimit_Percent{
-				Percent: 2,
-			},
-		}
-
-		// Prepare the LNRPC call
-		sendPaymentRequest := lnrpc.SendRequest{
-			PaymentRequest: invoice.PaymentRequest,
-			Amt:            invoice.Amount,
-			FeeLimit:       &feeLimit,
-		}
-
-		// Execute the payment
-		sendPaymentResult, err := svc.LndClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
+		paymentResponse, err = svc.SendPaymentSync(&tx, invoice)
 		if err != nil {
 			tx.Rollback()
 			return &entry, err
 		}
-
-		// If there was a payment error we rollback and return an error
-		if sendPaymentResult.GetPaymentError() != "" || sendPaymentResult.GetPaymentPreimage() == nil {
-			tx.Rollback()
-			// TODO: log the error / sentry?
-			return &entry, errors.New(sendPaymentResult.GetPaymentError())
-		}
-
-		// We store the preimage and mark the invoice as settled
-		preimage := sendPaymentResult.GetPaymentPreimage()
-		preimageHex = hex.EncodeToString(preimage[:])
 	}
 
 	// The payment was successful.
-	invoice.Preimage = preimageHex
+	invoice.Preimage = paymentResponse.PreimageHex
 	invoice.State = "settled"
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
