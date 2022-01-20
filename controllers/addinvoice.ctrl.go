@@ -47,7 +47,7 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 
 	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, body.Amt, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddInvoice(userID, body.Amt, body.Memo, body.DescriptionHash)
+	invoice, err := controller.svc.AddIncomingInvoice(userID, body.Amt, body.Memo, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
 		// TODO: sentry notification

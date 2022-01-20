@@ -9,17 +9,18 @@ import (
 
 // Invoice : Invoice Model
 type Invoice struct {
-	ID              uint         `json:"id" bun:",pk,autoincrement"`
-	Type            string       `json:"type"`
-	UserID          int64        `json:"user_id"`
+	ID              int64        `json:"id" bun:",pk,autoincrement"`
+	Type            string       `json:"type" validate:"required"`
+	UserID          int64        `json:"user_id" validate:"required"`
 	User            *User        `bun:"rel:belongs-to,join:user_id=id"`
-	Amount          int64        `json:"amount"`
+	Amount          int64        `json:"amount" validate:"gte=0"`
 	Memo            string       `json:"memo"`
-	DescriptionHash string       `json:"description_hash"`
+	DescriptionHash string       `json:"description_hash" bun:",nullzero"`
 	PaymentRequest  string       `json:"payment_request"`
 	RHash           string       `json:"r_hash"`
-	State           string       `json:"state"`
-	AddIndex        uint64       `json:"add_index"`
+	Preimage        string       `json:"preimage" bun:",nullzero"`
+	State           string       `json:"state" bun:",default:'initialized'"`
+	AddIndex        uint64       `json:"add_index" bun:",nullzero"`
 	CreatedAt       time.Time    `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt       bun.NullTime `json:"updated_at"`
 	SettledAt       bun.NullTime `json:"settled_at"`
