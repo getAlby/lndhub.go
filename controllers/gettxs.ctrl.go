@@ -3,7 +3,6 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -17,5 +16,11 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 
 // GetTXS : Get TXS Controller
 func (GetTXSController) GetTXS(c echo.Context) error {
-	return c.JSON(http.StatusOK, &models.Invoice{})
+	transactions := []string{}
+	return c.JSON(http.StatusOK, &transactions)
+}
+
+func (GetTXSController) GetUserInvoices(c echo.Context) error {
+	transactions := []string{}
+	return c.JSON(http.StatusOK, &transactions)
 }
