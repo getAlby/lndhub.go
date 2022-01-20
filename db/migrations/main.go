@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"embed"
+	"log"
 
 	"github.com/uptrace/bun/migrate"
 )
@@ -13,6 +14,6 @@ var sqlMigrations embed.FS
 
 func init() {
 	if err := Migrations.Discover(sqlMigrations); err != nil {
-		panic(err)
+		log.Fatalf("Error discovering migrations: %v", err)
 	}
 }
