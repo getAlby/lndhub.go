@@ -15,12 +15,12 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 }
 
 // GetTXS : Get TXS Controller
-func (GetTXSController) GetTXS(c echo.Context) error {
+func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	transactions := []string{}
 	return c.JSON(http.StatusOK, &transactions)
 }
 
-func (GetTXSController) GetUserInvoices(c echo.Context) error {
+func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	transactions := []string{}
 	return c.JSON(http.StatusOK, &transactions)
 }
