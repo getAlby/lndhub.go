@@ -1,48 +1,75 @@
 package integration_tests
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/joho/godotenv"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/uptrace/bun/migrate"
 
-	"github.com/bumi/lndhub.go/controllers"
-	"github.com/bumi/lndhub.go/db"
-	"github.com/bumi/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/controllers"
+	"github.com/getAlby/lndhub.go/db"
+	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lnd"
 )
 
 func TestCreateUser(t *testing.T) {
+	c := &service.Config{}
 	e := echo.New()
 
+	// Load configruation from environment variables
 	err := godotenv.Load("../.env")
 	if err != nil {
-		logrus.Fatal("failed to get env value")
+		log.Errorf("Failed to load .env file")
 	}
-	dbConn, err := db.Open(fmt.Sprintf("../%s", os.Getenv("DATABASE_URI")))
+	err = envconfig.Process("", c)
+	if err != nil {
+		log.Errorf("Failed to process env")
+	}
+
+	dbConn, err := db.Open(c.TestDatabaseUri)
 	if err != nil {
 		logrus.Fatalf("failed to connect to database: %v", err)
 		return
 	}
+	ctx := context.Background()
+	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
+	err = migrator.Init(ctx)
+	if err != nil {
+		panic(err)
+	}
+	_, err = migrator.Migrate(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:     c.TestLNDAddress,
+		MacaroonHex: c.TestLNDMacaroonHex,
+		CertHex:     c.TestLNDCertHex,
+	})
 
 	req := httptest.NewRequest(http.MethodPost, "/create", nil)
 	rec := httptest.NewRecorder()
 
-	c := e.NewContext(req, rec)
-	ctx := &lib.IndhubContext{
-		Context: c,
-		DB:      dbConn,
+	ctxEcho := e.NewContext(req, rec)
+
+	createUserService := &service.LndhubService{
+		DB:        dbConn,
+		LndClient: &lndClient,
 	}
 
-	c.SetParamNames("login", "password")
-	c.SetParamValues("test-login", "test-password")
+	createUserCtrl := controllers.NewCreateUserController(createUserService)
 
-	if assert.NoError(t, controllers.CreateUserController{}.CreateUser(ctx)) {
+	if assert.NoError(t, createUserCtrl.CreateUser(ctxEcho)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 	}
 }
