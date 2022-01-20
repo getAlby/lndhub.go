@@ -29,3 +29,7 @@ func (controller *BlankController) GetPending(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &addresses)
 }
+
+func (controller *BlankController) Home(c echo.Context) error {
+	return c.JSON(http.StatusOK, "")
+}
