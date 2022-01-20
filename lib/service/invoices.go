@@ -76,10 +76,9 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 		Amt:            invoice.Amount,
 		FeeLimit:       &feeLimit,
 	}
-	lndClient := *svc.LndClient
 
 	// Execute the payment
-	sendPaymentResult, err := lndClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
+	sendPaymentResult, err := svc.LndClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
 	if err != nil {
 		tx.Rollback()
 		return &entry, err
@@ -167,9 +166,8 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 		RPreimage: makePreimageHex(),
 		Expiry:    3600 * 24, // 24h
 	}
-	lndClient := *svc.LndClient
 	// Call LND
-	lnInvoiceResult, err := lndClient.AddInvoice(context.TODO(), &lnInvoice)
+	lnInvoiceResult, err := svc.LndClient.AddInvoice(context.TODO(), &lnInvoice)
 	if err != nil {
 		return nil, err
 	}

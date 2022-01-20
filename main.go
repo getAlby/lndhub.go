@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -37,13 +38,16 @@ func main() {
 	}
 	err = envconfig.Process("", c)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error loading environment variables: %v", err)
 	}
+
+	// Setup logging to STDOUT or a configrued log file
+	logger := lib.Logger(c.LogFilePath)
 
 	// Open a DB connection based on the configured DATABASE_URI
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
-		panic(err)
+		logger.Fatalf("Error initializing db connection: %v", err)
 	}
 
 	// Migrate the DB
@@ -51,11 +55,11 @@ func main() {
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
 	if err != nil {
-		panic(err)
+		logger.Fatalf("Error initializing db migrator: %v", err)
 	}
 	_, err = migrator.Migrate(ctx)
 	if err != nil {
-		panic(err)
+		logger.Fatalf("Error migrating database: %v", err)
 	}
 
 	// New Echo app
@@ -68,8 +72,6 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	// Setup logging to STDOUT or a configrued log file
-	logger := lib.Logger(c.LogFilePath)
 	e.Logger = logger
 	e.Use(middleware.RequestID())
 	e.Use(lecho.Middleware(lecho.Config{
@@ -94,18 +96,18 @@ func main() {
 		CertHex:     c.LNDCertHex,
 	})
 	if err != nil {
-		panic(err)
+		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
 	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
-		panic(err)
+		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
 		Config:    c,
 		DB:        dbConn,
-		LndClient: &lndClient,
+		LndClient: lndClient,
 	}
 
 	// Public endpoints for account creation and authentication
