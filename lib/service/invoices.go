@@ -55,9 +55,8 @@ func (svc *LndhubService) AddInvoice(userID int64, amount int64, memo, descripti
 		RPreimage: makePreimageHex(),
 		Expiry:    3600 * 24, // 24h
 	}
-	lndClient := *svc.LndClient
 	// Call LND
-	lnInvoiceResult, err := lndClient.AddInvoice(context.TODO(), &lnInvoice)
+	lnInvoiceResult, err := svc.LndClient.AddInvoice(context.TODO(), &lnInvoice)
 	if err != nil {
 		return nil, err
 	}

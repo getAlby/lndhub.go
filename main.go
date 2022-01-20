@@ -105,7 +105,7 @@ func main() {
 	svc := &service.LndhubService{
 		Config:    c,
 		DB:        dbConn,
-		LndClient: &lndClient,
+		LndClient: lndClient,
 	}
 
 	// Public endpoints for account creation and authentication
