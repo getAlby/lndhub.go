@@ -17,7 +17,7 @@ const alphaNumBytes = random.Alphanumeric
 type LndhubService struct {
 	Config    *Config
 	DB        *bun.DB
-	LndClient *lnrpc.LightningClient
+	LndClient lnrpc.LightningClient
 }
 
 func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {

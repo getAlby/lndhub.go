@@ -7,6 +7,5 @@ import (
 )
 
 func (svc *LndhubService) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {
-	lndClient := *svc.LndClient
-	return lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	return svc.LndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 }
