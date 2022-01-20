@@ -54,6 +54,9 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 	if err != nil {
 		return &entry, err
 	}
+
+	// The DB constraints make sure the user actually has enough balance for the transaction
+	// If the user does not have enough balance this call fails
 	_, err = tx.NewInsert().Model(&entry).Exec(context.TODO())
 	if err != nil {
 		tx.Rollback()

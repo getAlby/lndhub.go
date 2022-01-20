@@ -79,7 +79,8 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	entry, err := controller.svc.PayInvoice(invoice)
 	if err != nil {
-		c.Logger().Errorf("Failed: %v", err)
+		c.Logger().Errorf("Payment failed: %v", err)
+		// TODO: sentry notification
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    10,
