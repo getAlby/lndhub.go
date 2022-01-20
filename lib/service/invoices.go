@@ -42,7 +42,6 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	if err != nil {
 		// invoice not found or already settled
 		// TODO: logging
-		tx.Rollback()
 		return sendPaymentResponse, err
 	}
 	// Get the user's current and outgoing account for the transaction entry
@@ -64,7 +63,6 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	}
 	_, err = tx.NewInsert().Model(&recipientEntry).Exec(context.TODO())
 	if err != nil {
-		tx.Rollback()
 		return sendPaymentResponse, err
 	}
 	// We do not have a preimage for internal transactions
@@ -78,7 +76,6 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
 	if err != nil {
 		// could not save the invoice of the recipient
-		tx.Rollback()
 		return sendPaymentResponse, err
 	}
 
@@ -104,13 +101,11 @@ func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (
 	// Execute the payment
 	sendPaymentResult, err := svc.LndClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
 	if err != nil {
-		tx.Rollback()
 		return sendPaymentResponse, err
 	}
 
 	// If there was a payment error we rollback and return an error
 	if sendPaymentResult.GetPaymentError() != "" || sendPaymentResult.GetPaymentPreimage() == nil {
-		tx.Rollback()
 		// TODO: log the error / sentry?
 		return sendPaymentResponse, errors.New(sendPaymentResult.GetPaymentError())
 	}
@@ -192,6 +187,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 
 	// Commit the DB transaction. Done, everything worked
 	err = tx.Commit()
+
 	if err != nil {
 		return &entry, err
 	}
