@@ -20,8 +20,28 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 
 // GetTXS : Get TXS Controller
 func (controller *GetTXSController) GetTXS(c echo.Context) error {
-	transactions := []string{}
-	return c.JSON(http.StatusOK, &transactions)
+	userId := c.Get("UserID").(int64)
+
+	invoices, err := controller.svc.InvoicesFor(context.TODO(), userId, "outgoing")
+	if err != nil {
+		return err
+	}
+
+	response := make([]echo.Map, len(invoices))
+	for i, invoice := range invoices {
+		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
+		response[i] = echo.Map{
+			"r_hash":           rhash,
+			"payment_hash":     rhash,
+			"payment_preimage": invoice.Preimage,
+			"value":            invoice.Amount,
+			"type":             "paid_invoice",
+			"fee":              0, //TODO charge fees
+			"timestamp":        invoice.CreatedAt.Unix(),
+			"memo":             invoice.Memo,
+		}
+	}
+	return c.JSON(http.StatusOK, &response)
 }
 
 func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
@@ -41,6 +61,7 @@ func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 			"pay_req":         invoice.PaymentRequest,
 			"description":     invoice.Memo,
 			"payment_hash":    invoice.RHash,
+			"ispaid":          invoice.State == "settled",
 			"amt":             invoice.Amount,
 			"expire_time":     3600 * 24,
 			"timestamp":       invoice.CreatedAt.Unix(),
