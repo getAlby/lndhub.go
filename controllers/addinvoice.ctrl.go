@@ -22,7 +22,7 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	type RequestBody struct {
 		Amount          interface{} `json:"amt"` // amount in Satoshi
 		Memo            string      `json:"memo"`
-		DescriptionHash string      `json:"description_hash"`
+		DescriptionHash string      `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 	}
 
 	var body RequestBody
@@ -59,7 +59,11 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
 		// TODO: sentry notification
-		return c.JSON(http.StatusInternalServerError, nil)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
+		})
 	}
 
 	var responseBody struct {

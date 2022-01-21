@@ -43,7 +43,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 		// TODO: logging
 		return sendPaymentResponse, err
 	}
-	// Get the user's current and outgoing account for the transaction entry
+	// Get the user's current and incoming account for the transaction entry
 	recipientCreditAccount, err := svc.AccountFor(context.TODO(), "current", incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
@@ -226,7 +226,7 @@ func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string
 	return &invoice, nil
 }
 
-func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, descriptionHash string) (*models.Invoice, error) {
+func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
 	preimage := makePreimageHex()
 	// Initialize new DB invoice
 	invoice := models.Invoice{
@@ -234,7 +234,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 		UserID:          userID,
 		Amount:          amount,
 		Memo:            memo,
-		DescriptionHash: descriptionHash,
+		DescriptionHash: descriptionHashStr,
 		State:           "initialized",
 	}
 
@@ -244,12 +244,17 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 		return nil, err
 	}
 
+	descriptionHash, err := hex.DecodeString(descriptionHashStr)
+	if err != nil {
+		return nil, err
+	}
 	// Initialize lnrpc invoice
 	lnInvoice := lnrpc.Invoice{
-		Memo:      memo,
-		Value:     amount,
-		RPreimage: preimage,
-		Expiry:    3600 * 24, // 24h // TODO: move to config
+		Memo:            memo,
+		DescriptionHash: descriptionHash,
+		Value:           amount,
+		RPreimage:       preimage,
+		Expiry:          3600 * 24, // 24h // TODO: move to config
 	}
 	// Call LND
 	lnInvoiceResult, err := svc.LndClient.AddInvoice(context.TODO(), &lnInvoice)
