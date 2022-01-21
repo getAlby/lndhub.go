@@ -69,6 +69,21 @@ func (svc *LndhubService) AccountFor(ctx context.Context, accountType string, us
 	return account, err
 }
 
+func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoiceType string) ([]models.Invoice, error) {
+	var invoices []models.Invoice
+
+	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
+	if invoiceType != "" {
+		query.Where("type = ?", invoiceType)
+	}
+	query.OrderExpr("id DESC").Limit(100)
+	err := query.Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return invoices, nil
+}
+
 func randStringBytes(n int) string {
 	b := make([]byte, n)
 	for i := range b {

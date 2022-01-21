@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/labstack/gommon/random"
@@ -15,9 +17,10 @@ import (
 const alphaNumBytes = random.Alphanumeric
 
 type LndhubService struct {
-	Config    *Config
-	DB        *bun.DB
-	LndClient lnrpc.LightningClient
+	Config         *Config
+	DB             *bun.DB
+	LndClient      lnrpc.LightningClient
+	IdentityPubkey *btcec.PublicKey
 }
 
 func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
@@ -58,4 +61,19 @@ func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) 
 		return "", "", err
 	}
 	return accessToken, refreshToken, nil
+}
+
+func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
+	switch v := value.(type) {
+	case float64:
+		return int64(v), nil
+	case string:
+		c, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return c, nil
+	default:
+		return 0, fmt.Errorf("conversion to int from %T not supported", v)
+	}
 }
