@@ -13,7 +13,7 @@ type JavaScriptBuffer struct {
 func (buf *JavaScriptBuffer) MarshalJSON() ([]byte, error) {
 	var array string
 	if buf.Data == nil {
-		array = "null"
+		array = "null" // no data results in JS null
 	} else {
 		array = strings.Join(strings.Fields(fmt.Sprintf("%d", buf.Data)), ",")
 	}
@@ -25,7 +25,7 @@ func ToJavaScriptBuffer(hexString string) (*JavaScriptBuffer, error) {
 	buf := JavaScriptBuffer{}
 	hexArray, err := hex.DecodeString(hexString)
 	if err != nil {
-		return &buf, err
+		return nil, err
 	}
 	buf.Data = hexArray
 	return &buf, nil
