@@ -178,7 +178,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 	invoice.State = "settled"
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
-	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(context.TODO())
+	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(context.TODO())
 	if err != nil {
 		tx.Rollback()
 		return &entry, err
