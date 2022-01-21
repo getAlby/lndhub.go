@@ -268,7 +268,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
 	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
-	invoice.State = "created"
+	invoice.State = "open"
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(context.TODO())
 	if err != nil {

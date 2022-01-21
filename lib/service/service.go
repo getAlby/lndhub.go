@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
+	"github.com/ziflex/lecho/v3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,6 +21,7 @@ type LndhubService struct {
 	Config         *Config
 	DB             *bun.DB
 	LndClient      lnrpc.LightningClient
+	Logger         *lecho.Logger
 	IdentityPubkey *btcec.PublicKey
 }
 

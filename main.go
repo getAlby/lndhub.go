@@ -118,6 +118,7 @@ func main() {
 		Config:         c,
 		DB:             dbConn,
 		LndClient:      lndClient,
+		Logger:         logger,
 		IdentityPubkey: identityPubKey,
 	}
 
@@ -140,6 +141,8 @@ func main() {
 	secured.GET("/getbtc", blankController.GetBtc)
 	secured.GET("/getpending", blankController.GetPending)
 	e.GET("/", blankController.Home)
+
+	go svc.InvoiceUpdateSubscription(context.Background())
 
 	// Start server
 	go func() {
