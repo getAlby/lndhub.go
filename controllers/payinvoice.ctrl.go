@@ -22,8 +22,8 @@ func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	var reqBody struct {
-		Invoice string `json:"invoice" validate:"required"`
-		Amount  int    `json:"amount" validate:"omitempty,gte=0"`
+		Invoice string      `json:"invoice" validate:"required"`
+		Amount  interface{} `json:"amount" validate:"omitempty"`
 	}
 
 	if err := c.Bind(&reqBody); err != nil {
@@ -46,6 +46,15 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	paymentRequest := reqBody.Invoice
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(paymentRequest)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
+		})
+	}
+	// TODO: zero amount invoices
+	_, err = controller.svc.ParseInt(reqBody.Amount)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,

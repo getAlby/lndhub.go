@@ -20,9 +20,9 @@ func NewAddInvoiceController(svc *service.LndhubService) *AddInvoiceController {
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	type RequestBody struct {
-		Amt             int64  `json:"amt" validate:"required,gte=0"` // amount in Satoshi
-		Memo            string `json:"memo"`
-		DescriptionHash string `json:"description_hash"`
+		Amount          interface{} `json:"amt"` // amount in Satoshi
+		Memo            string      `json:"memo"`
+		DescriptionHash string      `json:"description_hash"`
 	}
 
 	var body RequestBody
@@ -45,9 +45,17 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 		})
 	}
 
-	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, body.Amt, body.DescriptionHash)
+	amount, err := controller.svc.ParseInt(body.Amount)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    8,
+			"message": "Bad arguments",
+		})
+	}
+	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, amount, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(userID, body.Amt, body.Memo, body.DescriptionHash)
+	invoice, err := controller.svc.AddIncomingInvoice(userID, amount, body.Memo, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
 		// TODO: sentry notification
