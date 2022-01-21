@@ -20,6 +20,14 @@ func init() {
 				ADD CONSTRAINT check_not_same_account
 				CHECK (debit_account_id != credit_account_id);
 
+			-- make sure settled invoices have a preimage
+				alter table invoices
+				ADD CONSTRAINT check_primage_exists2
+				CHECK (
+					(preimage IS NULL AND state != 'settled') OR
+					(preimage IS NOT NULL AND state = 'settled')
+				);
+
 			-- make sure that account balances >= 0 (except for incoming account)
 				CREATE OR REPLACE FUNCTION check_balance()
 					RETURNS TRIGGER AS $$
