@@ -22,9 +22,9 @@ func init() {
 
 			-- make sure settled invoices have a preimage
 				alter table invoices
-				ADD CONSTRAINT check_primage_exists2
+				ADD CONSTRAINT check_primage_exists
 				CHECK (
-					(preimage IS NULL AND state != 'settled') OR
+					(state <> 'settled') OR
 					(preimage IS NOT NULL AND state = 'settled')
 				);
 

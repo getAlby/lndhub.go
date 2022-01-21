@@ -22,6 +22,7 @@ type Invoice struct {
 	DestinationPubkeyHex string       `json:"destination_pubkey_hex" bun:",notnull"`
 	RHash                string       `json:"r_hash"`
 	Preimage             string       `json:"preimage" bun:",nullzero"`
+	Internal             bool         `json:"internal" bun:",nullzero"`
 	State                string       `json:"state" bun:",default:'initialized'"`
 	AddIndex             uint64       `json:"add_index" bun:",nullzero"`
 	CreatedAt            time.Time    `bun:",nullzero,notnull,default:current_timestamp"`

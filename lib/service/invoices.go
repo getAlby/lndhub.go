@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -65,12 +64,12 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	if err != nil {
 		return sendPaymentResponse, err
 	}
-	// We do not have a preimage for internal transactions
-	// marking this transaction entry as an internal one that has no lightning settlement
-	preimageHex := fmt.Sprintf("internal;(to:%v from:%v)", incomingInvoice.UserID, invoice.UserID)
 
-	sendPaymentResponse.PreimageHex = preimageHex
-	incomingInvoice.Preimage = preimageHex
+	// For internal invoices we know the preimage and we use that as a response
+	// This allows wallets to get the correct preimage for a payment request even though NO lightning transaction was involved
+	sendPaymentResponse.PreimageHex = incomingInvoice.Preimage
+
+	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = "settled"
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
 	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
@@ -228,6 +227,7 @@ func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string
 }
 
 func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, descriptionHash string) (*models.Invoice, error) {
+	preimage := makePreimageHex()
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:            "incoming",
@@ -248,8 +248,8 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	lnInvoice := lnrpc.Invoice{
 		Memo:      memo,
 		Value:     amount,
-		RPreimage: makePreimageHex(),
-		Expiry:    3600 * 24, // 24h
+		RPreimage: preimage,
+		Expiry:    3600 * 24, // 24h // TODO: move to config
 	}
 	// Call LND
 	lnInvoiceResult, err := svc.LndClient.AddInvoice(context.TODO(), &lnInvoice)
@@ -260,6 +260,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	// Update the DB invoice with the data from the LND gRPC call
 	invoice.PaymentRequest = lnInvoiceResult.PaymentRequest
 	invoice.RHash = hex.EncodeToString(lnInvoiceResult.RHash)
+	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
 	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
 	invoice.State = "created"
