@@ -52,7 +52,7 @@ func init() {
 					IF debit_account_type IS NULL
 					THEN
 						RETURN NEW;
-					END;
+					END IF;
 
 					-- Calculate the account balance
 					SELECT INTO sum SUM(amount)
