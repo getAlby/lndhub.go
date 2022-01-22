@@ -19,7 +19,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	svc.Logger.Infof("Invoice update: r_hash:%s state:%v", rHashStr, rawInvoice.State.String())
 
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
-	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? ", "incoming", rHashStr, "settled").Limit(1).Scan(ctx)
+	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > NOW()", "incoming", rHashStr, "settled").Limit(1).Scan(ctx)
 	if err != nil {
 		return err
 	}
