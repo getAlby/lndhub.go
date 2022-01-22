@@ -93,20 +93,28 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	return nil
 }
 
-func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
+func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnrpc.Lightning_SubscribeInvoicesClient, error) {
 	invoiceSubscriptionOptions := lnrpc.InvoiceSubscription{}
-	invoiceSubscriptionStream, err := svc.LndClient.SubscribeInvoices(context.Background(), &invoiceSubscriptionOptions)
+	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
+}
+
+func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
+	invoiceSubscriptionStream, err := svc.ConnectInvoiceSubscription(ctx)
 	if err != nil {
 		return err
 	}
 	svc.Logger.Info("Subscribed to invoice updates starting from index: ")
-
 	for {
 		// receive the next invoice update
 		rawInvoice, err := invoiceSubscriptionStream.Recv()
 		if err != nil {
 			// TODO: sentry notification
 			svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+			// TODO: close the stream somehoe before retrying?
+			// Wait 30 seconds and try to reconnect
+			// TODO: implement some backoff
+			time.Sleep(30 * time.Second)
+			invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
 			continue
 		}
 
