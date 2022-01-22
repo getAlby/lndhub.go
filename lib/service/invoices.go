@@ -37,7 +37,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	//SendInternalPayment()
 	// find invoice
 	var incomingInvoice models.Invoice
-	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "created").Limit(1).Scan(context.TODO())
+	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "open").Limit(1).Scan(context.TODO())
 	if err != nil {
 		// invoice not found or already settled
 		// TODO: logging
@@ -197,6 +197,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string, decodedInvoice zpay32.Invoice) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	destinationPubkeyHex := hex.EncodeToString(decodedInvoice.Destination.SerializeCompressed())
+	expiresAt := decodedInvoice.Timestamp.Add(decodedInvoice.Expiry())
 	invoice := models.Invoice{
 		Type:                 "outgoing",
 		UserID:               userID,
@@ -204,6 +205,7 @@ func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string
 		PaymentRequest:       paymentRequest,
 		State:                "initialized",
 		DestinationPubkeyHex: destinationPubkeyHex,
+		ExpiresAt:            bun.NullTime{Time: expiresAt},
 	}
 	if decodedInvoice.DescriptionHash != nil {
 		dh := *decodedInvoice.DescriptionHash
@@ -228,6 +230,7 @@ func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string
 
 func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
 	preimage := makePreimageHex()
+	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:            "incoming",
@@ -236,6 +239,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 		Memo:            memo,
 		DescriptionHash: descriptionHashStr,
 		State:           "initialized",
+		ExpiresAt:       bun.NullTime{Time: time.Now().Add(expiry)},
 	}
 
 	// Save invoice - we save the invoice early to have a record in case the LN call fails
@@ -254,7 +258,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 		DescriptionHash: descriptionHash,
 		Value:           amount,
 		RPreimage:       preimage,
-		Expiry:          3600 * 24, // 24h // TODO: move to config
+		Expiry:          int64(expiry.Seconds()),
 	}
 	// Call LND
 	lnInvoiceResult, err := svc.LndClient.AddInvoice(context.TODO(), &lnInvoice)
@@ -268,7 +272,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
 	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
-	invoice.State = "created"
+	invoice.State = "open"
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(context.TODO())
 	if err != nil {

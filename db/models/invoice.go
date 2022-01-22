@@ -26,6 +26,7 @@ type Invoice struct {
 	State                string       `json:"state" bun:",default:'initialized'"`
 	AddIndex             uint64       `json:"add_index" bun:",nullzero"`
 	CreatedAt            time.Time    `bun:",nullzero,notnull,default:current_timestamp"`
+	ExpiresAt            bun.NullTime `bun:",nullzero"`
 	UpdatedAt            bun.NullTime `json:"updated_at"`
 	SettledAt            bun.NullTime `json:"settled_at"`
 }
