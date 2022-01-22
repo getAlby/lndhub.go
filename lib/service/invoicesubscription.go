@@ -94,7 +94,15 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 }
 
 func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnrpc.Lightning_SubscribeInvoicesClient, error) {
+	var invoice models.Invoice
 	invoiceSubscriptionOptions := lnrpc.InvoiceSubscription{}
+	// Find the oldest NOT settled invoice with an add_index
+	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
+	// IF we found an invoice we use that index to start the subscription
+	if err == nil {
+		invoiceSubscriptionOptions = lnrpc.InvoiceSubscription{AddIndex: invoice.AddIndex - 1} // -1 because we want updates for that invoice already
+	}
+	svc.Logger.Infof("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
 	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
 }
 
@@ -103,7 +111,6 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	svc.Logger.Info("Subscribed to invoice updates starting from index: ")
 	for {
 		// receive the next invoice update
 		rawInvoice, err := invoiceSubscriptionStream.Recv()
