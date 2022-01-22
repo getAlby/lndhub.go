@@ -142,6 +142,7 @@ func main() {
 	secured.GET("/getpending", blankController.GetPending)
 	e.GET("/", blankController.Home)
 
+	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
 
 	// Start server
