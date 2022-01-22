@@ -37,7 +37,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	//SendInternalPayment()
 	// find invoice
 	var incomingInvoice models.Invoice
-	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "created").Limit(1).Scan(context.TODO())
+	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "open").Limit(1).Scan(context.TODO())
 	if err != nil {
 		// invoice not found or already settled
 		// TODO: logging
