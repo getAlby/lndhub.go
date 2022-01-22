@@ -15,8 +15,8 @@ func (svc *LndhubService) CreateUser() (user *models.User, err error) {
 	user = &models.User{}
 
 	// generate user login/password (TODO: allow the user to choose a login/password?)
-	user.Login = randStringBytes(8)
-	password := randStringBytes(15)
+	user.Login = randStringBytes(20)
+	password := randStringBytes(20)
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
