@@ -31,8 +31,9 @@ vim .env # edit your config
 + `LND_ADDRESS`: LND address (with port)
 + `LND_MACAROON_HEX`: LND macaroon
 + `LND_CERT_HEX`: LND certificate
-+ `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here 
++ `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
++ `PORT`: (default: 3000) Port the app should listen on
 
 
 ## Developing
@@ -50,7 +51,7 @@ make
 ```
 
 
-## Database 
+## Database
 LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does not support the same data consistency checks as PostgreSQL.
 
 ### Ideas
@@ -61,31 +62,31 @@ LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does no
 ### Data model
 
 ```
-                                                               ┌─────────────┐                            
-                                                               │    User     │                            
-                                                               └─────────────┘                            
-                                                                      │                                   
-                                            ┌─────────────────┬───────┴─────────┬─────────────────┐       
-                                            ▼                 ▼                 ▼                 ▼       
+                                                               ┌─────────────┐
+                                                               │    User     │
+                                                               └─────────────┘
+                                                                      │
+                                            ┌─────────────────┬───────┴─────────┬─────────────────┐
+                                            ▼                 ▼                 ▼                 ▼
                  Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
                                     │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
                  Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-                 four accounts                                                                            
-                                                                                                          
-                                     Every Transaction Entry is associated to one debit account and one   
-                                                               credit account                             
-                                                                                                          
-                                                           ┌────────────────────────┐                     
-                                                           │Transaction Entry       │                     
-                                                           │                        │                     
-                                                           │+ user_id               │                     
-                             ┌────────────┐                │+ invoice_id            │                     
-                             │  Invoice   │────────────────▶+ debit_account_id      │                     
-                             └────────────┘                │+ credit_account_id     │                     
-                                                           │+ amount                │                     
-                            Invoice holds the              │+ ...                   │                     
-                            lightning related              │                        │                     
-                            data                           └────────────────────────┘                     
-                                                                                                          
+                 four accounts
+
+                                     Every Transaction Entry is associated to one debit account and one
+                                                               credit account
+
+                                                           ┌────────────────────────┐
+                                                           │Transaction Entry       │
+                                                           │                        │
+                                                           │+ user_id               │
+                             ┌────────────┐                │+ invoice_id            │
+                             │  Invoice   │────────────────▶+ debit_account_id      │
+                             └────────────┘                │+ credit_account_id     │
+                                                           │+ amount                │
+                            Invoice holds the              │+ ...                   │
+                            lightning related              │                        │
+                            data                           └────────────────────────┘
+
 ```
 
