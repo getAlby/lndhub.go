@@ -72,7 +72,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = "settled"
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
-	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
+	_, err = tx.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
 	if err != nil {
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
