@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -26,11 +27,7 @@ func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
 	// Probably we did not find the invoice
 	if err != nil {
 		c.Logger().Errorf("Invalid checkpayment request payment_hash=%s", rHash)
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": "Bad arguments",
-		})
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	var responseBody struct {

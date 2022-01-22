@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -33,20 +34,13 @@ func (controller *AuthController) Auth(c echo.Context) error {
 	}
 
 	if err := c.Validate(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": "Bad arguments",
-		})
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	accessToken, refreshToken, err := controller.svc.GenerateToken(body.Login, body.Password, body.RefreshToken)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": err.Error(),
-		})
+		c.Logger().Infof("Generate Token error %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadAuthError)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
