@@ -35,16 +35,31 @@ func init() {
 					sum BIGINT;
 					debit_account_type VARCHAR;
 				BEGIN
+
+					-- LOCK the account if the transaction is not from an incoming account
+					--  This makes sure we always check the balance of the account before commiting a transaction
+					--  (incoming accounts can be negative, so we do not care about those)
 					SELECT INTO debit_account_type type
 					FROM accounts
-					WHERE id = NEW.debit_account_id;
+					WHERE id = NEW.debit_account_id AND type <> 'incoming'
+					-- IMPORTANT: lock rows but do not wait for another lock to be released.
+					--   Waiting would result in a deadlock because two parallel transactions could try to lock the same rows
+					--   NOWAIT reports an error rather than waiting for the lock to be released
+					--   This can happen when two transactions try to access the same account
+					FOR UPDATE NOWAIT;
 
-					SELECT INTO  sum SUM(amount)
+					-- If it is an incoming account return; otherwise check the balance
+					IF debit_account_type IS NULL
+					THEN
+						RETURN NEW;
+					END IF;
+
+					-- Calculate the account balance
+					SELECT INTO sum SUM(amount)
 					FROM account_ledgers
 					WHERE account_ledgers.account_id = NEW.debit_account_id;
 
-					-- the incoming account can have a negative balance
-					-- all other accounts must have a positive balance
+					-- IF the account would go negative raise an exception
 					IF sum < 0 AND debit_account_type != 'incoming'
 					THEN
 						RAISE EXCEPTION 'invalid balance [user_id:%] [debit_account_id:%] balance [%]',
@@ -55,8 +70,11 @@ func init() {
 					RETURN NEW;
 				END;
 				$$ LANGUAGE plpgsql;
-				CREATE TRIGGER check_balance
+
+				-- create deferrable trigger which is executed at the end of the transaction to check the balance for each inserted transaction entry
+				CREATE CONSTRAINT TRIGGER check_balance
 				AFTER INSERT OR UPDATE ON transaction_entries
+				DEFERRABLE
 				FOR EACH ROW EXECUTE PROCEDURE check_balance();
 		`
 		if _, err := db.Exec(sql); err != nil {

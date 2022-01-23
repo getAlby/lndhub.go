@@ -62,31 +62,31 @@ LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does no
 ### Data model
 
 ```
-                                                               ┌─────────────┐
-                                                               │    User     │
-                                                               └─────────────┘
-                                                                      │
-                                            ┌─────────────────┬───────┴─────────┬─────────────────┐
-                                            ▼                 ▼                 ▼                 ▼
-                 Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-                                    │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
-                 Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-                 four accounts
-
-                                     Every Transaction Entry is associated to one debit account and one
-                                                               credit account
-
-                                                           ┌────────────────────────┐
-                                                           │Transaction Entry       │
-                                                           │                        │
-                                                           │+ user_id               │
-                             ┌────────────┐                │+ invoice_id            │
-                             │  Invoice   │────────────────▶+ debit_account_id      │
-                             └────────────┘                │+ credit_account_id     │
-                                                           │+ amount                │
-                            Invoice holds the              │+ ...                   │
-                            lightning related              │                        │
-                            data                           └────────────────────────┘
-
+                                                     ┌─────────────┐                            
+                                                     │    User     │                            
+                                                     └─────────────┘                            
+                                                            │                                   
+                                  ┌─────────────────┬───────┴─────────┬─────────────────┐       
+                                  ▼                 ▼                 ▼                 ▼       
+       Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+                          │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
+       Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+       four accounts                                                                            
+                                                                                                
+                           Every Transaction Entry is associated to one debit account and one   
+                                                    credit account                             
+                                                                                                
+                                                 ┌────────────────────────┐                     
+                                                 │Transaction Entry       │                     
+                                                 │                        │                     
+                                                 │+ user_id               │                     
+                   ┌────────────┐                │+ invoice_id            │                     
+                   │  Invoice   │────────────────▶+ debit_account_id      │                     
+                   └────────────┘                │+ credit_account_id     │                     
+                                                 │+ amount                │                     
+                  Invoice holds the              │+ ...                   │                     
+                  lightning related              │                        │                     
+                  data                           └────────────────────────┘                     
+                                                                                                
 ```
 
