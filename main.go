@@ -147,7 +147,7 @@ func main() {
 
 	// Start server
 	go func() {
-		if err := e.Start(":3000"); err != nil && err != http.ErrServerClosed {
+		if err := e.Start(fmt.Sprintf(":%v", c.Port)); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server")
 		}
 	}()
