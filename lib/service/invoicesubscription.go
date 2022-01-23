@@ -136,7 +136,7 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 
 		processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
 		if processingError != nil {
-			svc.Logger.Error(err)
+			svc.Logger.Error(processingError)
 			// TODO sentry notification
 		}
 	}
