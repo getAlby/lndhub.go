@@ -220,18 +220,20 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentRespo
 	return &paymentResponse, err
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string, decodedInvoice zpay32.Invoice) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string, decodedInvoice *zpay32.Invoice) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	destinationPubkeyHex := hex.EncodeToString(decodedInvoice.Destination.SerializeCompressed())
 	expiresAt := decodedInvoice.Timestamp.Add(decodedInvoice.Expiry())
 	invoice := models.Invoice{
 		Type:                 "outgoing",
 		UserID:               userID,
-		Memo:                 *decodedInvoice.Description,
 		PaymentRequest:       paymentRequest,
 		State:                "initialized",
 		DestinationPubkeyHex: destinationPubkeyHex,
 		ExpiresAt:            bun.NullTime{Time: expiresAt},
+	}
+	if decodedInvoice.Description != nil {
+		invoice.Memo = *decodedInvoice.Description
 	}
 	if decodedInvoice.DescriptionHash != nil {
 		dh := *decodedInvoice.DescriptionHash

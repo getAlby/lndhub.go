@@ -56,7 +56,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 	*/
 
-	invoice, err := controller.svc.AddOutgoingInvoice(userID, paymentRequest, *decodedPaymentRequest)
+	invoice, err := controller.svc.AddOutgoingInvoice(userID, paymentRequest, decodedPaymentRequest)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
 		// TODO: sentry notification
