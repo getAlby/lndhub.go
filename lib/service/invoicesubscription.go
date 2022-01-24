@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 )
@@ -110,6 +111,7 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnrpc
 func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 	invoiceSubscriptionStream, err := svc.ConnectInvoiceSubscription(ctx)
 	if err != nil {
+		sentry.CaptureException(err)
 		return err
 	}
 	for {
@@ -138,7 +140,7 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
 		if processingError != nil {
 			svc.Logger.Error(processingError)
-			// TODO sentry notification
+			sentry.CaptureException(processingError)
 		}
 	}
 }
