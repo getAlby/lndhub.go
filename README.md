@@ -28,9 +28,9 @@ vim .env # edit your config
 + `DATABASE_URI`: The URI for the database. If you want to use SQLite use for example: `file:data.db`
 + `JWT_SECRET`: We use [JWT](https://jwt.io/) for access tokens. Configure your secret here
 + `JWT_EXPIRY`: How long the access tokens should be valid (in seconds)
-+ `LND_ADDRESS`: LND address (with port)
-+ `LND_MACAROON_HEX`: LND macaroon
-+ `LND_CERT_HEX`: LND certificate
++ `LND_ADDRESS`: LND gRPC address (with port) (e.g. localhost:10009)
++ `LND_MACAROON_HEX`: LND macaroon (hex)
++ `LND_CERT_HEX`: LND certificate (hex)
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
 + `PORT`: (default: 3000) Port the app should listen on
