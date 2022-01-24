@@ -74,7 +74,7 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 
 	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
 	if invoiceType != "" {
-		query.Where("type = ?", invoiceType)
+		query.Where("type = ? AND state <> ?", invoiceType, "initialized")
 	}
 	query.OrderExpr("id DESC").Limit(100)
 	err := query.Scan(ctx)
