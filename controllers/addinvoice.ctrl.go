@@ -5,6 +5,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 )
 
@@ -47,7 +48,7 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	invoice, err := controller.svc.AddIncomingInvoice(userID, amount, body.Memo, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
-		// TODO: sentry notification
+		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 

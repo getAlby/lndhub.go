@@ -1,5 +1,13 @@
 package responses
 
+import (
+	"net/http"
+
+	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
+	"github.com/labstack/echo/v4"
+)
+
 type ErrorResponse struct {
 	Error   bool   `json:"error"`
 	Code    int    `json:"code"`
@@ -28,4 +36,18 @@ var NotEnoughBalanceError = ErrorResponse{
 	Error:   true,
 	Code:    2,
 	Message: "not enough balance. Make sure you have at least 1%% reserved for potential fees",
+}
+
+func HTTPErrorHandler(err error, c echo.Context) {
+	if c.Response().Committed {
+		return
+	}
+	c.Logger().Error(err)
+	if hub := sentryecho.GetHubFromContext(c); hub != nil {
+		hub.WithScope(func(scope *sentry.Scope) {
+			scope.SetExtra("UserID", c.Get("UserID"))
+			hub.CaptureException(err)
+		})
+	}
+	c.JSON(http.StatusInternalServerError, GeneralServerError)
 }

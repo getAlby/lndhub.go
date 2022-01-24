@@ -118,8 +118,8 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		// receive the next invoice update
 		rawInvoice, err := invoiceSubscriptionStream.Recv()
 		if err != nil {
-			// TODO: sentry notification
 			svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+			sentry.CaptureException(err)
 			// TODO: close the stream somehoe before retrying?
 			// Wait 30 seconds and try to reconnect
 			// TODO: implement some backoff
