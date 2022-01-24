@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -29,29 +30,17 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 
 	if err := c.Bind(&body); err != nil {
 		c.Logger().Errorf("Failed to load addinvoice request body: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": "Bad arguments",
-		})
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	if err := c.Validate(&body); err != nil {
 		c.Logger().Errorf("Invalid addinvoice request body: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": "Bad arguments",
-		})
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	amount, err := controller.svc.ParseInt(body.Amount)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": "Bad arguments",
-		})
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, amount, body.DescriptionHash)
 
@@ -59,11 +48,7 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
 		// TODO: sentry notification
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    8,
-			"message": "Bad arguments",
-		})
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	var responseBody struct {

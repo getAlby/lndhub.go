@@ -18,8 +18,20 @@ import (
 	"github.com/uptrace/bun/schema"
 )
 
+type Route struct {
+	TotalAmt  int64 `json:"total_amt"`
+	TotalFees int64 `json:"total_fees"`
+}
+
 type SendPaymentResponse struct {
-	PreimageHex string
+	PaymentPreimage    []byte `json:"payment_preimage,omitempty"`
+	PaymentPreimageStr string
+	PaymentError       string `json:"payment_error,omitempty"`
+	PaymentHash        []byte `json:"payment_hash,omitempty"`
+	PaymentHashStr     string
+	PaymentRoute       *Route
+	TransactionEntry   *models.TransactionEntry
+	Invoice            *models.Invoice
 }
 
 func (svc *LndhubService) FindInvoiceByPaymentHash(userId int64, rHash string) (*models.Invoice, error) {
@@ -67,7 +79,14 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 
 	// For internal invoices we know the preimage and we use that as a response
 	// This allows wallets to get the correct preimage for a payment request even though NO lightning transaction was involved
-	sendPaymentResponse.PreimageHex = incomingInvoice.Preimage
+	preimage, _ := hex.DecodeString(incomingInvoice.Preimage)
+	sendPaymentResponse.PaymentPreimageStr = incomingInvoice.Preimage
+	sendPaymentResponse.PaymentPreimage = preimage
+	sendPaymentResponse.Invoice = invoice
+	paymentHash, _ := hex.DecodeString(invoice.RHash)
+	sendPaymentResponse.PaymentHashStr = invoice.RHash
+	sendPaymentResponse.PaymentHash = paymentHash
+	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: invoice.Amount, TotalFees: 0}
 
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = "settled"
@@ -110,11 +129,16 @@ func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (
 	}
 
 	preimage := sendPaymentResult.GetPaymentPreimage()
-	sendPaymentResponse.PreimageHex = hex.EncodeToString(preimage[:])
+	sendPaymentResponse.PaymentPreimage = preimage
+	sendPaymentResponse.PaymentPreimageStr = hex.EncodeToString(preimage[:])
+	paymentHash := sendPaymentResult.GetPaymentHash()
+	sendPaymentResponse.PaymentHash = paymentHash
+	sendPaymentResponse.PaymentHashStr = hex.EncodeToString(paymentHash[:])
+	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: sendPaymentResult.PaymentRoute.TotalAmt, TotalFees: sendPaymentResult.PaymentRoute.TotalFees}
 	return sendPaymentResponse, nil
 }
 
-func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.TransactionEntry, error) {
+func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentResponse, error) {
 	userId := invoice.UserID
 
 	// Get the user's current and outgoing account for the transaction entry
@@ -139,7 +163,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 	// We rollback anything on error (only the invoice that was passed in to the PayInvoice calls stays in the DB)
 	tx, err := svc.DB.BeginTx(context.TODO(), &sql.TxOptions{})
 	if err != nil {
-		return &entry, err
+		return nil, err
 	}
 
 	// The DB constraints make sure the user actually has enough balance for the transaction
@@ -147,7 +171,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 	_, err = tx.NewInsert().Model(&entry).Exec(context.TODO())
 	if err != nil {
 		tx.Rollback()
-		return &entry, err
+		return nil, err
 	}
 
 	// TODO: maybe save errors on the invoice?
@@ -157,41 +181,43 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*models.Transacti
 	destinationPubkey, err := invoice.DestinationPubkey()
 	if err != nil {
 		// TODO: logging
-		return &entry, err
+		return nil, err
 	}
 	if svc.IdentityPubkey.IsEqual(destinationPubkey) {
 		paymentResponse, err = svc.SendInternalPayment(&tx, invoice)
 		if err != nil {
 			tx.Rollback()
-			return &entry, err
+			return nil, err
 		}
 	} else {
 		paymentResponse, err = svc.SendPaymentSync(&tx, invoice)
 		if err != nil {
 			tx.Rollback()
-			return &entry, err
+			return nil, err
 		}
 	}
 
+	paymentResponse.TransactionEntry = &entry
+
 	// The payment was successful.
-	invoice.Preimage = paymentResponse.PreimageHex
+	invoice.Preimage = paymentResponse.PaymentPreimageStr
 	invoice.State = "settled"
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
 	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(context.TODO())
 	if err != nil {
 		tx.Rollback()
-		return &entry, err
+		return nil, err
 	}
 
 	// Commit the DB transaction. Done, everything worked
 	err = tx.Commit()
 
 	if err != nil {
-		return &entry, err
+		return nil, err
 	}
 
-	return &entry, err
+	return &paymentResponse, err
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string, decodedInvoice zpay32.Invoice) (*models.Invoice, error) {
