@@ -1,7 +1,9 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,8 +11,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/uptrace/bun/migrate"
 
@@ -21,34 +21,64 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 )
 
-func TestCreateUser(t *testing.T) {
-	c := &service.Config{}
+func TestCreateAndAuthUser(t *testing.T) {
 	e := echo.New()
 
-	// Load configruation from environment variables
+	req := httptest.NewRequest(http.MethodPost, "/create", nil)
+	rec := httptest.NewRecorder()
+
+	ctxEcho := e.NewContext(req, rec)
+
+	lndHubService, err := LndHubServiceInit()
+	assert.Nil(t, err)
+
+	createUserCtrl := controllers.NewCreateUserController(lndHubService)
+	authCtrl := controllers.NewAuthController(lndHubService)
+
+	t.Run("success create new user", func(t *testing.T) {
+		err := createUserCtrl.CreateUser(ctxEcho)
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+
+	req = httptest.NewRequest(http.MethodPost, "/auth", bytes.NewBufferString(rec.Body.String()))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+
+	ctxEcho = e.NewContext(req, rec)
+
+	t.Run("success authenticate user", func(t *testing.T) {
+		err := authCtrl.Auth(ctxEcho)
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+}
+
+func LndHubServiceInit() (*service.LndhubService, error) {
+	c := &service.Config{}
+
 	err := godotenv.Load("../.env")
 	if err != nil {
-		log.Errorf("Failed to load .env file")
+		return nil, fmt.Errorf("failed to load .env file: %w", err)
 	}
 	err = envconfig.Process("", c)
 	if err != nil {
-		log.Errorf("Failed to process env")
+		return nil, fmt.Errorf("failed to process env: %w", err)
 	}
 
-	dbConn, err := db.Open(c.TestDatabaseUri)
+	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
-		logrus.Fatalf("failed to connect to database: %v", err)
-		return
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 	ctx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to init migrations: %w", err)
 	}
 	_, err = migrator.Migrate(ctx)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to migrate: %w", err)
 	}
 
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
@@ -56,20 +86,12 @@ func TestCreateUser(t *testing.T) {
 		MacaroonHex: c.TestLNDMacaroonHex,
 		CertHex:     c.TestLNDCertHex,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize lnd service client: %w", err)
+	}
 
-	req := httptest.NewRequest(http.MethodPost, "/create", nil)
-	rec := httptest.NewRecorder()
-
-	ctxEcho := e.NewContext(req, rec)
-
-	createUserService := &service.LndhubService{
+	return &service.LndhubService{
 		DB:        dbConn,
 		LndClient: &lndClient,
-	}
-
-	createUserCtrl := controllers.NewCreateUserController(createUserService)
-
-	if assert.NoError(t, createUserCtrl.CreateUser(ctxEcho)) {
-		assert.Equal(t, http.StatusOK, rec.Code)
-	}
+	}, nil
 }
