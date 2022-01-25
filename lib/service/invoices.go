@@ -124,7 +124,6 @@ func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (
 
 	// If there was a payment error we rollback and return an error
 	if sendPaymentResult.GetPaymentError() != "" || sendPaymentResult.GetPaymentPreimage() == nil {
-		// TODO: log the error / sentry?
 		return sendPaymentResponse, errors.New(sendPaymentResult.GetPaymentError())
 	}
 

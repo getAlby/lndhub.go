@@ -8,6 +8,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 )
 
@@ -42,6 +43,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(paymentRequest)
 	if err != nil {
 		c.Logger().Errorf("Invalid payment request: %v", err)
+		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	// TODO: zero amount invoices
@@ -58,9 +60,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	invoice, err := controller.svc.AddOutgoingInvoice(userID, paymentRequest, decodedPaymentRequest)
 	if err != nil {
-		c.Logger().Errorf("Error creating invoice: %v", err)
-		// TODO: sentry notification
-		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+		return err
 	}
 
 	currentBalance, err := controller.svc.CurrentUserBalance(context.TODO(), userID)
@@ -77,7 +77,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	sendPaymentResponse, err := controller.svc.PayInvoice(invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed: %v", err)
-		// TODO: sentry notification
+		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    10,

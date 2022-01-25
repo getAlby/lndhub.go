@@ -39,8 +39,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 
 	accessToken, refreshToken, err := controller.svc.GenerateToken(body.Login, body.Password, body.RefreshToken)
 	if err != nil {
-		c.Logger().Infof("Generate Token error %v", err)
-		return c.JSON(http.StatusBadRequest, responses.BadAuthError)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{

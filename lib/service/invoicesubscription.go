@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 )
@@ -21,7 +22,8 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
 	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > NOW()", "incoming", rHashStr, "settled").Limit(1).Scan(ctx)
 	if err != nil {
-		return err
+		svc.Logger.Infof("Invoice not found. Ignoring. r_hash:%s", rHashStr)
+		return nil
 	}
 
 	// Update the DB entry of the invoice
@@ -109,14 +111,15 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnrpc
 func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 	invoiceSubscriptionStream, err := svc.ConnectInvoiceSubscription(ctx)
 	if err != nil {
+		sentry.CaptureException(err)
 		return err
 	}
 	for {
 		// receive the next invoice update
 		rawInvoice, err := invoiceSubscriptionStream.Recv()
 		if err != nil {
-			// TODO: sentry notification
 			svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+			sentry.CaptureException(err)
 			// TODO: close the stream somehoe before retrying?
 			// Wait 30 seconds and try to reconnect
 			// TODO: implement some backoff
@@ -137,7 +140,7 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
 		if processingError != nil {
 			svc.Logger.Error(processingError)
-			// TODO sentry notification
+			sentry.CaptureException(processingError)
 		}
 	}
 }
