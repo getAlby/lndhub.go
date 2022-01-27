@@ -142,7 +142,9 @@ func main() {
 	blankController := controllers.NewBlankController(svc)
 	secured.GET("/getbtc", blankController.GetBtc)
 	secured.GET("/getpending", blankController.GetPending)
-	e.GET("/", blankController.Home)
+	e.GET("/", controllers.NewHomeController(svc).Home)
+	e.GET("/qr", controllers.NewHomeController(svc).QR)
+	e.Static("/static", "static")
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
