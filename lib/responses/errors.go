@@ -49,5 +49,12 @@ func HTTPErrorHandler(err error, c echo.Context) {
 			hub.CaptureException(err)
 		})
 	}
-	c.JSON(http.StatusInternalServerError, GeneralServerError)
+	code := http.StatusInternalServerError
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		c.JSON(code, he.Message)
+	} else {
+		c.JSON(http.StatusInternalServerError, GeneralServerError)
+	}
+	// TODO: use an error matching the error code
 }
