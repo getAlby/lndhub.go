@@ -38,7 +38,7 @@ jobs:
         repository: getalby/alby-deployment
         branch: main
         createPR: false
-        message: 'CD: Update lndhub tag to ${{ steps.build.outputs.tag }}'
+        message: 'CD: Update lndhub tag to ${{ steps.build.outputs.tags }}'
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         workDir: infrastructure
     # Only update prod environment if this action was triggered by a new tag
