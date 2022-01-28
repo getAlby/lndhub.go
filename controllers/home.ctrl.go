@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -21,12 +22,14 @@ const (
 
 // HomeController : HomeController struct
 type HomeController struct {
-	svc *service.LndhubService
+	svc  *service.LndhubService
+	html string
 }
 
-func NewHomeController(svc *service.LndhubService) *HomeController {
+func NewHomeController(svc *service.LndhubService, html string) *HomeController {
 	return &HomeController{
-		svc: svc,
+		svc:  svc,
+		html: html,
 	}
 }
 
@@ -57,7 +60,6 @@ func Max(x, y int) int {
 	}
 	return x
 }
-
 func (controller *HomeController) QR(c echo.Context) error {
 	customPath := strings.Replace(c.Request().URL.Path, "/qr", "", 1)
 	encoded := url.QueryEscape(fmt.Sprintf("%s://%s%s", c.Request().URL.Scheme, c.Request().Host, customPath))
@@ -78,7 +80,8 @@ func (controller *HomeController) Home(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	tmpl, err := template.ParseFiles("templates/index.html")
+
+	tmpl, err := template.New("index").Parse(controller.html)
 	if err != nil {
 		return err
 	}
