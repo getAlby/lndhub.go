@@ -32,7 +32,7 @@ jobs:
     - name: Update dev environment
       uses: fjogeleit/yaml-update-action@v0.7.0
       with:
-        valueFile: alby-simnet-deployment/values.yaml'
+        valueFile: 'alby-simnet-deployment/values.yaml'
         propertyPath: 'lndhub.image.tag'
         value: ${{ steps.build.outputs.tags }}
         repository: getalby/alby-deployment
@@ -46,12 +46,12 @@ jobs:
       if: startsWith(github.ref, 'refs/tags')
       uses: fjogeleit/yaml-update-action@v0.7.0
       with:
-        valueFile: alby-mainnet-deployment/values.yaml'
+        valueFile: 'alby-mainnet-deployment/values.yaml'
         propertyPath: 'lndhub.image.tag'
         value: ${{ steps.build.outputs.tags }}
         repository: getalby/alby-deployment
         branch: main
         createPR: false
-        message: 'CD: Update lndhub tag to ${{ steps.build.outputs.tag }}'
+        message: 'CD: Update lndhub tag to ${{ steps.build.outputs.tags }}'
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         workDir: infrastructure
