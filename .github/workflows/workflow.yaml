@@ -16,6 +16,7 @@ jobs:
       name: Check out code
     - name: Docker build
       uses: mr-smithers-excellent/docker-build-push@v5
+      id: build
       with:
         image: ${{ env.IMAGENAME }}
         registry: ${{ env.REGISTRY }}
