@@ -140,10 +140,11 @@ func main() {
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
+	homeController := controllers.NewHomeController(svc)
 	secured.GET("/getbtc", blankController.GetBtc)
 	secured.GET("/getpending", blankController.GetPending)
-	e.GET("/", controllers.NewHomeController(svc).Home)
-	e.GET("/qr", controllers.NewHomeController(svc).QR)
+	e.GET("/", homeController.Home)
+	e.GET("/qr", homeController.QR)
 	e.Static("/static", "static")
 
 	// Subscribe to LND invoice updates in the background
