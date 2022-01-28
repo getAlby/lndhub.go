@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -30,6 +31,12 @@ import (
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 )
+
+//go:embed templates/index.html
+var indexHtml string
+
+//go:embed static/*
+var staticContent embed.FS
 
 func main() {
 	c := &service.Config{}
@@ -142,7 +149,14 @@ func main() {
 	blankController := controllers.NewBlankController(svc)
 	secured.GET("/getbtc", blankController.GetBtc)
 	secured.GET("/getpending", blankController.GetPending)
-	e.GET("/", blankController.Home)
+
+	//Index page endpoints, no Authorization required
+	homeController := controllers.NewHomeController(svc, indexHtml)
+	e.GET("/", homeController.Home)
+	e.GET("/qr", homeController.QR)
+	//workaround, just adding /static would make a request to these resources hit the authorized group
+	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
+	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
