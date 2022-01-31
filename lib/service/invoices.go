@@ -108,7 +108,7 @@ func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (
 		//	Percent: 2,
 		//},
 		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: 200,
+			Fixed: 300,
 		},
 	}
 
