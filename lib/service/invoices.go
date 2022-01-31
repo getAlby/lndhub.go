@@ -102,10 +102,13 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 
 func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
-	// TODO: set fee limit
+	// TODO: set dynamic fee limit
 	feeLimit := lnrpc.FeeLimit{
-		Limit: &lnrpc.FeeLimit_Percent{
-			Percent: 2,
+		//Limit: &lnrpc.FeeLimit_Percent{
+		//	Percent: 2,
+		//},
+		Limit: &lnrpc.FeeLimit_Fixed{
+			Fixed: 300,
 		},
 	}
 
