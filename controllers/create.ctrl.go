@@ -16,6 +16,11 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 	return &CreateUserController{svc: svc}
 }
 
+type CreateUserResponseBody struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
 // CreateUser : Create user Controller
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	// optional parameters that we currently do not use
@@ -34,10 +39,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 		return err
 	}
 
-	var ResponseBody struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
+	var ResponseBody CreateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Password = user.Password
 
