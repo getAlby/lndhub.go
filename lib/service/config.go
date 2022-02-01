@@ -9,5 +9,6 @@ type Config struct {
 	LNDAddress     string `envconfig:"LND_ADDRESS" required:"true"`
 	LNDMacaroonHex string `envconfig:"LND_MACAROON_HEX" required:"true"`
 	LNDCertHex     string `envconfig:"LND_CERT_HEX"`
+	CustomName     string `envconfig:"CUSTOM_NAME"`
 	Port           int    `envconfig:"PORT" default:"3000"`
 }

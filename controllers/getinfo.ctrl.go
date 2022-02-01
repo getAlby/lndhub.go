@@ -25,7 +25,10 @@ func (controller *GetInfoController) GetInfo(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if controller.svc.Config.CustomName != "" {
+		info.Alias = controller.svc.Config.CustomName
+	}
 	// BlueWallet right now requires a `identity_pubkey` in the response
 	// https://github.com/BlueWallet/BlueWallet/blob/a28a2b96bce0bff6d1a24a951b59dc972369e490/class/wallets/lightning-custodian-wallet.js#L578
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, info)
 }
