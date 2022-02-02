@@ -54,7 +54,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 
 	// if the invoice is NOT settled we just update the invoice state
 	if !rawInvoice.Settled {
-		svc.Logger.Infof("Invoice not settled invoice_id:%v state:", invoice.ID, rawInvoice.State.String())
+		svc.Logger.Infof("Invoice not settled invoice_id:%v state: %s", invoice.ID, rawInvoice.State.String())
 		invoice.State = strings.ToLower(rawInvoice.State.String())
 
 	} else {
