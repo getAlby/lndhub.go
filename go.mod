@@ -1,6 +1,7 @@
 module github.com/getAlby/lndhub.go
 
 go 1.17
+
 // +heroku goVersion go1.17
 
 require (
@@ -51,6 +52,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fergusstrange/embedded-postgres v1.10.0 // indirect
+	github.com/fiatjaf/lightningd-gjson-rpc v1.4.1
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
