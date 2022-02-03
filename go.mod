@@ -31,6 +31,7 @@ require (
 	github.com/fiatjaf/lightningd-gjson-rpc v1.4.1
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/tidwall/gjson v1.6.0
 	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	google.golang.org/genproto v0.0.0-20220114231437-d2e6a121cae0 // indirect

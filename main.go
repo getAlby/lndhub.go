@@ -167,7 +167,7 @@ func main() {
 
 	// Subscribe to LND invoice updates in the background
 	// CLN: todo: re-write logic
-	//go svc.InvoiceUpdateSubscription(context.Background())
+	go svc.InvoiceUpdateSubscription(context.Background())
 
 	// Start server
 	go func() {

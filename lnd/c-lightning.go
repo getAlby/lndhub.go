@@ -7,6 +7,7 @@ import (
 	cln "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/gofrs/uuid"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
 )
 
@@ -15,19 +16,24 @@ const (
 )
 
 type CLNClient struct {
-	client *cln.Client
+	client  *cln.Client
+	handler *InvoiceHandler
 }
 
+type InvoiceHandler struct {
+	invoiceChan chan (*lnrpc.Invoice)
+}
 type CLNClientOptions struct {
 	SparkUrl   string
 	SparkToken string
 }
 
 func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
+	handler := &InvoiceHandler{}
 	return &CLNClient{
+		handler: handler,
 		client: &cln.Client{
-			//PaymentHandler: func(gjson.Result) {
-			//},
+			PaymentHandler: handler.Handle,
 			//CallTimeout:           0,
 			//Path:                  "",
 			//LightningDir:          "",
@@ -35,6 +41,15 @@ func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
 			SparkToken: options.SparkToken,
 		},
 	}, nil
+}
+
+func (cln *CLNClient) Recv() (invoice *lnrpc.Invoice, err error) {
+	return nil, nil
+}
+
+func (handler *InvoiceHandler) Handle(gjson.Result) {
+	invoice := &lnrpc.Invoice{}
+	handler.invoiceChan <- invoice
 }
 
 func (cl *CLNClient) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
@@ -119,8 +134,8 @@ func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 // This method will read from a channel or block
 // The handler function publishes on the channel on a received invoice
 // set the client's invoice index to the one from req
-func (cl *CLNClient) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (lnrpc.Lightning_SubscribeInvoicesClient, error) {
-	panic("not implemented") // TODO: Implement
+func (cl *CLNClient) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
+	return cl, nil
 }
 
 func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
