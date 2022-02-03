@@ -101,10 +101,17 @@ func main() {
 	}
 
 	// Init new LND client
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     c.LNDAddress,
-		MacaroonHex: c.LNDMacaroonHex,
-		CertHex:     c.LNDCertHex,
+	//lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+	//	Address:     c.LNDAddress,
+	//	MacaroonHex: c.LNDMacaroonHex,
+	//	CertHex:     c.LNDCertHex,
+	//})
+
+	//Init new CLN client
+	//re-use other config to not make things overcomplicated
+	lndClient, err := lnd.NewCLNClient(lnd.CLNClientOptions{
+		SparkUrl:   c.LNDAddress,
+		SparkToken: c.LNDMacaroonHex,
 	})
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
@@ -159,7 +166,8 @@ func main() {
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	// CLN: todo: re-write logic
+	//go svc.InvoiceUpdateSubscription(context.Background())
 
 	// Start server
 	go func() {
