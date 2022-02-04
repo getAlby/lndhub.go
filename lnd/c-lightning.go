@@ -29,7 +29,9 @@ type CLNClientOptions struct {
 }
 
 func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
-	handler := &InvoiceHandler{}
+	handler := &InvoiceHandler{
+		invoiceChan: make(chan *lnrpc.Invoice),
+	}
 	return &CLNClient{
 		handler: handler,
 		client: &cln.Client{
