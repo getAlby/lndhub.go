@@ -43,12 +43,42 @@ func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
 	}, nil
 }
 
+//todo handle errors?
 func (cln *CLNClient) Recv() (invoice *lnrpc.Invoice, err error) {
-	return nil, nil
+	return <-cln.handler.invoiceChan, nil
 }
 
-func (handler *InvoiceHandler) Handle(gjson.Result) {
-	invoice := &lnrpc.Invoice{}
+func (handler *InvoiceHandler) Handle(res gjson.Result) {
+	//todo missing or wrong fields
+	invoice := &lnrpc.Invoice{
+		Memo:            res.Get("description").String(),
+		RPreimage:       []byte(res.Get("payment_preimage").String()),
+		RHash:           []byte(res.Get("payment_hash").String()),
+		Value:           res.Get("amount_msat").Int() / MSAT_PER_SAT,
+		ValueMsat:       res.Get("amount_msat").Int(),
+		Settled:         true,
+		CreationDate:    0,
+		SettleDate:      res.Get("paid_at").Int(),
+		PaymentRequest:  res.Get("bolt11").String(),
+		DescriptionHash: []byte{},
+		Expiry:          0,
+		FallbackAddr:    "",
+		CltvExpiry:      0,
+		RouteHints:      []*lnrpc.RouteHint{},
+		Private:         false,
+		AddIndex:        0,
+		SettleIndex:     0,
+		AmtPaid:         res.Get("amount_msat").Int() / MSAT_PER_SAT,
+		AmtPaidSat:      res.Get("amount_msat").Int() / MSAT_PER_SAT,
+		AmtPaidMsat:     res.Get("amount_msat").Int(),
+		State:           lnrpc.Invoice_SETTLED,
+		Htlcs:           []*lnrpc.InvoiceHTLC{},
+		Features:        map[uint32]*lnrpc.Feature{},
+		IsKeysend:       false,
+		PaymentAddr:     []byte{},
+		IsAmp:           false,
+		AmpInvoiceState: map[string]*lnrpc.AMPInvoiceState{},
+	}
 	handler.invoiceChan <- invoice
 }
 
