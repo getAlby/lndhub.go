@@ -1,6 +1,7 @@
 package lnd
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
@@ -23,8 +24,11 @@ type LNDoptions struct {
 	MacaroonHex  string
 }
 
-func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
+type LNDWrapper struct {
+	client lnrpc.LightningClient
+}
 
+func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 	// Get credentials either from a hex string, a file or the system's certificate store
 	var creds credentials.TransportCredentials
 	// if a hex string is provided
@@ -82,5 +86,27 @@ func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
 		return nil, err
 	}
 
-	return lnrpc.NewLightningClient(conn), nil
+	return &LNDWrapper{
+		client: lnrpc.NewLightningClient(conn),
+	}, nil
+}
+
+func (wrapper *LNDWrapper) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
+	return wrapper.client.ListChannels(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+	return wrapper.client.SendPaymentSync(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
+	return wrapper.client.AddInvoice(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
+	return wrapper.client.SubscribeInvoices(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
+	return wrapper.client.GetInfo(ctx, req, options...)
 }
