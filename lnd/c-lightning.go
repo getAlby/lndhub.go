@@ -3,6 +3,7 @@ package lnd
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	cln "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/gofrs/uuid"
@@ -143,6 +144,10 @@ func (cl *CLNClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest
 		PaymentError:    "",
 		PaymentPreimage: []byte(result.Get("payment_preimage").String()),
 		PaymentHash:     []byte(result.Get("payment_hash").String()),
+		PaymentRoute: &lnrpc.Route{
+			TotalFees: result.Get("amount_sent_msat").Int() - result.Get("amount_msat").Int(),
+			TotalAmt:  result.Get("amount_sent_msat").Int(),
+		},
 	}, nil
 }
 
@@ -152,7 +157,13 @@ func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 		return nil, err
 	}
 	mSatAmt := MSAT_PER_SAT * req.Value
-	res, err := cl.client.Call("invoicewithdescriptionhash", mSatAmt, uuid.String(), req.DescriptionHash)
+	methodToCall := "invoice"
+	arg := req.Memo
+	if !reflect.DeepEqual(req.DescriptionHash, []byte("")) {
+		methodToCall = "invoicewithdescriptionhash"
+		arg = string(req.DescriptionHash)
+	}
+	res, err := cl.client.Call(methodToCall, mSatAmt, uuid.String(), arg)
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +178,8 @@ func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 // The handler function publishes on the channel on a received invoice
 // set the client's invoice index to the one from req
 func (cl *CLNClient) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
+	cl.client.LastInvoiceIndex = int(req.AddIndex)
+	cl.client.ListenForInvoices()
 	return cl, nil
 }
 
