@@ -8,8 +8,8 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/crypto/bcrypt"
@@ -20,7 +20,7 @@ const alphaNumBytes = random.Alphanumeric
 type LndhubService struct {
 	Config         *Config
 	DB             *bun.DB
-	LndClient      lnrpc.LightningClient
+	LndClient      lnd.LightningClientWrapper
 	Logger         *lecho.Logger
 	IdentityPubkey *btcec.PublicKey
 }
