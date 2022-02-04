@@ -69,7 +69,7 @@ func (handler *InvoiceHandler) Handle(res gjson.Result) {
 		CltvExpiry:      0,
 		RouteHints:      []*lnrpc.RouteHint{},
 		Private:         false,
-		AddIndex:        0,
+		AddIndex:        res.Get("pay_index").Uint(),
 		SettleIndex:     0,
 		AmtPaid:         res.Get("amount_msat").Int() / MSAT_PER_SAT,
 		AmtPaidSat:      res.Get("amount_msat").Int() / MSAT_PER_SAT,
