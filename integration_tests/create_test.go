@@ -67,8 +67,11 @@ func TestCreateUserTestSuite(t *testing.T) {
 }
 
 func LndHubTestServiceInit() (*service.LndhubService, error) {
+	// change this if you want to run tests using sqlite
+	// dbUri := "file:data_test.db"
+	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
-		DatabaseUri:    "file:data_test.db",
+		DatabaseUri:    dbUri,
 		JWTSecret:      []byte("SECRET"),
 		JWTExpiry:      3600,
 		LNDAddress:     "rpc.lnd1.regtest.getalby.com:443",
