@@ -69,6 +69,7 @@ func TestCreateUserTestSuite(t *testing.T) {
 func LndHubTestServiceInit() (*service.LndhubService, error) {
 	// change this if you want to run tests using sqlite
 	// dbUri := "file:data_test.db"
+	//make sure the datbase is empty every time you run the test suite
 	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
 		DatabaseUri:    dbUri,
@@ -120,7 +121,5 @@ func LndHubTestServiceInit() (*service.LndhubService, error) {
 		logger.Fatalf("Failed to parse node IdentityPubkey: %v", err)
 	}
 	svc.IdentityPubkey = identityPubKey
-	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
 	return svc, nil
 }

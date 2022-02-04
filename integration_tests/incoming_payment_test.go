@@ -47,6 +47,8 @@ func (suite *IncomingPaymentTestSuite) SetupSuite() {
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
+	// Subscribe to LND invoice updates in the background
+	go svc.InvoiceUpdateSubscription(context.Background())
 	suite.service = svc
 	e := echo.New()
 
