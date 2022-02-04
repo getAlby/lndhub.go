@@ -216,3 +216,24 @@ func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 		Uris: uris,
 	}, nil
 }
+
+func (cl *CLNClient) DecodeOffer(ctx context.Context, offer string) (*Offer, error) {
+	result, err := cl.client.Call("decode", offer)
+	if err != nil {
+		return nil, err
+	}
+	chains := []string{}
+	for _, ch := range result.Get("chains").Array() {
+		chains = append(chains, ch.String())
+	}
+	return &Offer{
+		Type:        result.Get("type").String(),
+		OfferID:     result.Get("offer_id").String(),
+		Description: result.Get("description").String(),
+		NodeID:      result.Get("node_id").String(),
+		Signature:   result.Get("signature").String(),
+		Vendor:      result.Get("vendor").String(),
+		Chains:      chains,
+		Valid:       result.Get("valid").Bool(),
+	}, nil
+}
