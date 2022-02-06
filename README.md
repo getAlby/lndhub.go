@@ -6,8 +6,9 @@ Wrapper for Lightning Network Daemon (lnd). It provides separate accounts with m
 * Using a relational database (PostgreSQL and SQLite)
 * Focussing only on Lightning (no onchain functionality)
 * No runtime dependencies (simple Go executable)
+* Extensible to add more features 
 
-### Status: WIP
+### Status: alpha 
 
 ## Known Issues
 
