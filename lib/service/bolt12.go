@@ -8,7 +8,7 @@ import (
 )
 
 func (svc *LndhubService) FetchBolt12Invoice(ctx context.Context, offer, memo string, amt int64) (result *lnd.Bolt12Invoice, err error) {
-	return nil, err
+	return svc.LndClient.FetchBolt12Invoice(ctx, offer, memo, amt)
 }
 
 func (svc *LndhubService) PayBolt12Invoice(ctx context.Context, invoice string) (result *lnrpc.SendResponse, err error) {

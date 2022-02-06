@@ -151,6 +151,16 @@ func (cl *CLNClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest
 	}, nil
 }
 
+func (cl *CLNClient) FetchBolt12Invoice(ctx context.Context, offer, memo string, amount int64) (*Bolt12Invoice, error) {
+	res, err := cl.client.CallNamed("fetchinvoice", "offer", offer, "msatoshi", amount*MSAT_PER_SAT, "payer_note", memo)
+	if err != nil {
+		return nil, err
+	}
+	return &Bolt12Invoice{
+		Invoice: res.Get("invoice").String(),
+	}, nil
+}
+
 func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
 	uuid, err := uuid.NewV4()
 	if err != nil {
