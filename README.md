@@ -32,6 +32,7 @@ vim .env # edit your config
 + `LND_ADDRESS`: LND gRPC address (with port) (e.g. localhost:10009)
 + `LND_MACAROON_HEX`: LND macaroon (hex)
 + `LND_CERT_HEX`: LND certificate (hex)
++ `CUSTOM_NAME`: Name used to overwrite the node alias in the getInfo call
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
 + `PORT`: (default: 3000) Port the app should listen on
