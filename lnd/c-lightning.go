@@ -145,8 +145,8 @@ func (cl *CLNClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest
 		PaymentPreimage: []byte(result.Get("payment_preimage").String()),
 		PaymentHash:     []byte(result.Get("payment_hash").String()),
 		PaymentRoute: &lnrpc.Route{
-			TotalFees: result.Get("amount_sent_msat").Int() - result.Get("amount_msat").Int(),
-			TotalAmt:  result.Get("amount_sent_msat").Int(),
+			TotalFees: result.Get("msatoshi_sent").Int()/MSAT_PER_SAT - result.Get("msatoshi").Int()/MSAT_PER_SAT,
+			TotalAmt:  result.Get("msatoshi_sent").Int() / MSAT_PER_SAT,
 		},
 	}, nil
 }

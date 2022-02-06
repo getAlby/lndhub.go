@@ -29,3 +29,7 @@ type Offer struct {
 	Vendor      string   `json:"vendor"`
 	Valid       bool     `json:"valid"`
 }
+
+type Bolt12Invoice struct {
+	Invoice string `json:"invoice"`
+}
