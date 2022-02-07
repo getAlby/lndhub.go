@@ -75,10 +75,9 @@ func (suite *PaymentTestSuite) TearDownSuite() {
 
 func (suite *PaymentTestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
 	rec := httptest.NewRecorder()
-	fundingSatAmt := 1000
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
-		Amount: fundingSatAmt,
+		Amount: amt,
 		Memo:   "integration test IncomingPaymentTestSuite",
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
@@ -123,6 +122,23 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payResponse))
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 
+	//try to pay Bob more than we currently have
+	//create invoice for bob
+	tooMuch := suite.createAddInvoiceReq(10000, "integration test internal payment bob", suite.bobToken)
+	//pay bob from alice
+	var buf2 bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf2).Encode(&controllers.PayInvoiceRequestBody{
+		Invoice: tooMuch.PayReq,
+	}))
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/payinvoice", &buf2)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	assert.NotEqual(suite.T(), http.StatusOK, rec.Code)
+	errorResp := &responses.ErrorResponse{}
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResp))
+	assert.Equal(suite.T(), responses.NotEnoughBalanceError.Code, errorResp.Code)
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {
