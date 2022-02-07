@@ -21,14 +21,26 @@ func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
 	return &PayInvoiceController{svc: svc}
 }
 
+type PayInvoiceRequestBody struct {
+	Invoice string      `json:"invoice" validate:"required"`
+	Amount  interface{} `json:"amount" validate:"omitempty"`
+}
+type PayInvoiceResponseBody struct {
+	RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
+	PaymentRequest     string                `json:"payment_request,omitempty"`
+	PayReq             string                `json:"pay_req,omitempty"`
+	Amount             int64                 `json:"num_satoshis,omitempty"`
+	Description        string                `json:"description,omitempty"`
+	DescriptionHashStr string                `json:"description_hash,omitempty"`
+	PaymentError       string                `json:"payment_error,omitempty"`
+	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
+	PaymentRoute       *service.Route        `json:"route,omitempty"`
+}
+
 // PayInvoice : Pay invoice Controller
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-	var reqBody struct {
-		Invoice string      `json:"invoice" validate:"required"`
-		Amount  interface{} `json:"amount" validate:"omitempty"`
-	}
-
+	reqBody := PayInvoiceRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
 		c.Logger().Errorf("Failed to load payinvoice request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
@@ -84,19 +96,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
 		})
 	}
-
-	var responseBody struct {
-		RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
-		PaymentRequest     string                `json:"payment_request,omitempty"`
-		PayReq             string                `json:"pay_req,omitempty"`
-		Amount             int64                 `json:"num_satoshis,omitempty"`
-		Description        string                `json:"description,omitempty"`
-		DescriptionHashStr string                `json:"description_hash,omitempty"`
-		PaymentError       string                `json:"payment_error,omitempty"`
-		PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
-		PaymentRoute       *service.Route        `json:"route,omitempty"`
-	}
-
+	responseBody := &PayInvoiceResponseBody{}
 	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
 	responseBody.PaymentRequest = paymentRequest
 	responseBody.PayReq = paymentRequest
@@ -107,5 +107,5 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
 	responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
 
-	return c.JSON(http.StatusOK, &responseBody)
+	return c.JSON(http.StatusOK, responseBody)
 }
