@@ -24,26 +24,31 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+const (
+	lnd2RegtestAddress     = "rpc.lnd2.regtest.getalby.com:443"
+	lnd2RegtestMacaroonHex = "0201036C6E6402F801030A101782922F4358E80655920FC7A7C3E9291201301A160A0761646472657373120472656164120577726974651A130A04696E666F120472656164120577726974651A170A08696E766F69636573120472656164120577726974651A210A086D616361726F6F6E120867656E6572617465120472656164120577726974651A160A076D657373616765120472656164120577726974651A170A086F6666636861696E120472656164120577726974651A160A076F6E636861696E120472656164120577726974651A140A057065657273120472656164120577726974651A180A067369676E6572120867656E657261746512047265616400000620628FFB2938C8540DD3AA5E578D9B43456835FAA176E175FFD4F9FBAE540E3BE9"
+)
+
 type IncomingPaymentTestSuite struct {
 	suite.Suite
 	echo          *echo.Echo
 	fundingClient lnrpc.LightningClient
 	service       *service.LndhubService
-	userLogin     *controllers.CreateUserResponseBody
+	userLogin     controllers.CreateUserResponseBody
 	userToken     string
 }
 
 func (suite *IncomingPaymentTestSuite) SetupSuite() {
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     "rpc.lnd2.regtest.getalby.com:443",
-		MacaroonHex: "0201036C6E6402F801030A101782922F4358E80655920FC7A7C3E9291201301A160A0761646472657373120472656164120577726974651A130A04696E666F120472656164120577726974651A170A08696E766F69636573120472656164120577726974651A210A086D616361726F6F6E120867656E6572617465120472656164120577726974651A160A076D657373616765120472656164120577726974651A170A086F6666636861696E120472656164120577726974651A160A076F6E636861696E120472656164120577726974651A140A057065657273120472656164120577726974651A180A067369676E6572120867656E657261746512047265616400000620628FFB2938C8540DD3AA5E578D9B43456835FAA176E175FFD4F9FBAE540E3BE9",
+		Address:     lnd2RegtestAddress,
+		MacaroonHex: lnd2RegtestMacaroonHex,
 	})
 	if err != nil {
 		log.Fatalf("Error setting up funding client: %v", err)
 	}
 	suite.fundingClient = lndClient
 
-	svc, err := LndHubTestServiceInit()
+	svc, users, tokens, err := LndHubTestServiceInit(1)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -55,38 +60,10 @@ func (suite *IncomingPaymentTestSuite) SetupSuite() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 	suite.echo = e
-	//create user
-	req := httptest.NewRequest(http.MethodPost, "/create", bytes.NewReader([]byte{}))
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	controller := controllers.NewCreateUserController(suite.service)
-	responseBody := controllers.CreateUserResponseBody{}
-	assert.NoError(suite.T(), controller.CreateUser(c))
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	suite.userLogin = &responseBody
-	suite.FetchToken()
-}
-
-func (suite *IncomingPaymentTestSuite) FetchToken() {
-	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
-		Login:    suite.userLogin.Login,
-		Password: suite.userLogin.Password,
-	}))
-	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := suite.echo.NewContext(req, rec)
-	controller := controllers.NewAuthController(suite.service)
-	responseBody := &controllers.AuthResponseBody{}
-	assert.NoError(suite.T(), controller.Auth(c))
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.NotEmpty(suite.T(), responseBody.AccessToken)
-	assert.NotEmpty(suite.T(), responseBody.RefreshToken)
-	fmt.Printf("Succesfully got a token: %s\n", responseBody.AccessToken)
-	suite.userToken = responseBody.AccessToken
+	assert.Equal(suite.T(), 1, len(users))
+	assert.Equal(suite.T(), 1, len(tokens))
+	suite.userLogin = users[0]
+	suite.userToken = tokens[0]
 }
 
 func (suite *IncomingPaymentTestSuite) TearDownSuite() {
@@ -110,7 +87,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	fundingSatAmt := 10
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
 		Amount: fundingSatAmt,
-		Memo:   "unit test IncomintPaymentTestSuite",
+		Memo:   "integration test IncomingPaymentTestSuite",
 	}))
 	req = httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -130,6 +107,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
+	//check balance again
 	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	suite.echo.ServeHTTP(rec, req)

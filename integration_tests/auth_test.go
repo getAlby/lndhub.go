@@ -23,11 +23,11 @@ type UserAuthTestSuite struct {
 	suite.Suite
 	Service   *service.LndhubService
 	echo      *echo.Echo
-	userLogin *controllers.CreateUserResponseBody
+	userLogin controllers.CreateUserResponseBody
 }
 
 func (suite *UserAuthTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit()
+	svc, users, _, err := LndHubTestServiceInit(1)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -37,16 +37,8 @@ func (suite *UserAuthTestSuite) SetupSuite() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 	suite.echo = e
-	//create user
-	req := httptest.NewRequest(http.MethodPost, "/create", bytes.NewReader([]byte{}))
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	controller := controllers.NewCreateUserController(suite.Service)
-	responseBody := controllers.CreateUserResponseBody{}
-	assert.NoError(suite.T(), controller.CreateUser(c))
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	suite.userLogin = &responseBody
+	assert.Equal(suite.T(), 1, len(users))
+	suite.userLogin = users[0]
 }
 
 func (suite *UserAuthTestSuite) TearDownSuite() {

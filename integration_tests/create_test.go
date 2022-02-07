@@ -33,7 +33,7 @@ type CreateUserTestSuite struct {
 }
 
 func (suite *CreateUserTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit()
+	svc, _, _, err := LndHubTestServiceInit(0)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestCreateUserTestSuite(t *testing.T) {
 	suite.Run(t, new(CreateUserTestSuite))
 }
 
-func LndHubTestServiceInit() (*service.LndhubService, error) {
+func LndHubTestServiceInit(usersToCreate int) (svc *service.LndhubService, logins []controllers.CreateUserResponseBody, tokens []string, err error) {
 	// change this if you want to run tests using sqlite
 	// dbUri := "file:data_test.db"
 	//make sure the datbase is empty every time you run the test suite
@@ -80,17 +80,17 @@ func LndHubTestServiceInit() (*service.LndhubService, error) {
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 	ctx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init migrations: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to init migrations: %w", err)
 	}
 	_, err = migrator.Migrate(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to migrate: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to migrate: %w", err)
 	}
 
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
@@ -98,11 +98,11 @@ func LndHubTestServiceInit() (*service.LndhubService, error) {
 		MacaroonHex: c.LNDMacaroonHex,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize lnd service client: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to initialize lnd service client: %w", err)
 	}
 
 	logger := lib.Logger(c.LogFilePath)
-	svc := &service.LndhubService{
+	svc = &service.LndhubService{
 		Config:    c,
 		DB:        dbConn,
 		LndClient: lndClient,
@@ -121,5 +121,22 @@ func LndHubTestServiceInit() (*service.LndhubService, error) {
 		logger.Fatalf("Failed to parse node IdentityPubkey: %v", err)
 	}
 	svc.IdentityPubkey = identityPubKey
-	return svc, nil
+	logins = []controllers.CreateUserResponseBody{}
+	tokens = []string{}
+	for i := 0; i < usersToCreate; i++ {
+		user, err := svc.CreateUser()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		var login controllers.CreateUserResponseBody
+		login.Login = user.Login
+		login.Password = user.Password
+		logins = append(logins, login)
+		token, _, err := svc.GenerateToken(login.Login, login.Password, "")
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		tokens = append(tokens, token)
+	}
+	return svc, logins, tokens, nil
 }
