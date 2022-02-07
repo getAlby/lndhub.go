@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type InternalPaymentTestSuite struct {
+type PaymentTestSuite struct {
 	suite.Suite
 	echo          *echo.Echo
 	fundingClient lnrpc.LightningClient
@@ -35,7 +35,7 @@ type InternalPaymentTestSuite struct {
 	bobToken      string
 }
 
-func (suite *InternalPaymentTestSuite) SetupSuite() {
+func (suite *PaymentTestSuite) SetupSuite() {
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
 		Address:     lnd2RegtestAddress,
 		MacaroonHex: lnd2RegtestMacaroonHex,
@@ -69,11 +69,11 @@ func (suite *InternalPaymentTestSuite) SetupSuite() {
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
 }
 
-func (suite *InternalPaymentTestSuite) TearDownSuite() {
+func (suite *PaymentTestSuite) TearDownSuite() {
 
 }
 
-func (suite *InternalPaymentTestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
+func (suite *PaymentTestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
 	rec := httptest.NewRecorder()
 	fundingSatAmt := 1000
 	var buf bytes.Buffer
@@ -91,7 +91,7 @@ func (suite *InternalPaymentTestSuite) createAddInvoiceReq(amt int, memo, token 
 	return invoiceResponse
 }
 
-func (suite *InternalPaymentTestSuite) TestInternalPayment() {
+func (suite *PaymentTestSuite) TestInternalPayment() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500
 	//fund alice account
@@ -126,5 +126,5 @@ func (suite *InternalPaymentTestSuite) TestInternalPayment() {
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {
-	suite.Run(t, new(InternalPaymentTestSuite))
+	suite.Run(t, new(PaymentTestSuite))
 }
