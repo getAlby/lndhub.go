@@ -1,0 +1,3 @@
+# LNDhub.go
+
+First [released](https://bluewallet.io/BlueWallet-brings-zero-configuration-Lightning-payments-to-iOS-and-Android-30137a69f071/) in 2018, Bluewallet was one of the first wallets to implement support for the Lightning Network on both Android and iOS. The pragmatic assertion that for amounts in the context of day-to-day spending, the UX improvement of a custodial Lightning wallet far outweighs the risks that come with it. Open-sourcing their back-end
