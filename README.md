@@ -52,6 +52,12 @@ To build an `lndhub` executable, run the following commands:
 make
 ```
 
+### Development LND setup
+
+To run your own local lightning network and LND you can use [Lightning Polar](https://lightningpolar.com/) which helps you to spin up local LND instances. 
+
+Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/lightning-browser-extension/wiki/Test-setup)
+
 
 ## Database
 LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does not support the same data consistency checks as PostgreSQL.
