@@ -10,7 +10,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func (svc *LndhubService) CreateUser() (user *models.User, err error) {
+func (svc *LndhubService) CreateUser(ctx context.Context) (user *models.User, err error) {
 
 	user = &models.User{}
 
@@ -24,7 +24,7 @@ func (svc *LndhubService) CreateUser() (user *models.User, err error) {
 	// Create user and the user's accounts
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
-	err = svc.DB.RunInTx(context.TODO(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+	err = svc.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func (svc *LndhubService) CurrentUserBalance(ctx context.Context, userId int64) 
 	if err != nil {
 		return balance, err
 	}
-	err = svc.DB.NewSelect().Table("account_ledgers").ColumnExpr("sum(account_ledgers.amount) as balance").Where("account_ledgers.account_id = ?", account.ID).Scan(context.TODO(), &balance)
+	err = svc.DB.NewSelect().Table("account_ledgers").ColumnExpr("sum(account_ledgers.amount) as balance").Where("account_ledgers.account_id = ?", account.ID).Scan(ctx, &balance)
 	return balance, err
 }
 

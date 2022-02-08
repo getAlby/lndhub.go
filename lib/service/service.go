@@ -25,13 +25,13 @@ type LndhubService struct {
 	IdentityPubkey *btcec.PublicKey
 }
 
-func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
+func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
 	var user models.User
 
 	switch {
 	case login != "" || password != "":
 		{
-			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(context.TODO()); err != nil {
+			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
 				return "", "", fmt.Errorf("bad auth")
 			}
 			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {

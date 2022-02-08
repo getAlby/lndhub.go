@@ -34,33 +34,33 @@ type SendPaymentResponse struct {
 	Invoice            *models.Invoice
 }
 
-func (svc *LndhubService) FindInvoiceByPaymentHash(userId int64, rHash string) (*models.Invoice, error) {
+func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId int64, rHash string) (*models.Invoice, error) {
 	var invoice models.Invoice
 
-	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.user_id = ? AND invoice.r_hash = ?", userId, rHash).Limit(1).Scan(context.TODO())
+	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.user_id = ? AND invoice.r_hash = ?", userId, rHash).Limit(1).Scan(ctx)
 	if err != nil {
 		return &invoice, err
 	}
 	return &invoice, nil
 }
 
-func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
+func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
 	//SendInternalPayment()
 	// find invoice
 	var incomingInvoice models.Invoice
-	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "open").Limit(1).Scan(context.TODO())
+	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "open").Limit(1).Scan(ctx)
 	if err != nil {
 		// invoice not found or already settled
 		// TODO: logging
 		return sendPaymentResponse, err
 	}
 	// Get the user's current and incoming account for the transaction entry
-	recipientCreditAccount, err := svc.AccountFor(context.TODO(), "current", incomingInvoice.UserID)
+	recipientCreditAccount, err := svc.AccountFor(ctx, "current", incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
-	recipientDebitAccount, err := svc.AccountFor(context.TODO(), "incoming", incomingInvoice.UserID)
+	recipientDebitAccount, err := svc.AccountFor(ctx, "incoming", incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -72,7 +72,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 		DebitAccountID:  recipientDebitAccount.ID,
 		Amount:          invoice.Amount,
 	}
-	_, err = tx.NewInsert().Model(&recipientEntry).Exec(context.TODO())
+	_, err = tx.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -91,7 +91,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = "settled"
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
-	_, err = tx.NewUpdate().Model(&incomingInvoice).WherePK().Exec(context.TODO())
+	_, err = tx.NewUpdate().Model(&incomingInvoice).WherePK().Exec(ctx)
 	if err != nil {
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
@@ -100,7 +100,7 @@ func (svc *LndhubService) SendInternalPayment(tx *bun.Tx, invoice *models.Invoic
 	return sendPaymentResponse, nil
 }
 
-func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
+func (svc *LndhubService) SendPaymentSync(ctx context.Context, tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
 	// TODO: set dynamic fee limit
 	feeLimit := lnrpc.FeeLimit{
@@ -120,7 +120,7 @@ func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (
 	}
 
 	// Execute the payment
-	sendPaymentResult, err := svc.LndClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
+	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, &sendPaymentRequest)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -140,15 +140,15 @@ func (svc *LndhubService) SendPaymentSync(tx *bun.Tx, invoice *models.Invoice) (
 	return sendPaymentResponse, nil
 }
 
-func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentResponse, error) {
+func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoice) (*SendPaymentResponse, error) {
 	userId := invoice.UserID
 
 	// Get the user's current and outgoing account for the transaction entry
-	debitAccount, err := svc.AccountFor(context.TODO(), "current", userId)
+	debitAccount, err := svc.AccountFor(ctx, "current", userId)
 	if err != nil {
 		return nil, err
 	}
-	creditAccount, err := svc.AccountFor(context.TODO(), "outgoing", userId)
+	creditAccount, err := svc.AccountFor(ctx, "outgoing", userId)
 	if err != nil {
 		return nil, err
 	}
@@ -163,14 +163,14 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentRespo
 
 	// Start a DB transaction
 	// We rollback anything on error (only the invoice that was passed in to the PayInvoice calls stays in the DB)
-	tx, err := svc.DB.BeginTx(context.TODO(), &sql.TxOptions{})
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	// The DB constraints make sure the user actually has enough balance for the transaction
 	// If the user does not have enough balance this call fails
-	_, err = tx.NewInsert().Model(&entry).Exec(context.TODO())
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -186,13 +186,13 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentRespo
 		return nil, err
 	}
 	if svc.IdentityPubkey.IsEqual(destinationPubkey) {
-		paymentResponse, err = svc.SendInternalPayment(&tx, invoice)
+		paymentResponse, err = svc.SendInternalPayment(ctx, &tx, invoice)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
 		}
 	} else {
-		paymentResponse, err = svc.SendPaymentSync(&tx, invoice)
+		paymentResponse, err = svc.SendPaymentSync(ctx, &tx, invoice)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -206,7 +206,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentRespo
 	invoice.State = "settled"
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
-	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(context.TODO())
+	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -222,7 +222,7 @@ func (svc *LndhubService) PayInvoice(invoice *models.Invoice) (*SendPaymentRespo
 	return &paymentResponse, err
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string, decodedInvoice *zpay32.Invoice) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *zpay32.Invoice) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	destinationPubkeyHex := hex.EncodeToString(decodedInvoice.Destination.SerializeCompressed())
 	expiresAt := decodedInvoice.Timestamp.Add(decodedInvoice.Expiry())
@@ -251,14 +251,14 @@ func (svc *LndhubService) AddOutgoingInvoice(userID int64, paymentRequest string
 	}
 
 	// Save invoice
-	_, err := svc.DB.NewInsert().Model(&invoice).Exec(context.TODO())
+	_, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &invoice, nil
 }
 
-func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
+func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
 	preimage := makePreimageHex()
 	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
@@ -273,7 +273,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	}
 
 	// Save invoice - we save the invoice early to have a record in case the LN call fails
-	_, err := svc.DB.NewInsert().Model(&invoice).Exec(context.TODO())
+	_, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 		Expiry:          int64(expiry.Seconds()),
 	}
 	// Call LND
-	lnInvoiceResult, err := svc.LndClient.AddInvoice(context.TODO(), &lnInvoice)
+	lnInvoiceResult, err := svc.LndClient.AddInvoice(ctx, &lnInvoice)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +304,7 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
 	invoice.State = "open"
 
-	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(context.TODO())
+	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
