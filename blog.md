@@ -10,7 +10,8 @@ Their are multiple reasons why this seems like a good idea:
 
 * No runtime dependencies (all you need is a single binary executable), as opposed to the current implementation which requires a NodeJS runtime.
 * Use of an ORM ([bun](https://bun.uptrace.dev/)) to support deployments with SQLite and PostgreSQL as databases, a more conventional approach than using Redis.
-* Plan for multiple node backends, where LNDHub currently only supports LND.
+* Support multiple node backends, where LNDHub currently only supports LND. (Hello BOLT12 👀)
 * Using constraints and functions in the DB to prevent inconsistent data.
-* Extensibility to add more features or plugins later on.
+* Extensibility to add more features or plugins later on. Why not let the user have fiat-denominated accounts?
 * The Bluewallet team has currenlty shifted it's attention more towards a non-custodial mobile wallet using LDK.
+
