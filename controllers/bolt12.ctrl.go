@@ -14,9 +14,9 @@ type Bolt12Controller struct {
 	svc *service.LndhubService
 }
 type FetchInvoiceRequestBody struct {
-	Amount int64  `json:"amt"` // amount in Satoshi
+	Amount int64  `json:"amt" validate:"required"` // todo: validate properly, amount not strictly needed always amount in Satoshi
 	Memo   string `json:"memo"`
-	Offer  string `json:"offer"`
+	Offer  string `json:"offer" validate:"required"`
 }
 
 func NewBolt12Controller(svc *service.LndhubService) *Bolt12Controller {
@@ -26,7 +26,7 @@ func NewBolt12Controller(svc *service.LndhubService) *Bolt12Controller {
 // Decode : Decode handler
 func (controller *Bolt12Controller) Decode(c echo.Context) error {
 	offer := c.Param("offer")
-	decoded, err := controller.svc.LndClient.DecodeOffer(context.TODO(), offer)
+	decoded, err := controller.svc.LndClient.DecodeBolt12(context.TODO(), offer)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (controller *Bolt12Controller) PayOffer(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	result, err := controller.svc.PayBolt12Invoice(context.TODO(), invoice.Invoice)
+	result, err := controller.svc.PayBolt12Invoice(context.TODO(), invoice)
 	if err != nil {
 		return err
 	}

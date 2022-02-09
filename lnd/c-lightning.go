@@ -151,14 +151,12 @@ func (cl *CLNClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest
 	}, nil
 }
 
-func (cl *CLNClient) FetchBolt12Invoice(ctx context.Context, offer, memo string, amount int64) (*Bolt12Invoice, error) {
+func (cl *CLNClient) FetchBolt12Invoice(ctx context.Context, offer, memo string, amount int64) (result *Bolt12, err error) {
 	res, err := cl.client.CallNamed("fetchinvoice", "offer", offer, "msatoshi", amount*MSAT_PER_SAT, "payer_note", memo)
 	if err != nil {
 		return nil, err
 	}
-	return &Bolt12Invoice{
-		Invoice: res.Get("invoice").String(),
-	}, nil
+	return cl.DecodeBolt12(ctx, res.Get("invoice").String())
 }
 
 func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
@@ -227,8 +225,8 @@ func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 	}, nil
 }
 
-func (cl *CLNClient) DecodeOffer(ctx context.Context, offer string) (*Offer, error) {
-	result, err := cl.client.Call("decode", offer)
+func (cl *CLNClient) DecodeBolt12(ctx context.Context, bolt12 string) (decoded *Bolt12, err error) {
+	result, err := cl.client.Call("decode", bolt12)
 	if err != nil {
 		return nil, err
 	}
@@ -236,14 +234,25 @@ func (cl *CLNClient) DecodeOffer(ctx context.Context, offer string) (*Offer, err
 	for _, ch := range result.Get("chains").Array() {
 		chains = append(chains, ch.String())
 	}
-	return &Offer{
-		Type:        result.Get("type").String(),
-		OfferID:     result.Get("offer_id").String(),
-		Description: result.Get("description").String(),
-		NodeID:      result.Get("node_id").String(),
-		Signature:   result.Get("signature").String(),
-		Vendor:      result.Get("vendor").String(),
-		Chains:      chains,
-		Valid:       result.Get("valid").Bool(),
+	return &Bolt12{
+		Type:               result.Get("type").String(),
+		OfferID:            result.Get("offer_id").String(),
+		Chains:             chains,
+		Description:        result.Get("description").String(),
+		NodeID:             result.Get("node_id").String(),
+		Signature:          result.Get("signature").String(),
+		Vendor:             result.Get("vendor").String(),
+		Valid:              result.Get("valid").Bool(),
+		AmountMsat:         result.Get("amount_msat").String(),
+		Features:           result.Get("features").String(),
+		PayerKey:           result.Get("payer_key").String(),
+		PayerInfo:          result.Get("payer_info").String(),
+		PayerNote:          result.Get("payer_note").String(),
+		Timestamp:          result.Get("timestamp").Int(),
+		CreatedAt:          result.Get("created_at").Int(),
+		PaymentHash:        result.Get("payment_hash").String(),
+		RelativeExpiry:     result.Get("relative_expiry").Int(),
+		MinFinalCltvExpiry: result.Get("min_final_cltv_expiry").Int(),
+		Encoded:            bolt12,
 	}, nil
 }
