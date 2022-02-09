@@ -25,6 +25,8 @@ type CreateUserResponseBody struct {
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	// optional parameters that we currently do not use
 	type RequestBody struct {
+		Login       string `json:"login"`
+		Password    string `json:"password"`
 		PartnerID   string `json:"partnerid"`
 		AccountType string `json:"accounttype"`
 	}
@@ -33,7 +35,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	user, err := controller.svc.CreateUser(c.Request().Context())
+	user, err := controller.svc.CreateUser(c.Request().Context(), body.Login, body.Password)
 	//todo json response
 	if err != nil {
 		return err
