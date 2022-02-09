@@ -9,4 +9,9 @@ const (
 	InvoiceStateSettled     = "settled"
 	InvoiceStateInitialized = "initialized"
 	InvoiceStateOpen        = "open"
+
+	AccountTypeIncoming = "incoming"
+	AccountTypeCurrent  = "current"
+	AccountTypeOutgoing = "outgoing"
+	AccountTypeFees     = "fees"
 )
