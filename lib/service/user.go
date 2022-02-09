@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"math/rand"
 
-	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/uptrace/bun"
@@ -29,12 +28,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context) (user *models.User, er
 		if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
 			return err
 		}
-		accountTypes := []string{
-			common.AccountTypeIncoming,
-			common.AccountTypeCurrent,
-			common.AccountTypeOutgoing,
-			common.AccountTypeFees,
-		}
+		accountTypes := []string{"incoming", "current", "outgoing", "fees"}
 		for _, accountType := range accountTypes {
 			account := models.Account{UserID: user.ID, Type: accountType}
 			if _, err := tx.NewInsert().Model(&account).Exec(ctx); err != nil {
@@ -61,7 +55,7 @@ func (svc *LndhubService) FindUser(ctx context.Context, userId int64) (*models.U
 func (svc *LndhubService) CurrentUserBalance(ctx context.Context, userId int64) (int64, error) {
 	var balance int64
 
-	account, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
+	account, err := svc.AccountFor(ctx, "current", userId)
 	if err != nil {
 		return balance, err
 	}
@@ -80,7 +74,7 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 
 	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
 	if invoiceType != "" {
-		query.Where("type = ? AND state <> ?", invoiceType, common.InvoiceStateInitialized)
+		query.Where("type = ? AND state <> ?", invoiceType, "initialized")
 	}
 	query.OrderExpr("id DESC").Limit(100)
 	err := query.Scan(ctx)

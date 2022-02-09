@@ -3,7 +3,6 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
@@ -22,7 +21,7 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeOutgoing)
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, "outgoing")
 	if err != nil {
 		return err
 	}
@@ -35,7 +34,7 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 			"payment_hash":     rhash,
 			"payment_preimage": invoice.Preimage,
 			"value":            invoice.Amount,
-			"type":             common.InvoiceTypePaid,
+			"type":             "paid_invoice",
 			"fee":              0, //TODO charge fees
 			"timestamp":        invoice.CreatedAt.Unix(),
 			"memo":             invoice.Memo,
@@ -47,7 +46,7 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, "incoming")
 	if err != nil {
 		return err
 	}
@@ -61,11 +60,11 @@ func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 			"pay_req":         invoice.PaymentRequest,
 			"description":     invoice.Memo,
 			"payment_hash":    invoice.RHash,
-			"ispaid":          invoice.State == common.InvoiceStateSettled,
+			"ispaid":          invoice.State == "settled",
 			"amt":             invoice.Amount,
 			"expire_time":     3600 * 24,
 			"timestamp":       invoice.CreatedAt.Unix(),
-			"type":            common.InvoiceTypeUser,
+			"type":            "user_invoice",
 		}
 	}
 	return c.JSON(http.StatusOK, &response)

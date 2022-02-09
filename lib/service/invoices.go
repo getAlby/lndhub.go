@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -50,18 +49,18 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, i
 	//SendInternalPayment()
 	// find invoice
 	var incomingInvoice models.Invoice
-	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
+	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", "incoming", invoice.PaymentRequest, "open").Limit(1).Scan(ctx)
 	if err != nil {
 		// invoice not found or already settled
 		// TODO: logging
 		return sendPaymentResponse, err
 	}
 	// Get the user's current and incoming account for the transaction entry
-	recipientCreditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, incomingInvoice.UserID)
+	recipientCreditAccount, err := svc.AccountFor(ctx, "current", incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
-	recipientDebitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, incomingInvoice.UserID)
+	recipientDebitAccount, err := svc.AccountFor(ctx, "incoming", incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -90,7 +89,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, i
 	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: invoice.Amount, TotalFees: 0}
 
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
-	incomingInvoice.State = common.InvoiceStateSettled
+	incomingInvoice.State = "settled"
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
 	_, err = tx.NewUpdate().Model(&incomingInvoice).WherePK().Exec(ctx)
 	if err != nil {
@@ -145,11 +144,11 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	userId := invoice.UserID
 
 	// Get the user's current and outgoing account for the transaction entry
-	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
+	debitAccount, err := svc.AccountFor(ctx, "current", userId)
 	if err != nil {
 		return nil, err
 	}
-	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
+	creditAccount, err := svc.AccountFor(ctx, "outgoing", userId)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +203,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The payment was successful.
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	invoice.State = common.InvoiceStateSettled
+	invoice.State = "settled"
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
 	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
@@ -228,10 +227,10 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 	destinationPubkeyHex := hex.EncodeToString(decodedInvoice.Destination.SerializeCompressed())
 	expiresAt := decodedInvoice.Timestamp.Add(decodedInvoice.Expiry())
 	invoice := models.Invoice{
-		Type:                 common.InvoiceTypeOutgoing,
+		Type:                 "outgoing",
 		UserID:               userID,
 		PaymentRequest:       paymentRequest,
-		State:                common.InvoiceStateInitialized,
+		State:                "initialized",
 		DestinationPubkeyHex: destinationPubkeyHex,
 		ExpiresAt:            bun.NullTime{Time: expiresAt},
 	}
@@ -264,12 +263,12 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
 	invoice := models.Invoice{
-		Type:            common.InvoiceTypeIncoming,
+		Type:            "incoming",
 		UserID:          userID,
 		Amount:          amount,
 		Memo:            memo,
 		DescriptionHash: descriptionHashStr,
-		State:           common.InvoiceStateInitialized,
+		State:           "initialized",
 		ExpiresAt:       bun.NullTime{Time: time.Now().Add(expiry)},
 	}
 
@@ -303,7 +302,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
 	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
-	invoice.State = common.InvoiceStateOpen
+	invoice.State = "open"
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
 	if err != nil {
