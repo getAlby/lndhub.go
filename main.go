@@ -153,6 +153,7 @@ func main() {
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
 	secured.GET("/bolt12/decode/:offer", controllers.NewBolt12Controller(svc).Decode)
 	secured.POST("/bolt12/fetchinvoice", controllers.NewBolt12Controller(svc).FetchInvoice)
+	secured.POST("/bolt12/pay", controllers.NewBolt12Controller(svc).PayBolt12)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)

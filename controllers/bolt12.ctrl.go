@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 )
 
@@ -55,7 +58,8 @@ func (controller *Bolt12Controller) FetchInvoice(c echo.Context) error {
 }
 
 // PayOffer: fetches an invoice from a bolt12 offer for a certain amount, and pays it
-func (controller *Bolt12Controller) PayOffer(c echo.Context) error {
+func (controller *Bolt12Controller) PayBolt12(c echo.Context) error {
+	userID := c.Get("UserID").(int64)
 	var body FetchInvoiceRequestBody
 
 	if err := c.Bind(&body); err != nil {
@@ -68,13 +72,63 @@ func (controller *Bolt12Controller) PayOffer(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	invoice, err := controller.svc.FetchBolt12Invoice(context.TODO(), body.Offer, body.Memo, body.Amount)
+	bolt12, err := controller.svc.FetchBolt12Invoice(context.TODO(), body.Offer, body.Memo, body.Amount)
 	if err != nil {
 		return err
 	}
-	result, err := controller.svc.PayBolt12Invoice(context.TODO(), invoice)
+	decodedPaymentRequest, err := controller.svc.TransformBolt12(bolt12)
+	if err != nil {
+		c.Logger().Errorf("Invalid payment request: %v", err)
+		sentry.CaptureException(err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+
+	invoice, err := controller.svc.AddOutgoingInvoice(userID, bolt12.Encoded, decodedPaymentRequest)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, result)
+
+	currentBalance, err := controller.svc.CurrentUserBalance(context.TODO(), userID)
+	if err != nil {
+		return err
+	}
+
+	if currentBalance < invoice.Amount {
+		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
+
+		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
+	}
+
+	sendPaymentResponse, err := controller.svc.PayInvoice(invoice)
+	if err != nil {
+		c.Logger().Errorf("Payment failed: %v", err)
+		sentry.CaptureException(err)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    10,
+			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
+		})
+	}
+
+	var responseBody struct {
+		RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
+		PaymentRequest     string                `json:"payment_request,omitempty"`
+		PayReq             string                `json:"pay_req,omitempty"`
+		Amount             int64                 `json:"num_satoshis,omitempty"`
+		Description        string                `json:"description,omitempty"`
+		DescriptionHashStr string                `json:"description_hash,omitempty"`
+		PaymentError       string                `json:"payment_error,omitempty"`
+		PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
+		PaymentRoute       *service.Route        `json:"route,omitempty"`
+	}
+
+	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
+	responseBody.PaymentRequest = bolt12.Encoded
+	responseBody.PayReq = bolt12.Encoded
+	responseBody.Description = bolt12.PayerNote
+	responseBody.PaymentError = sendPaymentResponse.PaymentError
+	responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
+	responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
+
+	return c.JSON(http.StatusOK, &responseBody)
 }

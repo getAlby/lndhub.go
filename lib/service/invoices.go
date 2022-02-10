@@ -6,13 +6,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
@@ -310,6 +314,36 @@ func (svc *LndhubService) AddIncomingInvoice(userID int64, amount int64, memo, d
 	}
 
 	return &invoice, nil
+}
+
+func (svc *LndhubService) TransformBolt12(bolt12 *lnd.Bolt12) (result *zpay32.Invoice, err error) {
+	//shoehorn msat into lnwire data type
+	msatAmt, err := strconv.Atoi(strings.Trim(bolt12.AmountMsat, "msat"))
+	if err != nil {
+		return nil, err
+	}
+	msat := lnwire.MilliSatoshi(msatAmt)
+	//horrible hack that won't work in practice, this should be solved later
+	hexPubkey, err := hex.DecodeString("02" + bolt12.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	pubkey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
+	if err != nil {
+		return nil, err
+	}
+	payerNote := bolt12.PayerNote
+	result = &zpay32.Invoice{
+		MilliSat:    &msat,
+		Timestamp:   time.Unix(bolt12.Timestamp, 0),
+		PaymentHash: &[32]byte{},
+		Destination: pubkey,
+		Description: &payerNote,
+	}
+	paymentHash := [32]byte{}
+	copy(paymentHash[:], bolt12.PaymentHash)
+	result.PaymentHash = &paymentHash
+	return result, nil
 }
 
 func (svc *LndhubService) DecodePaymentRequest(bolt11 string) (*zpay32.Invoice, error) {
