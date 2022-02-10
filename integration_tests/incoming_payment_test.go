@@ -106,7 +106,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 		PaymentRequest: invoiceResponse.PayReq,
 		FeeLimit:       nil,
 	}
-	_, err := suite.fundingClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
 	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit

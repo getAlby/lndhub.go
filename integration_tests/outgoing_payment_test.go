@@ -24,7 +24,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 		PaymentRequest: invoiceResponse.PayReq,
 		FeeLimit:       nil,
 	}
-	_, err := suite.fundingClient.SendPaymentSync(context.TODO(), &sendPaymentRequest)
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
 	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
@@ -35,7 +35,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 		Memo:  "integration tests: external pay from alice",
 		Value: int64(externalSatRequested),
 	}
-	invoice, err := suite.fundingClient.AddInvoice(context.TODO(), &externalInvoice)
+	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//pay external from alice
 	rec := httptest.NewRecorder()
