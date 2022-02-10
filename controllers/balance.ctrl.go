@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -26,7 +25,7 @@ type BalanceResponse struct {
 // Balance : Balance Controller
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
-	balance, err := controller.svc.CurrentUserBalance(context.TODO(), userId)
+	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)
 	if err != nil {
 		return err
 	}

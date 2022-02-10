@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"bytes"
-	"context"
 	_ "embed"
 	"fmt"
 	"html/template"
@@ -72,11 +71,11 @@ func (controller *HomeController) QR(c echo.Context) error {
 }
 
 func (controller *HomeController) Home(c echo.Context) error {
-	info, err := controller.svc.GetInfo(context.TODO())
+	info, err := controller.svc.GetInfo(c.Request().Context())
 	if err != nil {
 		return err
 	}
-	channels, err := controller.svc.LndClient.ListChannels(context.TODO(), &lnrpc.ListChannelsRequest{})
+	channels, err := controller.svc.LndClient.ListChannels(c.Request().Context(), &lnrpc.ListChannelsRequest{})
 	if err != nil {
 		return err
 	}

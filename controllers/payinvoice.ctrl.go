@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -70,12 +69,12 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 	*/
 
-	invoice, err := controller.svc.AddOutgoingInvoice(userID, paymentRequest, decodedPaymentRequest)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, decodedPaymentRequest)
 	if err != nil {
 		return err
 	}
 
-	currentBalance, err := controller.svc.CurrentUserBalance(context.TODO(), userID)
+	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
 	if err != nil {
 		return err
 	}
@@ -86,7 +85,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
-	sendPaymentResponse, err := controller.svc.PayInvoice(invoice)
+	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed: %v", err)
 		sentry.CaptureException(err)

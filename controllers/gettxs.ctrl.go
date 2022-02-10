@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/getAlby/lndhub.go/lib"
@@ -22,7 +21,7 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(context.TODO(), userId, "outgoing")
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, "outgoing")
 	if err != nil {
 		return err
 	}
@@ -47,7 +46,7 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(context.TODO(), userId, "incoming")
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, "incoming")
 	if err != nil {
 		return err
 	}
