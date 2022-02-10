@@ -13,6 +13,7 @@ Wrapper for Lightning Network Daemon (lnd). It provides separate accounts with m
 ## Known Issues
 
 * Currently no fee handling (users are currently not charged for lightning transaction fees)
+* No handling of in-transit payments
 
 ## Configuration
 
