@@ -48,9 +48,13 @@ func (suite *IncomingPaymentTestSuite) SetupSuite() {
 	}
 	suite.fundingClient = lndClient
 
-	svc, users, tokens, err := LndHubTestServiceInit(1)
+	svc, err := LndHubTestServiceInit()
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
+	}
+	users, tokens, err := createUsers(svc, 1)
+	if err != nil {
+		log.Fatalf("Error creating test users: %v", err)
 	}
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())

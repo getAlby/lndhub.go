@@ -27,9 +27,13 @@ type UserAuthTestSuite struct {
 }
 
 func (suite *UserAuthTestSuite) SetupSuite() {
-	svc, users, _, err := LndHubTestServiceInit(1)
+	svc, err := LndHubTestServiceInit()
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
+	}
+	users, _, err := createUsers(svc, 1)
+	if err != nil {
+		log.Fatalf("Error creating test users %v", err)
 	}
 	suite.Service = svc
 	e := echo.New()
