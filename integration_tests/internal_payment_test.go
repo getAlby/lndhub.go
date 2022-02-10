@@ -25,8 +25,7 @@ import (
 )
 
 type PaymentTestSuite struct {
-	suite.Suite
-	echo          *echo.Echo
+	TestSuite
 	fundingClient *lnd.LNDWrapper
 	service       *service.LndhubService
 	aliceLogin    controllers.CreateUserResponseBody
@@ -75,23 +74,6 @@ func (suite *PaymentTestSuite) SetupSuite() {
 
 func (suite *PaymentTestSuite) TearDownSuite() {
 
-}
-
-func (suite *PaymentTestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
-	rec := httptest.NewRecorder()
-	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
-		Amount: amt,
-		Memo:   "integration test IncomingPaymentTestSuite",
-	}))
-	req := httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	suite.echo.ServeHTTP(rec, req)
-	invoiceResponse := &controllers.AddInvoiceResponseBody{}
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
-	return invoiceResponse
 }
 
 func (suite *PaymentTestSuite) TestInternalPayment() {
