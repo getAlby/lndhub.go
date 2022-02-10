@@ -1,9 +1,13 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/controllers"
@@ -12,7 +16,10 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"github.com/uptrace/bun/migrate"
 )
 
@@ -32,6 +39,7 @@ func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+
 	ctx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(ctx)
@@ -94,4 +102,26 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []contro
 		tokens = append(tokens, token)
 	}
 	return logins, tokens, nil
+}
+
+type TestSuite struct {
+	suite.Suite
+	echo *echo.Echo
+}
+
+func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
+		Amount: amt,
+		Memo:   "integration test IncomingPaymentTestSuite",
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	suite.echo.ServeHTTP(rec, req)
+	invoiceResponse := &controllers.AddInvoiceResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
+	return invoiceResponse
 }
