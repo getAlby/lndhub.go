@@ -32,7 +32,7 @@ const (
 type IncomingPaymentTestSuite struct {
 	suite.Suite
 	echo          *echo.Echo
-	fundingClient lnrpc.LightningClient
+	fundingClient *lnd.LNDWrapper
 	service       *service.LndhubService
 	userLogin     controllers.CreateUserResponseBody
 	userToken     string

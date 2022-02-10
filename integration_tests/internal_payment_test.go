@@ -27,7 +27,7 @@ import (
 type PaymentTestSuite struct {
 	suite.Suite
 	echo          *echo.Echo
-	fundingClient lnrpc.LightningClient
+	fundingClient *lnd.LNDWrapper
 	service       *service.LndhubService
 	aliceLogin    controllers.CreateUserResponseBody
 	aliceToken    string

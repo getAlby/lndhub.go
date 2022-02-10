@@ -70,7 +70,7 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []contro
 	logins = []controllers.CreateUserResponseBody{}
 	tokens = []string{}
 	for i := 0; i < usersToCreate; i++ {
-		user, err := svc.CreateUser()
+		user, err := svc.CreateUser(context.Background())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -78,7 +78,7 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []contro
 		login.Login = user.Login
 		login.Password = user.Password
 		logins = append(logins, login)
-		token, _, err := svc.GenerateToken(login.Login, login.Password, "")
+		token, _, err := svc.GenerateToken(context.Background(), login.Login, login.Password, "")
 		if err != nil {
 			return nil, nil, err
 		}
