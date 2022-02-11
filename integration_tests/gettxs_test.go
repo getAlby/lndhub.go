@@ -2,29 +2,34 @@ package integration_tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type GetTxTestSuite struct {
 	TestSuite
-	Service   *service.LndhubService
-	userLogin controllers.CreateUserResponseBody
-	userToken string
+	Service       *service.LndhubService
+	fundingClient *lnd.LNDWrapper
+	userLogin     controllers.CreateUserResponseBody
+	userToken     string
 }
 
 type GetOutgoingInvoiceResponseTest struct {
@@ -51,7 +56,15 @@ type GetIncomingInvoiceResponseTest struct {
 }
 
 func (suite *GetTxTestSuite) SetupSuite() {
-	fmt.Println("SETUP")
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:     lnd2RegtestAddress,
+		MacaroonHex: lnd2RegtestMacaroonHex,
+	})
+	if err != nil {
+		log.Fatalf("Error setting up funding client: %v", err)
+	}
+	suite.fundingClient = lndClient
+
 	svc, err := LndHubTestServiceInit()
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
@@ -60,6 +73,8 @@ func (suite *GetTxTestSuite) SetupSuite() {
 	if err != nil {
 		log.Fatalf("Error creating test users %v", err)
 	}
+	// Subscribe to LND invoice updates in the background
+	go svc.InvoiceUpdateSubscription(context.Background())
 	suite.Service = svc
 	e := echo.New()
 
@@ -81,7 +96,7 @@ func (suite *GetTxTestSuite) TearDownSuite() {
 
 }
 
-func (suite *GetTxTestSuite) TestGetEmptyTXs() {
+func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	// check that invoices are empty
 	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
@@ -91,9 +106,20 @@ func (suite *GetTxTestSuite) TestGetEmptyTXs() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
-	// create incoming invoice
+	// create incoming invoice and fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test internal payment alice", suite.userToken)
-	// pay invoice
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoice.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+	// create invoice
+	invoice = suite.createAddInvoiceReq(500, "integration test internal payment alice", suite.userToken)
+	// pay invoice, this will create outgoing invoice and settle it
 	rec = httptest.NewRecorder()
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
@@ -114,7 +140,7 @@ func (suite *GetTxTestSuite) TestGetEmptyTXs() {
 	assert.Equal(suite.T(), 1, len(*responseBody))
 }
 
-func (suite *GetTxTestSuite) TestGetIncomingTXs() {
+func (suite *GetTxTestSuite) TestGetIncomingInvoices() {
 	// check that invoices are empty
 	req := httptest.NewRequest(http.MethodGet, "/getuserinvoices", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
