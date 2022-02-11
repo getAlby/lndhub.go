@@ -26,9 +26,9 @@ import (
 
 func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 	// change this if you want to run tests using sqlite
-	//dbUri := "file:data_test.db"
+	dbUri := "file:data_test.db"
 	//make sure the datbase is empty every time you run the test suite
-	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
+	//dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
 		DatabaseUri:    dbUri,
 		JWTSecret:      []byte("SECRET"),
@@ -82,6 +82,20 @@ func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 	svc.IdentityPubkey = identityPubKey
 
 	return svc, nil
+}
+
+// simple method to use in tear down test, there might be a better way
+func clearTable(table string, dbUri string) error {
+	dbConn, err := db.Open(dbUri)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	_, err = dbConn.Exec(fmt.Sprintf("DELETE FROM %s", table))
+	if err != nil {
+		return fmt.Errorf("failed to clear table: %w", err)
+	}
+	return nil
 }
 
 func createUsers(svc *service.LndhubService, usersToCreate int) (logins []controllers.CreateUserResponseBody, tokens []string, err error) {

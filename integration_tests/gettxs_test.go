@@ -91,8 +91,13 @@ func (suite *GetTxTestSuite) SetupSuite() {
 	suite.userToken = userTokens[0]
 }
 
-func (suite *GetTxTestSuite) TearDownSuite() {
+func (suite *GetTxTestSuite) TearDownSuite() {}
 
+func (suite *GetTxTestSuite) TearDownTest() {
+	err := clearTable("invoices", suite.Service.Config.DatabaseUri)
+	if err != nil {
+		fmt.Printf("Error tearing down test %s\n", err.Error())
+	}
 }
 
 func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
