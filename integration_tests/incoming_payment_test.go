@@ -30,8 +30,7 @@ const (
 )
 
 type IncomingPaymentTestSuite struct {
-	suite.Suite
-	echo          *echo.Echo
+	TestSuite
 	fundingClient *lnd.LNDWrapper
 	service       *service.LndhubService
 	userLogin     controllers.CreateUserResponseBody
@@ -89,17 +88,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	//assert the user has no balance to start with
 	assert.Equal(suite.T(), int64(0), balance.BTC.AvailableBalance)
 	fundingSatAmt := 10
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
-		Amount: fundingSatAmt,
-		Memo:   "integration test IncomingPaymentTestSuite",
-	}))
-	req = httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
-	suite.echo.ServeHTTP(rec, req)
-	invoiceResponse := &controllers.AddInvoiceResponseBody{}
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
+	invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
 	//try to pay invoice with external node
 	// Prepare the LNRPC call
 	sendPaymentRequest := lnrpc.SendRequest{
