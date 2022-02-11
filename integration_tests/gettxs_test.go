@@ -25,10 +25,11 @@ import (
 
 type GetTxTestSuite struct {
 	TestSuite
-	Service       *service.LndhubService
-	fundingClient *lnd.LNDWrapper
-	userLogin     controllers.CreateUserResponseBody
-	userToken     string
+	Service                  *service.LndhubService
+	fundingClient            *lnd.LNDWrapper
+	userLogin                controllers.CreateUserResponseBody
+	userToken                string
+	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 type GetOutgoingInvoiceResponseTest struct {
@@ -73,7 +74,10 @@ func (suite *GetTxTestSuite) SetupSuite() {
 		log.Fatalf("Error creating test users %v", err)
 	}
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	// store cancel func to be called in tear down suite
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.invoiceUpdateSubCancelFn = cancel
+	go svc.InvoiceUpdateSubscription(ctx)
 	suite.Service = svc
 	e := echo.New()
 
@@ -91,14 +95,11 @@ func (suite *GetTxTestSuite) SetupSuite() {
 	suite.userToken = userTokens[0]
 }
 
-func (suite *GetTxTestSuite) TearDownSuite() {}
-
-func (suite *GetTxTestSuite) TearDownTest() {
-	err := clearTable("invoices", suite.Service.Config.DatabaseUri)
-	if err != nil {
-		fmt.Printf("Error tearing down test %s\n", err.Error())
-	}
+func (suite *GetTxTestSuite) TearDownSuite() {
+	suite.invoiceUpdateSubCancelFn()
 }
+
+func (suite *GetTxTestSuite) TearDownTest() {}
 
 func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	// check that invoices are empty
@@ -146,7 +147,7 @@ func (suite *GetTxTestSuite) TestGetIncomingInvoices() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
 	// create incoming invoice
-	suite.createAddInvoiceReq(1000, "integration test internal payment alice", suite.userToken)
+	suite.createAddInvoiceReq(1000, "integration test internal payment", suite.userToken)
 	// check invoices again
 	req = httptest.NewRequest(http.MethodGet, "/getuserinvoices", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))

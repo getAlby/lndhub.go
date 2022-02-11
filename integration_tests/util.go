@@ -84,20 +84,6 @@ func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 	return svc, nil
 }
 
-// simple method to use in tear down test, there might be a better way
-func clearTable(table string, dbUri string) error {
-	dbConn, err := db.Open(dbUri)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	_, err = dbConn.Exec(fmt.Sprintf("DELETE FROM %s", table))
-	if err != nil {
-		return fmt.Errorf("failed to clear table: %w", err)
-	}
-	return nil
-}
-
 func createUsers(svc *service.LndhubService, usersToCreate int) (logins []controllers.CreateUserResponseBody, tokens []string, err error) {
 	logins = []controllers.CreateUserResponseBody{}
 	tokens = []string{}
