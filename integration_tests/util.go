@@ -14,6 +14,7 @@ import (
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/echo/v4"
@@ -124,4 +125,38 @@ func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *contro
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
 	return invoiceResponse
+}
+
+func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *controllers.PayInvoiceResponseBody {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
+		Invoice: payReq,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	suite.echo.ServeHTTP(rec, req)
+
+	payInvoiceResponse := &controllers.PayInvoiceResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payInvoiceResponse))
+	return payInvoiceResponse
+}
+
+func (suite *TestSuite) createPayInvoiceReqError(payReq string, token string) *responses.ErrorResponse {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
+		Invoice: payReq,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	suite.echo.ServeHTTP(rec, req)
+
+	errorResponse := &responses.ErrorResponse{}
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
+	return errorResponse
 }

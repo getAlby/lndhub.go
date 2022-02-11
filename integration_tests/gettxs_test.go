@@ -1,7 +1,6 @@
 package integration_tests
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -120,15 +119,7 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	// create invoice
 	invoice = suite.createAddInvoiceReq(500, "integration test internal payment alice", suite.userToken)
 	// pay invoice, this will create outgoing invoice and settle it
-	rec = httptest.NewRecorder()
-	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
-		Invoice: invoice.PayReq,
-	}))
-	req = httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
-	suite.echo.ServeHTTP(rec, req)
+	suite.createPayInvoiceReq(invoice.PayReq, suite.userToken)
 	// check invoices again
 	req = httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
