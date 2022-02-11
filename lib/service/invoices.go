@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -323,12 +324,7 @@ func (svc *LndhubService) TransformBolt12(bolt12 *lnd.Bolt12) (result *zpay32.In
 		return nil, err
 	}
 	msat := lnwire.MilliSatoshi(msatAmt)
-	//horrible hack that won't work in practice, this should be solved later
-	hexPubkey, err := hex.DecodeString("02" + bolt12.NodeID)
-	if err != nil {
-		return nil, err
-	}
-	pubkey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
+	pubkey, err := constructPubkey(bolt12)
 	if err != nil {
 		return nil, err
 	}
@@ -351,6 +347,36 @@ func (svc *LndhubService) DecodePaymentRequest(bolt11 string) (*zpay32.Invoice, 
 }
 
 const hexBytes = random.Hex
+
+func constructPubkey(bolt12 *lnd.Bolt12) (*btcec.PublicKey, error) {
+	//horrible code that should be yeeted later
+	hexPubkey, err := hex.DecodeString("02" + bolt12.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	pubkey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := btcec.ParseDERSignature([]byte(bolt12.Signature), btcec.S256())
+	if err != nil {
+		return nil, err
+	}
+	if !sig.Verify([]byte(bolt12.NodeID), pubkey) {
+		fmt.Println("should not be here")
+		//we made the wrong pick
+		hexPubkey, err = hex.DecodeString("03" + bolt12.NodeID)
+		if err != nil {
+			return nil, err
+		}
+		pubkey, err = btcec.ParsePubKey(hexPubkey[:], btcec.S256())
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pubkey, nil
+}
 
 func makePreimageHex() []byte {
 	b := make([]byte, 32)
