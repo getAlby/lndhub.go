@@ -226,21 +226,15 @@ func (cl *CLNClient) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 	if err != nil {
 		return nil, err
 	}
-	//todo
 	return &lnrpc.PayReq{
-		Destination:     result.Get("destination").String(),
+		Destination:     result.Get("payee").String(),
 		PaymentHash:     result.Get("payment_hash").String(),
-		NumSatoshis:     0,
-		Timestamp:       0,
-		Expiry:          0,
-		Description:     "",
-		DescriptionHash: "",
-		FallbackAddr:    "",
-		CltvExpiry:      0,
-		RouteHints:      []*lnrpc.RouteHint{},
-		PaymentAddr:     []byte{},
-		NumMsat:         0,
-		Features:        map[uint32]*lnrpc.Feature{},
+		NumSatoshis:     result.Get("msatoshi").Int() / MSAT_PER_SAT,
+		Timestamp:       result.Get("created_at").Time().Unix(),
+		Expiry:          result.Get("expiry").Int(),
+		Description:     result.Get("description").String(),
+		DescriptionHash: result.Get("description_hash").String(),
+		NumMsat:         result.Get("msatoshi").Int(),
 	}, nil
 }
 
