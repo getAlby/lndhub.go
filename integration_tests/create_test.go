@@ -50,7 +50,33 @@ func (suite *CreateUserTestSuite) TestCreate() {
 		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 		assert.NotEmpty(suite.T(), responseBody.Login)
 		assert.NotEmpty(suite.T(), responseBody.Password)
-		fmt.Printf("Sucessfully created user with login %ss\n", responseBody.Login)
+		fmt.Printf("Sucessfully created user with login %s\n", responseBody.Login)
+	}
+}
+
+func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {
+	e := echo.New()
+	e.HTTPErrorHandler = responses.HTTPErrorHandler
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+	var buf bytes.Buffer
+	const testLogin = "test login"
+	const testPassword = "test password"
+	json.NewEncoder(&buf).Encode(&controllers.CreateUserRequestBody{
+		Login:    testLogin,
+		Password: testPassword,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/create", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	controller := controllers.NewCreateUserController(suite.Service)
+	responseBody := controllers.CreateUserResponseBody{}
+	if assert.NoError(suite.T(), controller.CreateUser(c)) {
+		assert.Equal(suite.T(), http.StatusOK, rec.Code)
+		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
+		assert.Equal(suite.T(), testLogin, responseBody.Login)
+		assert.Equal(suite.T(), testPassword, responseBody.Password)
+		fmt.Printf("Sucessfully created user with login %s\n", responseBody.Login)
 	}
 }
 

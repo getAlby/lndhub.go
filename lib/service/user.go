@@ -11,13 +11,20 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func (svc *LndhubService) CreateUser(ctx context.Context) (user *models.User, err error) {
+func (svc *LndhubService) CreateUser(ctx context.Context, login string, password string) (user *models.User, err error) {
 
 	user = &models.User{}
 
-	// generate user login/password (TODO: allow the user to choose a login/password?)
-	user.Login = randStringBytes(20)
-	password := randStringBytes(20)
+	// generate user login/password if not provided
+	user.Login = login
+	if login == "" {
+		user.Login = randStringBytes(20)
+	}
+
+	if password == "" {
+		password = randStringBytes(20)
+	}
+
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
