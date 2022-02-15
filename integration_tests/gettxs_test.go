@@ -32,29 +32,6 @@ type GetTxTestSuite struct {
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
-type GetOutgoingInvoiceResponseTest struct {
-	RHash           interface{} `json:"r_hash"`
-	PaymentHash     interface{} `json:"payment_hash"`
-	PaymentPreimage string      `json:"payment_preimage"`
-	Value           int64       `json:"value"`
-	Fee             int64       `json:"fee"`
-	Timestamp       int64       `json:"timestamp"`
-	Memo            string      `json:"memo"`
-}
-
-type GetIncomingInvoiceResponseTest struct {
-	RHash          interface{} `json:"r_hash"`
-	PaymentHash    interface{} `json:"payment_hash"`
-	PaymentRequest string      `json:"payment_request"`
-	Description    string      `json:"description"`
-	PayReq         string      `json:"pay_req"`
-	Timestamp      int64       `json:"timestamp"`
-	Type           string      `json:"type"`
-	ExpireTime     int64       `json:"expire_time"`
-	Amount         int64       `json:"amt"`
-	IsPaid         bool        `json:"ispaid"`
-}
-
 func (suite *GetTxTestSuite) SetupSuite() {
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
 		Address:     lnd2RegtestAddress,
@@ -107,7 +84,7 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	responseBody := &[]GetOutgoingInvoiceResponseTest{}
+	responseBody := &[]controllers.OutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
@@ -131,7 +108,7 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec = httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	responseBody = &[]GetOutgoingInvoiceResponseTest{}
+	responseBody = &[]controllers.OutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Equal(suite.T(), 1, len(*responseBody))
@@ -143,7 +120,7 @@ func (suite *GetTxTestSuite) TestGetIncomingInvoices() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	responseBody := &[]GetIncomingInvoiceResponseTest{}
+	responseBody := &[]controllers.IncomingInvoice{}
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
 	// create incoming invoice
@@ -154,7 +131,7 @@ func (suite *GetTxTestSuite) TestGetIncomingInvoices() {
 	rec = httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	// controller := controllers.NewGetTXSController(suite.Service)
-	responseBody = &[]GetIncomingInvoiceResponseTest{}
+	responseBody = &[]controllers.IncomingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Equal(suite.T(), 1, len(*responseBody))
