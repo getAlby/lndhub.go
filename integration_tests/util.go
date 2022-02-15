@@ -3,13 +3,11 @@ package integration_tests
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -71,15 +69,7 @@ func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 	if err != nil {
 		logger.Fatalf("Error getting node info: %v", err)
 	}
-	hexPubkey, err := hex.DecodeString(getInfo.IdentityPubkey)
-	if err != nil {
-		logger.Fatalf("Failed to decode IdentityPubkey: %v", err)
-	}
-	identityPubKey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
-	if err != nil {
-		logger.Fatalf("Failed to parse node IdentityPubkey: %v", err)
-	}
-	svc.IdentityPubkey = identityPubKey
+	svc.IdentityPubkey = getInfo.IdentityPubkey
 
 	return svc, nil
 }

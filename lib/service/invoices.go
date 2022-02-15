@@ -178,12 +178,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
-	destinationPubkey, err := invoice.DestinationPubkey()
-	if err != nil {
-		// TODO: logging
-		return nil, err
-	}
-	if svc.IdentityPubkey.IsEqual(destinationPubkey) {
+	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
 		paymentResponse, err = svc.SendInternalPayment(ctx, &tx, invoice)
 		if err != nil {
 			tx.Rollback()
@@ -286,7 +281,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	invoice.RHash = hex.EncodeToString(lnInvoiceResult.RHash)
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
-	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
+	invoice.DestinationPubkeyHex = svc.IdentityPubkey // Our node pubkey for incoming invoices
 	invoice.State = common.InvoiceStateOpen
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
