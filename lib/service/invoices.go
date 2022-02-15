@@ -5,14 +5,11 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/rand"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
@@ -300,36 +297,6 @@ func (svc *LndhubService) DecodePaymentRequest(ctx context.Context, bolt11 strin
 }
 
 const hexBytes = random.Hex
-
-func constructPubkey(bolt12 *lnd.Bolt12) (*btcec.PublicKey, error) {
-	//horrible code that should be yeeted later
-	hexPubkey, err := hex.DecodeString("02" + bolt12.NodeID)
-	if err != nil {
-		return nil, err
-	}
-	pubkey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
-	if err != nil {
-		return nil, err
-	}
-
-	sig, err := btcec.ParseDERSignature([]byte(bolt12.Signature), btcec.S256())
-	if err != nil {
-		return nil, err
-	}
-	if !sig.Verify([]byte(bolt12.NodeID), pubkey) {
-		fmt.Println("should not be here")
-		//we made the wrong pick
-		hexPubkey, err = hex.DecodeString("03" + bolt12.NodeID)
-		if err != nil {
-			return nil, err
-		}
-		pubkey, err = btcec.ParsePubKey(hexPubkey[:], btcec.S256())
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pubkey, nil
-}
 
 func makePreimageHex() []byte {
 	b := make([]byte, 32)
