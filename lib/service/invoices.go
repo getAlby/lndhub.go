@@ -227,7 +227,7 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 		DestinationPubkeyHex: decodedInvoice.Destination,
 		DescriptionHash:      decodedInvoice.DescriptionHash,
 		Memo:                 decodedInvoice.Description,
-		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Expiry, 0)},
+		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Timestamp, 0).Add(time.Duration(decodedInvoice.Expiry))},
 	}
 
 	// Save invoice
