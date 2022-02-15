@@ -55,14 +55,14 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	for i, invoice := range invoices {
 		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
 		response[i] = OutgoingInvoice{
-			rhash,
-			rhash,
-			invoice.Preimage,
-			invoice.Amount,
-			common.InvoiceTypePaid,
-			0, //TODO charge fees
-			invoice.CreatedAt.Unix(),
-			invoice.Memo,
+			RHash:           rhash,
+			PaymentHash:     rhash,
+			PaymentPreimage: invoice.Preimage,
+			Value:           invoice.Amount,
+			Type:            common.InvoiceTypePaid,
+			Fee:             0, //TODO charge fees
+			Timestamp:       invoice.CreatedAt.Unix(),
+			Memo:            invoice.Memo,
 		}
 	}
 	return c.JSON(http.StatusOK, &response)
@@ -80,16 +80,16 @@ func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	for i, invoice := range invoices {
 		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
 		response[i] = IncomingInvoice{
-			rhash,
-			invoice.RHash,
-			invoice.PaymentRequest,
-			invoice.Memo,
-			invoice.PaymentRequest,
-			invoice.CreatedAt.Unix(),
-			common.InvoiceTypeUser,
-			3600 * 24,
-			invoice.Amount,
-			invoice.State == common.InvoiceStateSettled,
+			RHash:          rhash,
+			PaymentHash:    invoice.RHash,
+			PaymentRequest: invoice.PaymentRequest,
+			Description:    invoice.Memo,
+			PayReq:         invoice.PaymentRequest,
+			Timestamp:      invoice.CreatedAt.Unix(),
+			Type:           common.InvoiceTypeUser,
+			ExpireTime:     3600 * 24,
+			Amount:         invoice.Amount,
+			IsPaid:         invoice.State == common.InvoiceStateSettled,
 		}
 	}
 	return c.JSON(http.StatusOK, &response)
