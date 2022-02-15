@@ -66,7 +66,7 @@ func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {
 	var buf bytes.Buffer
 	const testLogin = "test login"
 	const testPassword = "test password"
-	json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	json.NewEncoder(&buf).Encode(&controllers.CreateUserRequestBody{
 		Login:    testLogin,
 		Password: testPassword,
 	})

@@ -20,17 +20,17 @@ type CreateUserResponseBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }
+type CreateUserRequestBody struct {
+	Login       string `json:"login"`
+	Password    string `json:"password"`
+	PartnerID   string `json:"partnerid"`
+	AccountType string `json:"accounttype"`
+}
 
 // CreateUser : Create user Controller
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
-	// optional parameters that we currently do not use
-	type RequestBody struct {
-		Login       string `json:"login"`
-		Password    string `json:"password"`
-		PartnerID   string `json:"partnerid"`
-		AccountType string `json:"accounttype"`
-	}
-	var body RequestBody
+
+	var body CreateUserRequestBody
 
 	if err := c.Bind(&body); err != nil {
 		return err
