@@ -72,7 +72,7 @@ func (controller *Bolt12Controller) PayBolt12(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	bolt12, err := controller.svc.FetchBolt12Invoice(context.TODO(), body.Offer, body.Memo, body.Amount)
+	bolt12, err := controller.svc.FetchBolt12Invoice(c.Request().Context(), body.Offer, body.Memo, body.Amount)
 	if err != nil {
 		return err
 	}
@@ -83,12 +83,12 @@ func (controller *Bolt12Controller) PayBolt12(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	invoice, err := controller.svc.AddOutgoingInvoice(userID, bolt12.Encoded, decodedPaymentRequest)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, bolt12.Encoded, decodedPaymentRequest)
 	if err != nil {
 		return err
 	}
 
-	currentBalance, err := controller.svc.CurrentUserBalance(context.TODO(), userID)
+	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (controller *Bolt12Controller) PayBolt12(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
-	sendPaymentResponse, err := controller.svc.PayInvoice(invoice)
+	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed: %v", err)
 		sentry.CaptureException(err)

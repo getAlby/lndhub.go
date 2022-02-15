@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -21,7 +20,7 @@ func NewGetInfoController(svc *service.LndhubService) *GetInfoController {
 func (controller *GetInfoController) GetInfo(c echo.Context) error {
 
 	// TODO: add some caching for this GetInfo call. No need to always hit the node
-	info, err := controller.svc.GetInfo(context.TODO())
+	info, err := controller.svc.GetInfo(c.Request().Context())
 	if err != nil {
 		return err
 	}

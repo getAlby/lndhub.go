@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -22,16 +21,16 @@ type LndhubService struct {
 	DB             *bun.DB
 	LndClient      lnd.LightningClientWrapper
 	Logger         *lecho.Logger
-	IdentityPubkey *btcec.PublicKey
+	IdentityPubkey string
 }
 
-func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
+func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
 	var user models.User
 
 	switch {
 	case login != "" || password != "":
 		{
-			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(context.TODO()); err != nil {
+			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
 				return "", "", fmt.Errorf("bad auth")
 			}
 			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {

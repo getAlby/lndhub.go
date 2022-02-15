@@ -16,28 +16,32 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 	return &CreateUserController{svc: svc}
 }
 
+type CreateUserResponseBody struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+type CreateUserRequestBody struct {
+	Login       string `json:"login"`
+	Password    string `json:"password"`
+	PartnerID   string `json:"partnerid"`
+	AccountType string `json:"accounttype"`
+}
+
 // CreateUser : Create user Controller
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
-	// optional parameters that we currently do not use
-	type RequestBody struct {
-		PartnerID   string `json:"partnerid"`
-		AccountType string `json:"accounttype"`
-	}
-	var body RequestBody
+
+	var body CreateUserRequestBody
 
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	user, err := controller.svc.CreateUser()
+	user, err := controller.svc.CreateUser(c.Request().Context(), body.Login, body.Password)
 	//todo json response
 	if err != nil {
 		return err
 	}
 
-	var ResponseBody struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
+	var ResponseBody CreateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Password = user.Password
 

@@ -6,12 +6,14 @@ Wrapper for Lightning Network Daemon (lnd). It provides separate accounts with m
 * Using a relational database (PostgreSQL and SQLite)
 * Focussing only on Lightning (no onchain functionality)
 * No runtime dependencies (simple Go executable)
+* Extensible to add more features 
 
-### Status: WIP
+### Status: alpha 
 
 ## Known Issues
 
 * Currently no fee handling (users are currently not charged for lightning transaction fees)
+* No handling of in-transit payments
 
 ## Configuration
 
@@ -31,6 +33,7 @@ vim .env # edit your config
 + `LND_ADDRESS`: LND gRPC address (with port) (e.g. localhost:10009)
 + `LND_MACAROON_HEX`: LND macaroon (hex)
 + `LND_CERT_HEX`: LND certificate (hex)
++ `CUSTOM_NAME`: Name used to overwrite the node alias in the getInfo call
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
 + `PORT`: (default: 3000) Port the app should listen on
@@ -49,6 +52,12 @@ To build an `lndhub` executable, run the following commands:
 ```shell
 make
 ```
+
+### Development LND setup
+
+To run your own local lightning network and LND you can use [Lightning Polar](https://lightningpolar.com/) which helps you to spin up local LND instances. 
+
+Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/lightning-browser-extension/wiki/Test-setup)
 
 
 ## Database

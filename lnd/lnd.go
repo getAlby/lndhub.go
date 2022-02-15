@@ -1,10 +1,12 @@
 package lnd
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -12,6 +14,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/macaroon.v2"
+)
+
+const (
+	MSAT_PER_SAT = 1000
 )
 
 // LNDoptions are the options for the connection to the lnd node.
@@ -23,8 +29,11 @@ type LNDoptions struct {
 	MacaroonHex  string
 }
 
-func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
+type LNDWrapper struct {
+	client lnrpc.LightningClient
+}
 
+func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 	// Get credentials either from a hex string, a file or the system's certificate store
 	var creds credentials.TransportCredentials
 	// if a hex string is provided
@@ -82,5 +91,40 @@ func NewLNDclient(lndOptions LNDoptions) (lnrpc.LightningClient, error) {
 		return nil, err
 	}
 
-	return lnrpc.NewLightningClient(conn), nil
+	return &LNDWrapper{
+		client: lnrpc.NewLightningClient(conn),
+	}, nil
+}
+
+func (wrapper *LNDWrapper) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
+	return wrapper.client.ListChannels(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+	return wrapper.client.SendPaymentSync(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
+	return wrapper.client.AddInvoice(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
+	return wrapper.client.SubscribeInvoices(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
+	return wrapper.client.GetInfo(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
+	return wrapper.client.DecodePayReq(ctx, &lnrpc.PayReqString{
+		PayReq: bolt11,
+	})
+}
+
+func (wrapper *LNDWrapper) DecodeBolt12(ctx context.Context, bolt12 string) (*Bolt12, error) {
+	return nil, fmt.Errorf("Bolt12 is not supported yet, LL get on with it!")
+}
+func (wrapper *LNDWrapper) FetchBolt12Invoice(ctx context.Context, offer, memo string, amount int64) (*Bolt12, error) {
+	return nil, fmt.Errorf("Bolt12 is not supported yet, LL get on with it!")
 }

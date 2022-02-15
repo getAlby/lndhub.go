@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
@@ -18,27 +18,51 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 	return &GetTXSController{svc: svc}
 }
 
+type OutgoingInvoice struct {
+	RHash           interface{} `json:"r_hash"`
+	PaymentHash     interface{} `json:"payment_hash"`
+	PaymentPreimage string      `json:"payment_preimage"`
+	Value           int64       `json:"value"`
+	Type            string      `json:"type"`
+	Fee             int64       `json:"fee"`
+	Timestamp       int64       `json:"timestamp"`
+	Memo            string      `json:"memo"`
+}
+
+type IncomingInvoice struct {
+	RHash          interface{} `json:"r_hash"`
+	PaymentHash    interface{} `json:"payment_hash"`
+	PaymentRequest string      `json:"payment_request"`
+	Description    string      `json:"description"`
+	PayReq         string      `json:"pay_req"`
+	Timestamp      int64       `json:"timestamp"`
+	Type           string      `json:"type"`
+	ExpireTime     int64       `json:"expire_time"`
+	Amount         int64       `json:"amt"`
+	IsPaid         bool        `json:"ispaid"`
+}
+
 // GetTXS : Get TXS Controller
 func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(context.TODO(), userId, "outgoing")
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
 		return err
 	}
 
-	response := make([]echo.Map, len(invoices))
+	response := make([]OutgoingInvoice, len(invoices))
 	for i, invoice := range invoices {
 		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
-		response[i] = echo.Map{
-			"r_hash":           rhash,
-			"payment_hash":     rhash,
-			"payment_preimage": invoice.Preimage,
-			"value":            invoice.Amount,
-			"type":             "paid_invoice",
-			"fee":              0, //TODO charge fees
-			"timestamp":        invoice.CreatedAt.Unix(),
-			"memo":             invoice.Memo,
+		response[i] = OutgoingInvoice{
+			RHash:           rhash,
+			PaymentHash:     rhash,
+			PaymentPreimage: invoice.Preimage,
+			Value:           invoice.Amount,
+			Type:            common.InvoiceTypePaid,
+			Fee:             0, //TODO charge fees
+			Timestamp:       invoice.CreatedAt.Unix(),
+			Memo:            invoice.Memo,
 		}
 	}
 	return c.JSON(http.StatusOK, &response)
@@ -47,25 +71,25 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(context.TODO(), userId, "incoming")
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
 	if err != nil {
 		return err
 	}
 
-	response := make([]echo.Map, len(invoices))
+	response := make([]IncomingInvoice, len(invoices))
 	for i, invoice := range invoices {
 		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
-		response[i] = echo.Map{
-			"r_hash":          rhash,
-			"payment_request": invoice.PaymentRequest,
-			"pay_req":         invoice.PaymentRequest,
-			"description":     invoice.Memo,
-			"payment_hash":    invoice.RHash,
-			"ispaid":          invoice.State == "settled",
-			"amt":             invoice.Amount,
-			"expire_time":     3600 * 24,
-			"timestamp":       invoice.CreatedAt.Unix(),
-			"type":            "user_invoice",
+		response[i] = IncomingInvoice{
+			RHash:          rhash,
+			PaymentHash:    invoice.RHash,
+			PaymentRequest: invoice.PaymentRequest,
+			Description:    invoice.Memo,
+			PayReq:         invoice.PaymentRequest,
+			Timestamp:      invoice.CreatedAt.Unix(),
+			Type:           common.InvoiceTypeUser,
+			ExpireTime:     3600 * 24,
+			Amount:         invoice.Amount,
+			IsPaid:         invoice.State == common.InvoiceStateSettled,
 		}
 	}
 	return c.JSON(http.StatusOK, &response)

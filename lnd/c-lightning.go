@@ -12,10 +12,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	MSAT_PER_SAT = 1000
-)
-
 type CLNClient struct {
 	client  *cln.Client
 	handler *InvoiceHandler
@@ -222,6 +218,29 @@ func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 			},
 		},
 		Uris: uris,
+	}, nil
+}
+
+func (cl *CLNClient) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
+	result, err := cl.client.Call("decode", bolt11)
+	if err != nil {
+		return nil, err
+	}
+	//todo
+	return &lnrpc.PayReq{
+		Destination:     result.Get("destination").String(),
+		PaymentHash:     result.Get("payment_hash").String(),
+		NumSatoshis:     0,
+		Timestamp:       0,
+		Expiry:          0,
+		Description:     "",
+		DescriptionHash: "",
+		FallbackAddr:    "",
+		CltvExpiry:      0,
+		RouteHints:      []*lnrpc.RouteHint{},
+		PaymentAddr:     []byte{},
+		NumMsat:         0,
+		Features:        map[uint32]*lnrpc.Feature{},
 	}, nil
 }
 
