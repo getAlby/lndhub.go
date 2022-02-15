@@ -1,16 +1,9 @@
 package integration_tests
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"time"
 
-	"github.com/getAlby/lndhub.go/controllers"
-	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,17 +31,6 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//pay external from alice
-	rec := httptest.NewRecorder()
-	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
-		Invoice: invoice.PaymentRequest,
-	}))
-	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
-	suite.echo.ServeHTTP(rec, req)
-	payResponse := &controllers.PayInvoiceResponseBody{}
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payResponse))
+	payResponse := suite.createPayInvoiceReq(invoice.PaymentRequest, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 }
