@@ -8,10 +8,10 @@ At Alby we leveraged the simplicity of the LNDhub API to allow users to import t
 But not only for end-users and external usage such an accounting tools can be helpful. It can also be used in an internal system architecture to add lightning functionality to existing applications and to allow applications to send and receive lightning transactions. 
 LNDhub with a simple HTTP REST API has been very helpful here.
 
-And in general we belive that community banking concepts and shared-custody of funds among community or circle of friends are very helpful for Bitcoin adoption. LNDhub provides a simple accounting solution to make this possible for everyone to provide lightning accounts to their friends and family. 
+In general, we believe that community banking concepts and shared-custody of funds among community or circle of friends are very helpful for Bitcoin adoption. LNDhub provides a simple accounting solution that makes it possible for everyone to provide lightning accounts to their friends and family. 
 
-These are all reasons why we have decided to write an implementation of LNDhub in Go that focusses on simplicity, maintainability and ease of deployment.
-Their are multiple reasons why this seems like a good idea:
+We have decided to write an implementation of LNDhub in Go that focusses on simplicity, maintainability and ease of deployment.
+There are multiple reasons why this seems like a good idea:
 
 * No runtime dependencies (all you need is a single binary executable), as opposed to the current implementation which requires a NodeJS runtime.
 * Use of an ORM ([bun](https://bun.uptrace.dev/)) to support deployments with SQLite and PostgreSQL as databases, a more conventional approach than using Redis.
@@ -20,6 +20,6 @@ Their are multiple reasons why this seems like a good idea:
 * Extensibility to add more features or plugins later on. Why not let the user have fiat-denominated accounts?
 * The Bluewallet team has currenlty shifted it's attention more towards a non-custodial mobile wallet using [LDK](https://lightningdevkit.org/).
 
-We have released version 0.1.1 - the [Bedford FC](https://www.realbedford.com/) fan edition on GitHub where you can also [follow the development](https://github.com/getAlby/lndhub.go).
+We have released version 0.1.1 - the "[Bedford FC](https://www.realbedford.com/) fan edition" on GitHub where you can also [follow the development](https://github.com/getAlby/lndhub.go).
 
 If you have feedback how a simple accounting system can be helpful for you or if you have feature ideas, then please [let us know](https://github.com/getAlby/lndhub.go/issues).
