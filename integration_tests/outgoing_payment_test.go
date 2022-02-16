@@ -34,3 +34,13 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	payResponse := suite.createPayInvoiceReq(invoice.PaymentRequest, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 }
+
+func (suite *PaymentTestSuite) TestOutGoingPaymentFailure() {
+	//TODO: use a dummy LND interface to test different scenarios
+	//might be better if this has it's own suite
+	//because we need a different LND client
+	// - payment fails directly, no callback event
+	// - payment fails after some time, failure callback event
+	// - payment call never returns, success callback event
+	// - payment call never returns, failure callback event
+}
