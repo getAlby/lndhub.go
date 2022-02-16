@@ -172,13 +172,13 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
 		paymentResponse, err = svc.SendInternalPayment(ctx, invoice)
 		if err != nil {
-			svc.HandleFailedPayment(invoice, err)
+			svc.HandleFailedPayment(ctx, invoice, err)
 			return nil, err
 		}
 	} else {
 		paymentResponse, err = svc.SendPaymentSync(ctx, invoice)
 		if err != nil {
-			svc.HandleFailedPayment(invoice, err)
+			svc.HandleFailedPayment(ctx, invoice, err)
 			return nil, err
 		}
 	}
@@ -198,8 +198,29 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	return &paymentResponse, err
 }
 
-func (svc *LndhubService) HandleFailedPayment(invoice *models.Invoice, err error) {
-	//what if the error was due to canceled ctx?
+//this method should be called on 2 occasions: when the sendpayment calls returns with an error
+//and in an async goroutine that subscribes to outgoing payments.
+func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, err error) error {
+	//if the error was due to canceled ctx, we don't know anything
+	//about the payment, so we don't do anything here, it will be
+	//handled asynchronously in the goroutine that subscribes to
+	//outgoing payments
+	if err.Error() == context.Canceled.Error() {
+		return nil
+	}
+	//if we get here, we can be sure that the payment actually failed
+	//so we must 1) add a new transactionentry that transfers
+	//funds back to the user's "current" balance 2) update the outgoing
+	//invoice with the error message and mark it as failed
+	return nil
+}
+
+//this method should be called on 2 occasions: when the sendpayment calls returns without an error
+//and in an async goroutine that subscribes to outgoing payments.
+func (svc *LndhubService) HandleSuccesfulPayment(ctx context.Context, invoice *models.Invoice, err error) error {
+	//here we should just update the outgoing invoice as completed
+	//so consolidate the last couple of lines from SendPaymentInternal/SendPaymentSync here
+	return nil
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
