@@ -5,7 +5,7 @@ First [released](https://bluewallet.io/BlueWallet-brings-zero-configuration-Ligh
 
 At Alby we leveraged the simplicity of the LNDhub API to allow users to import their existing Bluewallet Lightning wallets directly into their browser and experience the Lightning-native web. Vice versa, users that don't yet have a Lightning wallet can create an Alby-hosted wallet and import it into the Bluewallet or Zeus mobile applications. This way, your Lightning wallet is always with you, no matter what platform you are on. 
 
-Accounting tools can not only be helpful for external end-users. They can also be used internally in a system, to allow existing applications to send and receive lightning transactions without the need to host your own node. Even if you do host your own node, it might be useful to do interact with it through an accounting layer. LNDhub with it's simple HTTP REST API can be very helpful here.
+Accounting tools can not only be helpful for external end-users. They can also be used internally in a system, to allow existing applications to send and receive lightning transactions without the need to host your own node. Even if you do host your own node, it might be useful to interact with it through an accounting layer. LNDhub with it's simple HTTP REST API can be very helpful here.
 
 In general, we believe that community banking concepts and shared-custody of funds among community or circle of friends are very helpful for Bitcoin adoption. LNDhub provides a simple accounting solution that makes it possible for everyone to provide lightning accounts to their friends and family. 
 
