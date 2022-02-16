@@ -17,7 +17,7 @@ There are multiple reasons why this seems like a good idea:
 * Support multiple node backends, where LNDhub currently only supports LND. (Hello BOLT12 👀)
 * Using constraints and functions in the DB to prevent inconsistent data.
 * Extensibility to add more features or plugins later on. Why not let the user have fiat-denominated accounts?
-* The Bluewallet team has currenlty shifted it's attention more towards a non-custodial mobile wallet using [LDK](https://lightningdevkit.org/).
+* The Bluewallet team has currently shifted it's attention more towards a non-custodial mobile wallet using [LDK](https://lightningdevkit.org/).
 
 We have released version 0.1.1 - the "[Bedford FC](https://www.realbedford.com/) fan edition" on GitHub where you can also [follow the development](https://github.com/getAlby/lndhub.go).
 
