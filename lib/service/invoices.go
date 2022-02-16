@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"math/rand"
@@ -42,7 +41,7 @@ func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId i
 	return &invoice, nil
 }
 
-func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
+func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
 	//SendInternalPayment()
 	// find invoice
@@ -70,7 +69,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, i
 		DebitAccountID:  recipientDebitAccount.ID,
 		Amount:          invoice.Amount,
 	}
-	_, err = tx.NewInsert().Model(&recipientEntry).Exec(ctx)
+	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -89,7 +88,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, i
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = common.InvoiceStateSettled
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
-	_, err = tx.NewUpdate().Model(&incomingInvoice).WherePK().Exec(ctx)
+	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(ctx)
 	if err != nil {
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
@@ -98,7 +97,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, tx *bun.Tx, i
 	return sendPaymentResponse, nil
 }
 
-func (svc *LndhubService) SendPaymentSync(ctx context.Context, tx *bun.Tx, invoice *models.Invoice) (SendPaymentResponse, error) {
+func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
 	// TODO: set dynamic fee limit
 	feeLimit := lnrpc.FeeLimit{
@@ -159,18 +158,10 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 		Amount:          invoice.Amount,
 	}
 
-	// Start a DB transaction
-	// We rollback anything on error (only the invoice that was passed in to the PayInvoice calls stays in the DB)
-	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-
 	// The DB constraints make sure the user actually has enough balance for the transaction
 	// If the user does not have enough balance this call fails
-	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
-		tx.Rollback()
 		return nil, err
 	}
 
@@ -179,15 +170,15 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
 	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
-		paymentResponse, err = svc.SendInternalPayment(ctx, &tx, invoice)
+		paymentResponse, err = svc.SendInternalPayment(ctx, invoice)
 		if err != nil {
-			tx.Rollback()
+			svc.HandleFailedPayment(invoice, err)
 			return nil, err
 		}
 	} else {
-		paymentResponse, err = svc.SendPaymentSync(ctx, &tx, invoice)
+		paymentResponse, err = svc.SendPaymentSync(ctx, invoice)
 		if err != nil {
-			tx.Rollback()
+			svc.HandleFailedPayment(invoice, err)
 			return nil, err
 		}
 	}
@@ -199,20 +190,16 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
-	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	// Commit the DB transaction. Done, everything worked
-	err = tx.Commit()
-
+	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &paymentResponse, err
+}
+
+func (svc *LndhubService) HandleFailedPayment(invoice *models.Invoice, err error) {
+	//what if the error was due to canceled ctx?
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
