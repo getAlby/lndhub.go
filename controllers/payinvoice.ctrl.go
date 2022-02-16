@@ -51,7 +51,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 
 	paymentRequest := reqBody.Invoice
-	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(paymentRequest)
+	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
 		c.Logger().Errorf("Invalid payment request: %v", err)
 		sentry.CaptureException(err)

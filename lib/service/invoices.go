@@ -6,15 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/rand"
-	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
 )
@@ -181,12 +178,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
-	destinationPubkey, err := invoice.DestinationPubkey()
-	if err != nil {
-		// TODO: logging
-		return nil, err
-	}
-	if svc.IdentityPubkey.IsEqual(destinationPubkey) {
+	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
 		paymentResponse, err = svc.SendInternalPayment(ctx, &tx, invoice)
 		if err != nil {
 			tx.Rollback()
@@ -223,32 +215,19 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	return &paymentResponse, err
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *zpay32.Invoice) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
 	// Initialize new DB invoice
-	destinationPubkeyHex := hex.EncodeToString(decodedInvoice.Destination.SerializeCompressed())
-	expiresAt := decodedInvoice.Timestamp.Add(decodedInvoice.Expiry())
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
 		UserID:               userID,
 		PaymentRequest:       paymentRequest,
+		RHash:                decodedInvoice.PaymentHash,
+		Amount:               decodedInvoice.NumSatoshis,
 		State:                common.InvoiceStateInitialized,
-		DestinationPubkeyHex: destinationPubkeyHex,
-		ExpiresAt:            bun.NullTime{Time: expiresAt},
-	}
-	if decodedInvoice.Description != nil {
-		invoice.Memo = *decodedInvoice.Description
-	}
-	if decodedInvoice.DescriptionHash != nil {
-		dh := *decodedInvoice.DescriptionHash
-		invoice.DescriptionHash = hex.EncodeToString(dh[:])
-	}
-	if decodedInvoice.PaymentHash != nil {
-		ph := *decodedInvoice.PaymentHash
-		invoice.RHash = hex.EncodeToString(ph[:])
-	}
-	if decodedInvoice.MilliSat != nil {
-		msat := decodedInvoice.MilliSat
-		invoice.Amount = int64(msat.ToSatoshis())
+		DestinationPubkeyHex: decodedInvoice.Destination,
+		DescriptionHash:      decodedInvoice.DescriptionHash,
+		Memo:                 decodedInvoice.Description,
+		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Timestamp, 0).Add(time.Duration(decodedInvoice.Expiry) * time.Second)},
 	}
 
 	// Save invoice
@@ -302,7 +281,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	invoice.RHash = hex.EncodeToString(lnInvoiceResult.RHash)
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
-	invoice.DestinationPubkeyHex = svc.GetIdentPubKeyHex() // Our node pubkey for incoming invoices
+	invoice.DestinationPubkeyHex = svc.IdentityPubkey // Our node pubkey for incoming invoices
 	invoice.State = common.InvoiceStateOpen
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
@@ -313,8 +292,8 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	return &invoice, nil
 }
 
-func (svc *LndhubService) DecodePaymentRequest(bolt11 string) (*zpay32.Invoice, error) {
-	return zpay32.Decode(bolt11, ChainFromCurrency(bolt11[2:]))
+func (svc *LndhubService) DecodePaymentRequest(ctx context.Context, bolt11 string) (*lnrpc.PayReq, error) {
+	return svc.LndClient.DecodeBolt11(ctx, bolt11)
 }
 
 const hexBytes = random.Hex
@@ -325,16 +304,4 @@ func makePreimageHex() []byte {
 		b[i] = hexBytes[rand.Intn(len(hexBytes))]
 	}
 	return b
-}
-
-func ChainFromCurrency(currency string) *chaincfg.Params {
-	if strings.HasPrefix(currency, "bcrt") {
-		return &chaincfg.RegressionNetParams
-	} else if strings.HasPrefix(currency, "tb") {
-		return &chaincfg.TestNet3Params
-	} else if strings.HasPrefix(currency, "sb") {
-		return &chaincfg.SimNetParams
-	} else {
-		return &chaincfg.MainNetParams
-	}
 }

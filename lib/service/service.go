@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -22,7 +21,7 @@ type LndhubService struct {
 	DB             *bun.DB
 	LndClient      lnd.LightningClientWrapper
 	Logger         *lecho.Logger
-	IdentityPubkey *btcec.PublicKey
+	IdentityPubkey string
 }
 
 func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {

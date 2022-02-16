@@ -110,3 +110,9 @@ func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.Inv
 func (wrapper *LNDWrapper) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
 	return wrapper.client.GetInfo(ctx, req, options...)
 }
+
+func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
+	return wrapper.client.DecodePayReq(ctx, &lnrpc.PayReqString{
+		PayReq: bolt11,
+	})
+}
