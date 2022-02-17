@@ -50,12 +50,3 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	}
 	assert.Equal(suite.T(), 2, len(transactonEntries))
 }
-
-func (suite *PaymentTestSuite) TestOutGoingPaymentFailure() {
-	//TODO: use a new implementation of LNDClientWrapper interface to test different scenarios
-	//might be better if this has it's own suite
-	//because we need a different LND client
-	// - payment fails directly
-	// - payment fails after some time, check that balance is locked in the meantime and is restored afterwards
-	// - payment call succeeds after some time, check that balance is locked in the meantime and is _not_ restored afterwards
-}
