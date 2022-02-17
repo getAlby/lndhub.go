@@ -174,13 +174,13 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
 		paymentResponse, err = svc.SendInternalPayment(context.Background(), invoice)
 		if err != nil {
-			svc.HandleFailedPayment(ctx, invoice, err)
+			svc.HandleFailedPayment(ctx, invoice, entry, err)
 			return nil, err
 		}
 	} else {
 		paymentResponse, err = svc.SendPaymentSync(context.Background(), invoice)
 		if err != nil {
-			svc.HandleFailedPayment(context.Background(), invoice, err)
+			svc.HandleFailedPayment(context.Background(), invoice, entry, err)
 			return nil, err
 		}
 	}
@@ -193,12 +193,27 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	return &paymentResponse, err
 }
 
-func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, err error) error {
-	//if we get here, we can be sure that the payment actually failed
-	//so we must 1) add a new transactionentry that transfers
-	//funds back to the user's "current" balance 2) update the outgoing
-	//invoice with the error message and mark it as failed
-	return nil
+func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, entryToRevert models.TransactionEntry, err error) error {
+	// add transaction entry with reverted credit/debit account id
+	entry := models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: entryToRevert.DebitAccountID,
+		DebitAccountID:  entryToRevert.CreditAccountID,
+		Amount:          invoice.Amount,
+	}
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		// TODO: error logging
+		return err
+	}
+
+	// TODO: maybe save errors on the invoice?
+	invoice.State = common.InvoiceStateError
+
+	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	// TODO: error logging
+	return err
 }
 
 func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice) error {
