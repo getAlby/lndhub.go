@@ -23,7 +23,7 @@ import (
 	"github.com/uptrace/bun/migrate"
 )
 
-func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
+func LndHubTestServiceInit(lndClientMock *LNDMockWrapper) (svc *service.LndhubService, err error) {
 	// change this if you want to run tests using sqlite
 	// dbUri := "file:data_test.db"
 	//make sure the datbase is empty every time you run the test suite
@@ -51,12 +51,17 @@ func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 		return nil, fmt.Errorf("failed to migrate: %w", err)
 	}
 
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     c.LNDAddress,
-		MacaroonHex: c.LNDMacaroonHex,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize lnd service client: %w", err)
+	var lndClient lnd.LightningClientWrapper
+	if lndClientMock == nil {
+		lndClient, err = lnd.NewLNDclient(lnd.LNDoptions{
+			Address:     c.LNDAddress,
+			MacaroonHex: c.LNDMacaroonHex,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize lnd service client: %w", err)
+		}
+	} else {
+		lndClient = lndClientMock
 	}
 
 	logger := lib.Logger(c.LogFilePath)

@@ -47,7 +47,7 @@ func (suite *IncomingPaymentTestSuite) SetupSuite() {
 	}
 	suite.fundingClient = lndClient
 
-	svc, err := LndHubTestServiceInit()
+	svc, err := LndHubTestServiceInit(nil)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}

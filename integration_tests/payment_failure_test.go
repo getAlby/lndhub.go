@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/controllers"
@@ -20,6 +21,11 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+const (
+	lnd1RegtestAddress     = "rpc.lnd1.regtest.getalby.com:443"
+	lnd1RegtestMacaroonHex = "0201036c6e6402f801030a10e2133a1cac2c5b4d56e44e32dc64c8551201301a160a0761646472657373120472656164120577726974651a130a04696e666f120472656164120577726974651a170a08696e766f69636573120472656164120577726974651a210a086d616361726f6f6e120867656e6572617465120472656164120577726974651a160a076d657373616765120472656164120577726974651a170a086f6666636861696e120472656164120577726974651a160a076f6e636861696e120472656164120577726974651a140a057065657273120472656164120577726974651a180a067369676e6572120867656e657261746512047265616400000620c4f9783e0873fa50a2091806f5ebb919c5dc432e33800b401463ada6485df0ed"
+)
+
 type PaymentTestErrorsSuite struct {
 	TestSuite
 	fundingClient *lnd.LNDWrapper
@@ -28,20 +34,29 @@ type PaymentTestErrorsSuite struct {
 	aliceToken    string
 	bobLogin      controllers.CreateUserResponseBody
 	bobToken      string
-	bobId         string
 }
 
 func (suite *PaymentTestErrorsSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+	// use real client for funding only
+	fundingClient, err := lnd.NewLNDclient(lnd.LNDoptions{
 		Address:     lnd2RegtestAddress,
 		MacaroonHex: lnd2RegtestMacaroonHex,
 	})
 	if err != nil {
 		log.Fatalf("Error setting up funding client: %v", err)
 	}
-	suite.fundingClient = lndClient
 
-	svc, err := LndHubTestServiceInit()
+	// inject fake lnd client with failing send payment sync into service
+	lndClient, err := NewLNDMockWrapper(lnd.LNDoptions{
+		Address:     lnd1RegtestAddress,
+		MacaroonHex: lnd1RegtestMacaroonHex,
+	})
+	if err != nil {
+		log.Fatalf("Error setting up test client: %v", err)
+	}
+	suite.fundingClient = fundingClient
+
+	svc, err := LndHubTestServiceInit(lndClient)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -70,16 +85,31 @@ func (suite *PaymentTestErrorsSuite) SetupSuite() {
 }
 
 func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
-	//create external zero amount invoice that will fail
+	aliceFundingSats := 1000
+	externalSatRequested := 500
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoiceResponse.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+
+	//create external invoice
 	externalInvoice := lnrpc.Invoice{
-		Memo:  "integration tests: external failing pay",
-		Value: 0,
+		Memo:  "integration tests: external pay from alice",
+		Value: int64(externalSatRequested),
 	}
 	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
-	_ = suite.createPayInvoiceReqError(invoice.PaymentRequest, suite.bobToken)
+	//pay external from alice, mock will fail
+	_ = suite.createPayInvoiceReqError(invoice.PaymentRequest, suite.aliceToken)
 
-	userId := getUserIdFromToken(suite.bobToken)
+	userId := getUserIdFromToken(suite.aliceToken)
 
 	invoices, err := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
@@ -93,12 +123,20 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
 
-	// check if there are 2 transaction entries, with reversed credit and debit account ids
-	assert.Equal(suite.T(), 2, len(transactonEntries))
-	assert.Equal(suite.T(), transactonEntries[0].CreditAccountID, transactonEntries[1].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[0].DebitAccountID, transactonEntries[1].CreditAccountID)
-}
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
 
+	// check if there are 3 transaction entries, with reversed credit and debit account ids
+	assert.Equal(suite.T(), 3, len(transactonEntries))
+	assert.Equal(suite.T(), transactonEntries[1].CreditAccountID, transactonEntries[2].DebitAccountID)
+	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[2].CreditAccountID)
+	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
+	// assert that balance is the same
+	assert.Equal(suite.T(), int64(aliceFundingSats), aliceBalance)
+}
 func (suite *PaymentTestErrorsSuite) TearDownSuite() {
 
 }
