@@ -28,12 +28,13 @@ const (
 
 type PaymentTestErrorsSuite struct {
 	TestSuite
-	fundingClient *lnd.LNDWrapper
-	service       *service.LndhubService
-	aliceLogin    controllers.CreateUserResponseBody
-	aliceToken    string
-	bobLogin      controllers.CreateUserResponseBody
-	bobToken      string
+	fundingClient            *lnd.LNDWrapper
+	service                  *service.LndhubService
+	aliceLogin               controllers.CreateUserResponseBody
+	aliceToken               string
+	bobLogin                 controllers.CreateUserResponseBody
+	bobToken                 string
+	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *PaymentTestErrorsSuite) SetupSuite() {
@@ -65,7 +66,10 @@ func (suite *PaymentTestErrorsSuite) SetupSuite() {
 		log.Fatalf("Error creating test users: %v", err)
 	}
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	// store cancel func to be called in tear down suite
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.invoiceUpdateSubCancelFn = cancel
+	go svc.InvoiceUpdateSubscription(ctx)
 	suite.service = svc
 	e := echo.New()
 
@@ -137,8 +141,9 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	// assert that balance is the same
 	assert.Equal(suite.T(), int64(aliceFundingSats), aliceBalance)
 }
-func (suite *PaymentTestErrorsSuite) TearDownSuite() {
 
+func (suite *PaymentTestErrorsSuite) TearDownSuite() {
+	suite.invoiceUpdateSubCancelFn()
 }
 
 func TestPaymentTestErrorsSuite(t *testing.T) {

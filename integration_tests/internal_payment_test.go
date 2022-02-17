@@ -21,12 +21,13 @@ import (
 
 type PaymentTestSuite struct {
 	TestSuite
-	fundingClient *lnd.LNDWrapper
-	service       *service.LndhubService
-	aliceLogin    controllers.CreateUserResponseBody
-	aliceToken    string
-	bobLogin      controllers.CreateUserResponseBody
-	bobToken      string
+	fundingClient            *lnd.LNDWrapper
+	service                  *service.LndhubService
+	aliceLogin               controllers.CreateUserResponseBody
+	aliceToken               string
+	bobLogin                 controllers.CreateUserResponseBody
+	bobToken                 string
+	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *PaymentTestSuite) SetupSuite() {
@@ -48,7 +49,10 @@ func (suite *PaymentTestSuite) SetupSuite() {
 		log.Fatalf("Error creating test users: %v", err)
 	}
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	// store cancel func to be called in tear down suite
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.invoiceUpdateSubCancelFn = cancel
+	go svc.InvoiceUpdateSubscription(ctx)
 	suite.service = svc
 	e := echo.New()
 
@@ -68,7 +72,11 @@ func (suite *PaymentTestSuite) SetupSuite() {
 }
 
 func (suite *PaymentTestSuite) TearDownSuite() {
+	suite.invoiceUpdateSubCancelFn()
+}
 
+func (suite *PaymentTestSuite) TearDownTest() {
+	clearTable(suite.service, "transaction_entries")
 }
 
 func (suite *PaymentTestSuite) TestInternalPayment() {

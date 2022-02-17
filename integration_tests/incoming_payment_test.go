@@ -31,10 +31,11 @@ const (
 
 type IncomingPaymentTestSuite struct {
 	TestSuite
-	fundingClient *lnd.LNDWrapper
-	service       *service.LndhubService
-	userLogin     controllers.CreateUserResponseBody
-	userToken     string
+	fundingClient            *lnd.LNDWrapper
+	service                  *service.LndhubService
+	userLogin                controllers.CreateUserResponseBody
+	userToken                string
+	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *IncomingPaymentTestSuite) SetupSuite() {
@@ -56,7 +57,10 @@ func (suite *IncomingPaymentTestSuite) SetupSuite() {
 		log.Fatalf("Error creating test users: %v", err)
 	}
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	// store cancel func to be called in tear down suite
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.invoiceUpdateSubCancelFn = cancel
+	go svc.InvoiceUpdateSubscription(ctx)
 	suite.service = svc
 	e := echo.New()
 
@@ -70,7 +74,7 @@ func (suite *IncomingPaymentTestSuite) SetupSuite() {
 }
 
 func (suite *IncomingPaymentTestSuite) TearDownSuite() {
-
+	suite.invoiceUpdateSubCancelFn()
 }
 
 func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
