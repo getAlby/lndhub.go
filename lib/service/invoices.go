@@ -174,7 +174,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
 		paymentResponse, err = svc.SendInternalPayment(context.Background(), invoice)
 		if err != nil {
-			svc.HandleFailedPayment(ctx, invoice, entry, err)
+			svc.HandleFailedPayment(context.Background(), invoice, entry, err)
 			return nil, err
 		}
 	} else {
@@ -189,7 +189,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The payment was successful.
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	err = svc.HandleSuccessfulPayment(ctx, invoice)
+	err = svc.HandleSuccessfulPayment(context.Background(), invoice)
 	return &paymentResponse, err
 }
 
