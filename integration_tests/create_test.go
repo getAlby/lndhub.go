@@ -36,6 +36,15 @@ func (suite *CreateUserTestSuite) TearDownSuite() {
 
 }
 
+func (suite *CreateUserTestSuite) TearDownTest() {
+	err := clearTable(suite.Service, "users")
+	if err != nil {
+		fmt.Printf("Tear down test error %v\n", err.Error())
+		return
+	}
+	fmt.Println("Tear down test success")
+}
+
 func (suite *CreateUserTestSuite) TestCreate() {
 	e := echo.New()
 	e.HTTPErrorHandler = responses.HTTPErrorHandler

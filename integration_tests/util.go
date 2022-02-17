@@ -74,6 +74,16 @@ func LndHubTestServiceInit() (svc *service.LndhubService, err error) {
 	return svc, nil
 }
 
+func clearTable(svc *service.LndhubService, tableName string) error {
+	dbConn, err := db.Open(svc.Config.DatabaseUri)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	_, err = dbConn.Exec(fmt.Sprintf("DELETE FROM %s", tableName))
+	return err
+}
+
 func createUsers(svc *service.LndhubService, usersToCreate int) (logins []controllers.CreateUserResponseBody, tokens []string, err error) {
 	logins = []controllers.CreateUserResponseBody{}
 	tokens = []string{}
