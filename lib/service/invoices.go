@@ -189,14 +189,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The payment was successful.
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	invoice.State = common.InvoiceStateSettled
-	invoice.SettledAt = schema.NullTime{Time: time.Now()}
-
-	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+	err = svc.HandleSuccessfulPayment(ctx, invoice)
 	return &paymentResponse, err
 }
 
@@ -208,10 +201,13 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return nil
 }
 
-func (svc *LndhubService) HandleSuccesfulPayment(ctx context.Context, invoice *models.Invoice, err error) error {
-	//here we should just update the outgoing invoice as completed
-	//so consolidate the last couple of lines from SendPaymentInternal/SendPaymentSync here
-	return nil
+func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice) error {
+	invoice.State = common.InvoiceStateSettled
+	invoice.SettledAt = schema.NullTime{Time: time.Now()}
+
+	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	// TODO: error logging
+	return err
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
