@@ -142,10 +142,12 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// Get the user's current and outgoing account for the transaction entry
 	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
 	if err != nil {
+		svc.Logger.Errorf("Could not find current account user_id:%v", invoice.UserID)
 		return nil, err
 	}
 	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
 	if err != nil {
+		svc.Logger.Errorf("Could not find outgoing account user_id:%v", invoice.UserID)
 		return nil, err
 	}
 
@@ -161,6 +163,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// If the user does not have enough balance this call fails
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
+		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return nil, err
 	}
 
@@ -201,7 +204,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	}
 	_, err := svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
-		// TODO: error logging
+		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
 	}
 
@@ -211,7 +214,9 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	}
 
 	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
-	// TODO: error logging
+	if err != nil {
+		svc.Logger.Errorf("Could not update failed payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+	}
 	return err
 }
 
@@ -220,7 +225,9 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
 	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
-	// TODO: error logging
+	if err != nil {
+		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+	}
 	return err
 }
 
