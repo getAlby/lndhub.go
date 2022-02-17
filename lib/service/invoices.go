@@ -43,7 +43,6 @@ func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId i
 
 func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
-	//SendInternalPayment()
 	// find invoice
 	var incomingInvoice models.Invoice
 	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
@@ -122,7 +121,7 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 		return sendPaymentResponse, err
 	}
 
-	// If there was a payment error we rollback and return an error
+	// If there was a payment error we return an error
 	if sendPaymentResult.GetPaymentError() != "" || sendPaymentResult.GetPaymentPreimage() == nil {
 		return sendPaymentResponse, errors.New(sendPaymentResult.GetPaymentError())
 	}

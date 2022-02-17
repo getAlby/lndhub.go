@@ -15,6 +15,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
@@ -82,6 +83,14 @@ func clearTable(svc *service.LndhubService, tableName string) error {
 
 	_, err = dbConn.Exec(fmt.Sprintf("DELETE FROM %s", tableName))
 	return err
+}
+
+// unsafe parse jwt method to pull out userId claim
+// should be used only in integration_tests package
+func getUserIdFromToken(token string) int64 {
+	parsedToken, _, _ := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
+	claims, _ := parsedToken.Claims.(jwt.MapClaims)
+	return int64(claims["id"].(float64))
 }
 
 func createUsers(svc *service.LndhubService, usersToCreate int) (logins []controllers.CreateUserResponseBody, tokens []string, err error) {

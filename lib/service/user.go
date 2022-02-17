@@ -82,6 +82,12 @@ func (svc *LndhubService) AccountFor(ctx context.Context, accountType string, us
 	return account, err
 }
 
+func (svc *LndhubService) TransactionEntriesFor(ctx context.Context, userId int64) ([]models.TransactionEntry, error) {
+	transactionEntries := []models.TransactionEntry{}
+	err := svc.DB.NewSelect().Model(&transactionEntries).Where("user_id = ?", userId).Scan(ctx)
+	return transactionEntries, err
+}
+
 func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoiceType string) ([]models.Invoice, error) {
 	var invoices []models.Invoice
 
