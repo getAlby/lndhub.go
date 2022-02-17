@@ -169,16 +169,18 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
+	// Here we start using context.Background because we want to complete these calls
+	// regardless of if the request's context is canceled or not.
 	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
-		paymentResponse, err = svc.SendInternalPayment(ctx, invoice)
+		paymentResponse, err = svc.SendInternalPayment(context.Background(), invoice)
 		if err != nil {
 			svc.HandleFailedPayment(ctx, invoice, err)
 			return nil, err
 		}
 	} else {
-		paymentResponse, err = svc.SendPaymentSync(ctx, invoice)
+		paymentResponse, err = svc.SendPaymentSync(context.Background(), invoice)
 		if err != nil {
-			svc.HandleFailedPayment(ctx, invoice, err)
+			svc.HandleFailedPayment(context.Background(), invoice, err)
 			return nil, err
 		}
 	}
@@ -198,16 +200,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	return &paymentResponse, err
 }
 
-//this method should be called on 2 occasions: when the sendpayment calls returns with an error
-//and in an async goroutine that subscribes to outgoing payments.
 func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, err error) error {
-	//if the error was due to canceled ctx, we don't know anything
-	//about the payment, so we don't do anything here, it will be
-	//handled asynchronously in the goroutine that subscribes to
-	//outgoing payments
-	if err.Error() == context.Canceled.Error() {
-		return nil
-	}
 	//if we get here, we can be sure that the payment actually failed
 	//so we must 1) add a new transactionentry that transfers
 	//funds back to the user's "current" balance 2) update the outgoing
@@ -215,8 +208,6 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return nil
 }
 
-//this method should be called on 2 occasions: when the sendpayment calls returns without an error
-//and in an async goroutine that subscribes to outgoing payments.
 func (svc *LndhubService) HandleSuccesfulPayment(ctx context.Context, invoice *models.Invoice, err error) error {
 	//here we should just update the outgoing invoice as completed
 	//so consolidate the last couple of lines from SendPaymentInternal/SendPaymentSync here

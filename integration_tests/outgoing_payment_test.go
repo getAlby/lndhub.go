@@ -36,11 +36,10 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 }
 
 func (suite *PaymentTestSuite) TestOutGoingPaymentFailure() {
-	//TODO: use a dummy LND interface to test different scenarios
+	//TODO: use a new implementation of LNDClientWrapper interface to test different scenarios
 	//might be better if this has it's own suite
 	//because we need a different LND client
-	// - payment fails directly, no callback event
-	// - payment fails after some time, failure callback event
-	// - payment call never returns, success callback event
-	// - payment call never returns, failure callback event
+	// - payment fails directly
+	// - payment fails after some time, check that balance is locked in the meantime and is restored afterwards
+	// - payment call succeeds after some time, check that balance is locked in the meantime and is _not_ restored afterwards
 }

@@ -150,20 +150,3 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		}
 	}
 }
-
-//TODO: implement payment update subscription
-//make sure that we do not conflict if the sync
-//handling is being done at the same time.
-func (svc *LndhubService) PaymentUpdateSubscription(ctx context.Context) error {
-	//	paymentSubscriptionStream, err := svc.ConnectPaymentSubscription(ctx)
-	//	if err != nil {
-	//		sentry.CaptureException(err)
-	//		return err
-	//	}
-	//	for {
-	//		payment, err := paymentSubscriptionStream.Recv()
-	//		if payment success: svc.HandlePaymentSuccess
-	//		if payment fail: svc.HandlePaymentFailure
-	//	}
-	return nil
-}
