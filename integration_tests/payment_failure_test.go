@@ -116,6 +116,7 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	}
 	assert.Equal(suite.T(), 1, len(invoices))
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
+	assert.Equal(suite.T(), SendPaymentMockError, invoices[0].ErrorMessage)
 
 	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {

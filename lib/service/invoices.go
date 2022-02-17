@@ -164,8 +164,6 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 		return nil, err
 	}
 
-	// TODO: maybe save errors on the invoice?
-
 	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
 	// Here we start using context.Background because we want to complete these calls
@@ -192,7 +190,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	return &paymentResponse, err
 }
 
-func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, entryToRevert models.TransactionEntry, err error) error {
+func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, entryToRevert models.TransactionEntry, failedPaymentError error) error {
 	// add transaction entry with reverted credit/debit account id
 	entry := models.TransactionEntry{
 		UserID:          invoice.UserID,
@@ -201,14 +199,16 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		DebitAccountID:  entryToRevert.CreditAccountID,
 		Amount:          invoice.Amount,
 	}
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	_, err := svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		// TODO: error logging
 		return err
 	}
 
-	// TODO: maybe save errors on the invoice?
 	invoice.State = common.InvoiceStateError
+	if failedPaymentError != nil {
+		invoice.ErrorMessage = failedPaymentError.Error()
+	}
 
 	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	// TODO: error logging
