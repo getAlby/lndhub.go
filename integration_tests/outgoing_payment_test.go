@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -33,4 +34,19 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	//pay external from alice
 	payResponse := suite.createPayInvoiceReq(invoice.PaymentRequest, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
+
+	// check that balance was reduced
+	userId := getUserIdFromToken(suite.aliceToken)
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested), aliceBalance)
+
+	// check that no additional transaction entry was created
+	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
+	}
+	assert.Equal(suite.T(), 2, len(transactonEntries))
 }

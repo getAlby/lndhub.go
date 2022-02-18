@@ -25,7 +25,7 @@ type CreateUserTestSuite struct {
 }
 
 func (suite *CreateUserTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit()
+	svc, err := LndHubTestServiceInit(nil)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -34,6 +34,15 @@ func (suite *CreateUserTestSuite) SetupSuite() {
 
 func (suite *CreateUserTestSuite) TearDownSuite() {
 
+}
+
+func (suite *CreateUserTestSuite) TearDownTest() {
+	err := clearTable(suite.Service, "users")
+	if err != nil {
+		fmt.Printf("Tear down test error %v\n", err.Error())
+		return
+	}
+	fmt.Println("Tear down test success")
 }
 
 func (suite *CreateUserTestSuite) TestCreate() {
