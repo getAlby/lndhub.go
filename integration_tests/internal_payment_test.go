@@ -160,7 +160,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(bobSatRequested))
 	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
 	// assert that balance was reduced only once
-	assert.Equal(suite.T(), int64(bobSatRequested), int64(aliceBalance))
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested), int64(aliceBalance))
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {

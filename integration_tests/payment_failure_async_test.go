@@ -21,16 +21,17 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type PaymentTestErrorsSuite struct {
+type PaymentTestAsyncErrorsSuite struct {
 	TestSuite
 	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
 	userLogin                controllers.CreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
+	serviceClient            *LNDMockWrapperAsync
 }
 
-func (suite *PaymentTestErrorsSuite) SetupSuite() {
+func (suite *PaymentTestAsyncErrorsSuite) SetupSuite() {
 	// use real client for funding only
 	fundingClient, err := lnd.NewLNDclient(lnd.LNDoptions{
 		Address:     lnd2RegtestAddress,
@@ -41,10 +42,11 @@ func (suite *PaymentTestErrorsSuite) SetupSuite() {
 	}
 
 	// inject fake lnd client with failing send payment sync into service
-	lndClient, err := NewLNDMockWrapper(lnd.LNDoptions{
+	lndClient, err := NewLNDMockWrapperAsync(lnd.LNDoptions{
 		Address:     lnd1RegtestAddress,
 		MacaroonHex: lnd1RegtestMacaroonHex,
 	})
+	suite.serviceClient = lndClient
 	if err != nil {
 		log.Fatalf("Error setting up test client: %v", err)
 	}
@@ -79,10 +81,10 @@ func (suite *PaymentTestErrorsSuite) SetupSuite() {
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
 }
 
-func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
+func (suite *PaymentTestAsyncErrorsSuite) TestExternalAsyncFailingInvoice() {
 	userFundingSats := 1000
 	externalSatRequested := 500
-	//fund user account
+	// fund user account
 	invoiceResponse := suite.createAddInvoiceReq(userFundingSats, "integration test external payment user", suite.userToken)
 	sendPaymentRequest := lnrpc.SendRequest{
 		PaymentRequest: invoiceResponse.PayReq,
@@ -91,20 +93,40 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
 	assert.NoError(suite.T(), err)
 
-	//wait a bit for the callback event to hit
+	// wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
 
-	//create external invoice
+	// create external invoice
 	externalInvoice := lnrpc.Invoice{
 		Memo:  "integration tests: external pay from user",
 		Value: int64(externalSatRequested),
 	}
 	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
-	//pay external from user, mock will fail immediately
-	_ = suite.createPayInvoiceReqError(invoice.PaymentRequest, suite.userToken)
+	// pay external from user, req will be canceled after 2 sec
+	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
 
+	// wait for request to fail
+	time.Sleep(5 * time.Second)
+
+	// check to see that balance was reduced
 	userId := getUserIdFromToken(suite.userToken)
+	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
+
+	// fail payment and wait a bit
+	suite.serviceClient.FailPayment(SendPaymentMockError)
+	time.Sleep(2 * time.Second)
+
+	// check that balance was reverted and invoice is in error state
+	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	assert.Equal(suite.T(), int64(userFundingSats), userBalance)
 
 	invoices, err := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
@@ -118,26 +140,18 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
-
-	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
-	if err != nil {
-		fmt.Printf("Error when getting balance %v\n", err.Error())
-	}
-
 	// check if there are 3 transaction entries, with reversed credit and debit account ids
 	assert.Equal(suite.T(), 3, len(transactonEntries))
 	assert.Equal(suite.T(), transactonEntries[1].CreditAccountID, transactonEntries[2].DebitAccountID)
 	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[2].CreditAccountID)
 	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
 	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
-	// assert that balance is the same
-	assert.Equal(suite.T(), int64(userFundingSats), userBalance)
 }
 
-func (suite *PaymentTestErrorsSuite) TearDownSuite() {
+func (suite *PaymentTestAsyncErrorsSuite) TearDownSuite() {
 	suite.invoiceUpdateSubCancelFn()
 }
 
-func TestPaymentTestErrorsSuite(t *testing.T) {
-	suite.Run(t, new(PaymentTestErrorsSuite))
+func TestPaymentTestErrorsAsyncSuite(t *testing.T) {
+	suite.Run(t, new(PaymentTestAsyncErrorsSuite))
 }
