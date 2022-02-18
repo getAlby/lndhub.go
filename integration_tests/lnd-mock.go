@@ -31,6 +31,7 @@ func (wrapper *LNDMockWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.S
 }
 
 // mock where send payment sync failure is controlled by channel
+// even though send payment method is still sync, suffix "Async" here is used to show intention of using this mock
 var errorMessageChannel = make(chan string, 1)
 
 type LNDMockWrapperAsync struct {
