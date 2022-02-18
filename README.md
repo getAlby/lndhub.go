@@ -1,6 +1,8 @@
 # LndHub.go
 Wrapper for Lightning Network Daemon (lnd). It provides separate accounts with minimum trust for end users.
 
+Live deployment at [ln.getalby.com](https://ln.getalby.com).
+
 ### [LndHub](https://github.com/BlueWallet/LndHub) compatible API implemented in Go using relational database backends
 
 * Using a relational database (PostgreSQL and SQLite)
@@ -13,7 +15,6 @@ Wrapper for Lightning Network Daemon (lnd). It provides separate accounts with m
 ## Known Issues
 
 * Currently no fee handling (users are currently not charged for lightning transaction fees)
-* No handling of in-transit payments
 
 ## Configuration
 
