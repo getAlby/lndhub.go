@@ -9,6 +9,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
@@ -204,6 +205,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	}
 	_, err := svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
+		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
 	}
@@ -215,6 +217,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 
 	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
+		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update failed payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 	}
 	return err
@@ -226,6 +229,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 
 	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
+		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 	}
 	return err
