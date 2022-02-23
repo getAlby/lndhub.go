@@ -2,10 +2,8 @@ package models
 
 import (
 	"context"
-	"encoding/hex"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/uptrace/bun"
 )
 
@@ -29,18 +27,6 @@ type Invoice struct {
 	ExpiresAt            bun.NullTime `bun:",nullzero"`
 	UpdatedAt            bun.NullTime `json:"updated_at"`
 	SettledAt            bun.NullTime `json:"settled_at"`
-}
-
-func (i *Invoice) DestinationPubkey() (*btcec.PublicKey, error) {
-	hexPubkey, err := hex.DecodeString(i.DestinationPubkeyHex)
-	if err != nil {
-		return nil, err
-	}
-	pubkey, err := btcec.ParsePubKey(hexPubkey[:], btcec.S256())
-	if err != nil {
-		return nil, err
-	}
-	return pubkey, nil
 }
 
 func (i *Invoice) BeforeAppendModel(ctx context.Context, query bun.Query) error {

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
@@ -20,7 +22,11 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	svc.Logger.Infof("Invoice update: r_hash:%s state:%v", rHashStr, rawInvoice.State.String())
 
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
-	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?", "incoming", rHashStr, "settled", time.Now()).Limit(1).Scan(ctx)
+	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
+		common.InvoiceTypeIncoming,
+		rHashStr,
+		common.InvoiceStateSettled,
+		time.Now()).Limit(1).Scan(ctx)
 	if err != nil {
 		svc.Logger.Infof("Invoice not found. Ignoring. r_hash:%s", rHashStr)
 		return nil
@@ -33,13 +39,13 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	svc.Logger.Infof("Invoice update: invoice_id:%v settled:%v value:%v state:%v", invoice.ID, rawInvoice.Settled, rawInvoice.AmtPaidSat, rawInvoice.State)
 
 	// Get the user's current account for the transaction entry
-	creditAccount, err := svc.AccountFor(ctx, "current", invoice.UserID)
+	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, invoice.UserID)
 	if err != nil {
 		svc.Logger.Errorf("Could not find current account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
 	}
 	// Get the user's incoming account for the transaction entry
-	debitAccount, err := svc.AccountFor(ctx, "incoming", invoice.UserID)
+	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, invoice.UserID)
 	if err != nil {
 		svc.Logger.Errorf("Could not find incoming account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
@@ -60,7 +66,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	} else {
 		// if the invoice is settled we update the state and create an transaction entry to the current account
 		invoice.SettledAt = bun.NullTime{Time: time.Unix(rawInvoice.SettleDate, 0)}
-		invoice.State = "settled"
+		invoice.State = common.InvoiceStateSettled
 		_, err = tx.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
 		if err != nil {
 			tx.Rollback()
@@ -95,7 +101,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	return nil
 }
 
-func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnrpc.Lightning_SubscribeInvoicesClient, error) {
+func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.SubscribeInvoicesWrapper, error) {
 	var invoice models.Invoice
 	invoiceSubscriptionOptions := lnrpc.InvoiceSubscription{}
 	// Find the oldest NOT settled invoice with an add_index

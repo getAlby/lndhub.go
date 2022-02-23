@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/crypto/bcrypt"
@@ -20,18 +19,18 @@ const alphaNumBytes = random.Alphanumeric
 type LndhubService struct {
 	Config         *Config
 	DB             *bun.DB
-	LndClient      lnrpc.LightningClient
+	LndClient      lnd.LightningClientWrapper
 	Logger         *lecho.Logger
-	IdentityPubkey *btcec.PublicKey
+	IdentityPubkey string
 }
 
-func (svc *LndhubService) GenerateToken(login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
+func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
 	var user models.User
 
 	switch {
 	case login != "" || password != "":
 		{
-			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(context.TODO()); err != nil {
+			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
 				return "", "", fmt.Errorf("bad auth")
 			}
 			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {

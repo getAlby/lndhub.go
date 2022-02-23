@@ -22,7 +22,7 @@ func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 	rHash := c.Param("payment_hash")
 
-	invoice, err := controller.svc.FindInvoiceByPaymentHash(userId, rHash)
+	invoice, err := controller.svc.FindInvoiceByPaymentHash(c.Request().Context(), userId, rHash)
 
 	// Probably we did not find the invoice
 	if err != nil {
