@@ -2,10 +2,12 @@ package integration_tests
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -21,12 +23,13 @@ import (
 
 type PaymentTestSuite struct {
 	TestSuite
-	fundingClient *lnd.LNDWrapper
-	service       *service.LndhubService
-	aliceLogin    controllers.CreateUserResponseBody
-	aliceToken    string
-	bobLogin      controllers.CreateUserResponseBody
-	bobToken      string
+	fundingClient            *lnd.LNDWrapper
+	service                  *service.LndhubService
+	aliceLogin               controllers.CreateUserResponseBody
+	aliceToken               string
+	bobLogin                 controllers.CreateUserResponseBody
+	bobToken                 string
+	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *PaymentTestSuite) SetupSuite() {
@@ -39,7 +42,7 @@ func (suite *PaymentTestSuite) SetupSuite() {
 	}
 	suite.fundingClient = lndClient
 
-	svc, err := LndHubTestServiceInit()
+	svc, err := LndHubTestServiceInit(nil)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -48,7 +51,10 @@ func (suite *PaymentTestSuite) SetupSuite() {
 		log.Fatalf("Error creating test users: %v", err)
 	}
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	// store cancel func to be called in tear down suite
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.invoiceUpdateSubCancelFn = cancel
+	go svc.InvoiceUpdateSubscription(ctx)
 	suite.service = svc
 	e := echo.New()
 
@@ -68,7 +74,12 @@ func (suite *PaymentTestSuite) SetupSuite() {
 }
 
 func (suite *PaymentTestSuite) TearDownSuite() {
+	suite.invoiceUpdateSubCancelFn()
+}
 
+func (suite *PaymentTestSuite) TearDownTest() {
+	clearTable(suite.service, "transaction_entries")
+	clearTable(suite.service, "invoices")
 }
 
 func (suite *PaymentTestSuite) TestInternalPayment() {
@@ -97,6 +108,59 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	//pay bob from alice
 	errorResp := suite.createPayInvoiceReqError(tooMuch.PayReq, suite.aliceToken)
 	assert.Equal(suite.T(), responses.NotEnoughBalanceError.Code, errorResp.Code)
+}
+
+func (suite *PaymentTestSuite) TestInternalPaymentFail() {
+	aliceFundingSats := 1000
+	bobSatRequested := 500
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoiceResponse.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+
+	//create invoice for bob
+	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
+	//pay bob from alice
+	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
+	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
+	//try to pay same invoice again for make it fail
+	_ = suite.createPayInvoiceReqError(bobInvoice.PayReq, suite.aliceToken)
+
+	userId := getUserIdFromToken(suite.aliceToken)
+	invoices, err := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeOutgoing)
+	if err != nil {
+		fmt.Printf("Error when getting invoices %v\n", err.Error())
+	}
+
+	// check if first one is settled, but second one error (they are ordered desc by id)
+	assert.Equal(suite.T(), 2, len(invoices))
+	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
+	assert.Equal(suite.T(), common.InvoiceStateSettled, invoices[1].State)
+	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
+	}
+
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+
+	// check if there are 4 transaction entries, with reversed credit and debit account ids for last 2
+	assert.Equal(suite.T(), 4, len(transactonEntries))
+	assert.Equal(suite.T(), transactonEntries[2].CreditAccountID, transactonEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), transactonEntries[2].DebitAccountID, transactonEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(bobSatRequested))
+	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
+	// assert that balance was reduced only once
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested), int64(aliceBalance))
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {

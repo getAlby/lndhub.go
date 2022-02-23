@@ -16,10 +16,6 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
-const (
-	MSAT_PER_SAT = 1000
-)
-
 // LNDoptions are the options for the connection to the lnd node.
 type LNDoptions struct {
 	Address      string

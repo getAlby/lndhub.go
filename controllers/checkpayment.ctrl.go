@@ -13,6 +13,10 @@ type CheckPaymentController struct {
 	svc *service.LndhubService
 }
 
+type CheckPaymentResponseBody struct {
+	IsPaid bool `json:"paid"`
+}
+
 func NewCheckPaymentController(svc *service.LndhubService) *CheckPaymentController {
 	return &CheckPaymentController{svc: svc}
 }
@@ -30,9 +34,7 @@ func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	var responseBody struct {
-		IsPaid bool `json:"paid"`
-	}
+	responseBody := &CheckPaymentResponseBody{}
 	responseBody.IsPaid = !invoice.SettledAt.IsZero()
 	return c.JSON(http.StatusOK, &responseBody)
 }
