@@ -12,6 +12,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	MSAT_PER_SAT = 1000
+)
+
 type CLNClient struct {
 	client  *cln.Client
 	handler *InvoiceHandler
