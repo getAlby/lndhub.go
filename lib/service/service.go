@@ -52,12 +52,12 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 		}
 	}
 
-	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTExpiry, &user)
+	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTExpiry, &user)
+	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTRefreshTokenExpiry, &user)
 	if err != nil {
 		return "", "", err
 	}

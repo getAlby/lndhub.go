@@ -37,11 +37,12 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 	//make sure the datbase is empty every time you run the test suite
 	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
-		DatabaseUri:    dbUri,
-		JWTSecret:      []byte("SECRET"),
-		JWTExpiry:      3600,
-		LNDAddress:     lnd1RegtestAddress,
-		LNDMacaroonHex: lnd1RegtestMacaroonHex,
+		DatabaseUri:           dbUri,
+		JWTSecret:             []byte("SECRET"),
+		JWTAccessTokenExpiry:  3600,
+		JWTRefreshTokenExpiry: 3600,
+		LNDAddress:            lnd1RegtestAddress,
+		LNDMacaroonHex:        lnd1RegtestMacaroonHex,
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
