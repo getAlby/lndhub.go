@@ -84,6 +84,7 @@ func GenerateRefreshToken(secret []byte, expiryInSeconds int, u *models.User) (s
 
 func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 	userIdClaim := "id"
+	isRefreshClaim := "isRefresh"
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return secret, nil
@@ -93,11 +94,19 @@ func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 		return -1, err
 	}
 
+	var userId interface{}
 	for k, v := range claims {
+		if k == isRefreshClaim && v.(bool) == false {
+			return -1, errors.New("This is not refresh token")
+		}
 		if k == userIdClaim {
-			return int64(v.(int64)), nil
+			userId = v.(float64)
 		}
 	}
 
-	return -1, errors.New("Can not find user id claim")
+	if userId == nil {
+		return -1, errors.New("")
+	}
+
+	return int64(userId.(float64)), nil
 }
