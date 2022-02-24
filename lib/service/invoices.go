@@ -190,7 +190,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The payment was successful.
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	err = svc.HandleSuccessfulPayment(context.Background(), invoice)
+	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
 }
 
@@ -223,11 +223,33 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return err
 }
 
-func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice) error {
+func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
+	// Get the user's fee account for the transaction entry, current account is already there in parent entry
+	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
+	if err != nil {
+		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
+		return err
+	}
+	// add transaction entry for fee
+	entry := models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: feeAccount.ID,
+		DebitAccountID:  parentEntry.DebitAccountID,
+		Amount:          int64(svc.Config.FixedFee),
+		ParentID:        parentEntry.ID,
+	}
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		return err
+	}
+
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
-	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
