@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -79,4 +80,24 @@ func GenerateRefreshToken(secret []byte, expiryInSeconds int, u *models.User) (s
 	}
 
 	return t, nil
+}
+
+func GetUserIdFromToken(secret []byte, token string) (int64, error) {
+	userIdClaim := "id"
+	claims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		return secret, nil
+	})
+
+	if err != nil {
+		return -1, err
+	}
+
+	for k, v := range claims {
+		if k == userIdClaim {
+			return int64(v.(int64)), nil
+		}
+	}
+
+	return -1, errors.New("Can not find user id claim")
 }
