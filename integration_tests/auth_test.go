@@ -66,7 +66,24 @@ func (suite *UserAuthTestSuite) TestAuth() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.NotEmpty(suite.T(), responseBody.AccessToken)
 	assert.NotEmpty(suite.T(), responseBody.RefreshToken)
-	fmt.Printf("Succesfully got a token: %s\n", responseBody.AccessToken)
+	fmt.Printf("Succesfully got a token using login and password: %s\n", responseBody.AccessToken)
+
+	// login again with only refresh token
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+		RefreshToken: responseBody.RefreshToken,
+	}))
+	req = httptest.NewRequest(http.MethodPost, "/auth", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	c = suite.echo.NewContext(req, rec)
+	controller = controllers.NewAuthController(suite.Service)
+	responseBody = &controllers.AuthResponseBody{}
+	assert.NoError(suite.T(), controller.Auth(c))
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
+	assert.NotEmpty(suite.T(), responseBody.AccessToken)
+	assert.NotEmpty(suite.T(), responseBody.RefreshToken)
+	fmt.Printf("Succesfully got a token using refresh token only: %s\n", responseBody.AccessToken)
 }
 
 func TestUserAuthTestSuite(t *testing.T) {
