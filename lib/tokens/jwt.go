@@ -86,9 +86,13 @@ func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 	userIdClaim := "id"
 	isRefreshClaim := "isRefresh"
 	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+	parsedToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
+
+	if !parsedToken.Valid {
+		return -1, errors.New("Token is invalid")
+	}
 
 	if err != nil {
 		return -1, err
