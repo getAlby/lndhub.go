@@ -90,18 +90,18 @@ func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 		return secret, nil
 	})
 
-	if !parsedToken.Valid {
-		return -1, errors.New("Token is invalid")
-	}
-
 	if err != nil {
 		return -1, err
+	}
+
+	if !parsedToken.Valid {
+		return -1, errors.New("Token is invalid")
 	}
 
 	var userId interface{}
 	for k, v := range claims {
 		if k == isRefreshClaim && v.(bool) == false {
-			return -1, errors.New("This is not refresh token")
+			return -1, errors.New("This is not a refresh token")
 		}
 		if k == userIdClaim {
 			userId = v.(float64)
@@ -109,7 +109,7 @@ func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 	}
 
 	if userId == nil {
-		return -1, errors.New("")
+		return -1, errors.New("User id claim not found")
 	}
 
 	return int64(userId.(float64)), nil
