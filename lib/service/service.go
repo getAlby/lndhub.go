@@ -35,16 +35,18 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 			}
 			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
 				return "", "", fmt.Errorf("bad auth")
-
 			}
 		}
 	case inRefreshToken != "":
 		{
-			// TODO: currently not supported
-			// I'd love to remove this from the auth handler, as the refresh token
-			// is usually a part of the JWT middleware: https://webdevstation.com/posts/user-authentication-with-go-using-jwt-token/
-			// if the current client depends on that - we can incorporate the refresh JWT code into here
-			return "", "", fmt.Errorf("bad auth")
+			userId, err := tokens.GetUserIdFromToken(svc.Config.JWTSecret, inRefreshToken)
+			if err != nil {
+				return "", "", fmt.Errorf("bad auth")
+			}
+
+			if err := svc.DB.NewSelect().Model(&user).Where("id = ?", userId).Scan(ctx); err != nil {
+				return "", "", fmt.Errorf("bad auth")
+			}
 		}
 	default:
 		{
