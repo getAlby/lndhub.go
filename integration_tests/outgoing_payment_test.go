@@ -48,5 +48,5 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), 2, len(transactonEntries))
+	assert.Equal(suite.T(), 3, len(transactonEntries))
 }
