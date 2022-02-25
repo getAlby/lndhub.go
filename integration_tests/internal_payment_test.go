@@ -156,6 +156,9 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 
 	// check if there are 5 transaction entries, with reversed credit and debit account ids for last 2
 	assert.Equal(suite.T(), 5, len(transactonEntries))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntries[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntries[1].Amount)
+	assert.Equal(suite.T(), int64(fee), transactonEntries[2].Amount)
 	assert.Equal(suite.T(), transactonEntries[3].CreditAccountID, transactonEntries[4].DebitAccountID)
 	assert.Equal(suite.T(), transactonEntries[3].DebitAccountID, transactonEntries[4].CreditAccountID)
 	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
