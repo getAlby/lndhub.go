@@ -42,6 +42,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		JWTExpiry:      3600,
 		LNDAddress:     lnd1RegtestAddress,
 		LNDMacaroonHex: lnd1RegtestMacaroonHex,
+		FixedFee:       10,
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {

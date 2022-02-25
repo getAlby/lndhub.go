@@ -12,6 +12,7 @@ import (
 func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	aliceFundingSats := 1000
 	externalSatRequested := 500
+	fee := 10
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -41,7 +42,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested), aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+fee), aliceBalance)
 
 	// check that no additional transaction entry was created
 	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)

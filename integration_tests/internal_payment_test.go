@@ -111,8 +111,9 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 }
 
 func (suite *PaymentTestSuite) TestInternalPaymentFail() {
-	aliceFundingSats := 1000
+	aliceFundingSats := 1010
 	bobSatRequested := 500
+	fee := 10
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -153,14 +154,14 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 
-	// check if there are 4 transaction entries, with reversed credit and debit account ids for last 2
+	// check if there are 5 transaction entries, with reversed credit and debit account ids for last 2
 	assert.Equal(suite.T(), 5, len(transactonEntries))
 	assert.Equal(suite.T(), transactonEntries[3].CreditAccountID, transactonEntries[4].DebitAccountID)
 	assert.Equal(suite.T(), transactonEntries[3].DebitAccountID, transactonEntries[4].CreditAccountID)
 	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
 	assert.Equal(suite.T(), transactonEntries[4].Amount, int64(bobSatRequested))
 	// assert that balance was reduced only once
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested), int64(aliceBalance))
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested+fee), int64(aliceBalance))
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {
