@@ -85,6 +85,7 @@ func (suite *PaymentTestSuite) TearDownTest() {
 func (suite *PaymentTestSuite) TestInternalPayment() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500
+	fee := 10
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -102,12 +103,31 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	//pay bob from alice
 	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
+
+	aliceId := getUserIdFromToken(suite.aliceToken)
+	bobId := getUserIdFromToken(suite.bobToken)
+
 	//try to pay Bob more than we currently have
 	//create invoice for bob
 	tooMuch := suite.createAddInvoiceReq(10000, "integration test internal payment bob", suite.bobToken)
 	//pay bob from alice
 	errorResp := suite.createPayInvoiceReqError(tooMuch.PayReq, suite.aliceToken)
 	assert.Equal(suite.T(), responses.NotEnoughBalanceError.Code, errorResp.Code)
+
+	transactonEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
+	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), aliceId)
+	assert.Equal(suite.T(), 3, len(transactonEntriesAlice))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntriesAlice[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntriesAlice[1].Amount)
+	assert.Equal(suite.T(), int64(fee), transactonEntriesAlice[2].Amount)
+	assert.Equal(suite.T(), transactonEntriesAlice[1].ID, transactonEntriesAlice[2].ParentID)
+	assert.Equal(suite.T(), int64(aliceFundingSats-bobSatRequested-fee), aliceBalance)
+
+	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+	transactionEntriesBob, _ := suite.service.TransactionEntriesFor(context.Background(), bobId)
+	assert.Equal(suite.T(), 1, len(transactionEntriesBob))
+	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesBob[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), bobBalance)
 }
 
 func (suite *PaymentTestSuite) TestInternalPaymentFail() {
