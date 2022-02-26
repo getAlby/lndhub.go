@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	cln "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/gofrs/uuid"
@@ -37,7 +38,7 @@ func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
 		handler: handler,
 		client: &cln.Client{
 			PaymentHandler: handler.Handle,
-			//CallTimeout:           0,
+			CallTimeout:          24 * 3600 * time.Second, //should be infinite actually
 			//Path:                  "",
 			//LightningDir:          "",
 			SparkURL:   options.SparkUrl,
