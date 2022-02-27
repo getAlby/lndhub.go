@@ -141,7 +141,6 @@ func main() {
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
-	secured.GET("/bolt12/decode/:offer", controllers.NewBolt12Controller(svc).Decode)
 	secured.POST("/bolt12/fetchinvoice", controllers.NewBolt12Controller(svc).FetchInvoice)
 	secured.POST("/bolt12/pay", controllers.NewBolt12Controller(svc).PayBolt12)
 
@@ -157,6 +156,8 @@ func main() {
 	//workaround, just adding /static would make a request to these resources hit the authorized group
 	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
+
+	e.GET("/bolt12/decode/:offer", controllers.NewBolt12Controller(svc).Decode)
 
 	// Subscribe to LND invoice updates in the background
 	// CLN: todo: re-write logic
