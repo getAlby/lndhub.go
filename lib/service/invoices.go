@@ -189,6 +189,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	paymentResponse.TransactionEntry = &entry
 
 	// The payment was successful.
+	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
 	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
@@ -225,12 +226,22 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 }
 
 func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
+	invoice.State = common.InvoiceStateSettled
+	invoice.SettledAt = schema.NullTime{Time: time.Now()}
+
+	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+	}
+
 	// Get the user's fee account for the transaction entry, current account is already there in parent entry
 	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
 	if err != nil {
 		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
 		return err
 	}
+
 	// add transaction entry for fee
 	entry := models.TransactionEntry{
 		UserID:          invoice.UserID,
@@ -247,15 +258,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		return err
 	}
 
-	invoice.State = common.InvoiceStateSettled
-	invoice.SettledAt = schema.NullTime{Time: time.Now()}
-
-	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
-	if err != nil {
-		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
-	}
-	return err
+	return nil
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
