@@ -190,6 +190,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The payment was successful.
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
+	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
 }
@@ -236,7 +237,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		InvoiceID:       invoice.ID,
 		CreditAccountID: feeAccount.ID,
 		DebitAccountID:  parentEntry.DebitAccountID,
-		Amount:          int64(svc.Config.FixedFee),
+		Amount:          int64(invoice.Fee),
 		ParentID:        parentEntry.ID,
 	}
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)

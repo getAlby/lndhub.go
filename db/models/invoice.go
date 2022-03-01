@@ -14,6 +14,7 @@ type Invoice struct {
 	UserID               int64        `json:"user_id" validate:"required"`
 	User                 *User        `bun:"rel:belongs-to,join:user_id=id"`
 	Amount               int64        `json:"amount" validate:"gte=0"`
+	Fee                  int64        `json:"fee" validate:"gte=0"`
 	Memo                 string       `json:"memo" bun:",nullzero"`
 	DescriptionHash      string       `json:"description_hash" bun:",nullzero"`
 	PaymentRequest       string       `json:"payment_request" bun:",nullzero"`

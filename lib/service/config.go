@@ -11,5 +11,4 @@ type Config struct {
 	LNDCertHex     string `envconfig:"LND_CERT_HEX"`
 	CustomName     string `envconfig:"CUSTOM_NAME"`
 	Port           int    `envconfig:"PORT" default:"3000"`
-	FixedFee       int    `envconfig:"FIXED_FEE" default:"10"`
 }
