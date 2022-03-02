@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -79,4 +80,37 @@ func GenerateRefreshToken(secret []byte, expiryInSeconds int, u *models.User) (s
 	}
 
 	return t, nil
+}
+
+func GetUserIdFromToken(secret []byte, token string) (int64, error) {
+	userIdClaim := "id"
+	isRefreshClaim := "isRefresh"
+	claims := jwt.MapClaims{}
+	parsedToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		return secret, nil
+	})
+
+	if err != nil {
+		return -1, err
+	}
+
+	if !parsedToken.Valid {
+		return -1, errors.New("Token is invalid")
+	}
+
+	var userId interface{}
+	for k, v := range claims {
+		if k == isRefreshClaim && v.(bool) == false {
+			return -1, errors.New("This is not a refresh token")
+		}
+		if k == userIdClaim {
+			userId = v.(float64)
+		}
+	}
+
+	if userId == nil {
+		return -1, errors.New("User id claim not found")
+	}
+
+	return int64(userId.(float64)), nil
 }

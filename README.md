@@ -30,7 +30,8 @@ vim .env # edit your config
 
 + `DATABASE_URI`: The URI for the database. If you want to use SQLite use for example: `file:data.db`
 + `JWT_SECRET`: We use [JWT](https://jwt.io/) for access tokens. Configure your secret here
-+ `JWT_EXPIRY`: How long the access tokens should be valid (in seconds)
++ `JWT_ACCESS_EXPIRY`: How long the access tokens should be valid (in seconds, default 2 days)
++ `JWT_REFRESH_EXPIRY`: How long the refresh tokens should be valid (in seconds, default 7 days)
 + `LND_ADDRESS`: LND gRPC address (with port) (e.g. localhost:10009)
 + `LND_MACAROON_HEX`: LND macaroon (hex)
 + `LND_CERT_HEX`: LND certificate (hex)
