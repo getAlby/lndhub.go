@@ -85,6 +85,7 @@ func (suite *PaymentTestSuite) TearDownTest() {
 func (suite *PaymentTestSuite) TestInternalPayment() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500
+	fee := 10
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -102,17 +103,37 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	//pay bob from alice
 	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
+
+	aliceId := getUserIdFromToken(suite.aliceToken)
+	bobId := getUserIdFromToken(suite.bobToken)
+
 	//try to pay Bob more than we currently have
 	//create invoice for bob
 	tooMuch := suite.createAddInvoiceReq(10000, "integration test internal payment bob", suite.bobToken)
 	//pay bob from alice
 	errorResp := suite.createPayInvoiceReqError(tooMuch.PayReq, suite.aliceToken)
 	assert.Equal(suite.T(), responses.NotEnoughBalanceError.Code, errorResp.Code)
+
+	transactonEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
+	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), aliceId)
+	assert.Equal(suite.T(), 3, len(transactonEntriesAlice))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntriesAlice[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntriesAlice[1].Amount)
+	assert.Equal(suite.T(), int64(fee), transactonEntriesAlice[2].Amount)
+	assert.Equal(suite.T(), transactonEntriesAlice[1].ID, transactonEntriesAlice[2].ParentID)
+	assert.Equal(suite.T(), int64(aliceFundingSats-bobSatRequested-fee), aliceBalance)
+
+	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+	transactionEntriesBob, _ := suite.service.TransactionEntriesFor(context.Background(), bobId)
+	assert.Equal(suite.T(), 1, len(transactionEntriesBob))
+	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesBob[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), bobBalance)
 }
 
 func (suite *PaymentTestSuite) TestInternalPaymentFail() {
-	aliceFundingSats := 1000
+	aliceFundingSats := 1010
 	bobSatRequested := 500
+	fee := 10
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -153,14 +174,17 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 
-	// check if there are 4 transaction entries, with reversed credit and debit account ids for last 2
-	assert.Equal(suite.T(), 4, len(transactonEntries))
-	assert.Equal(suite.T(), transactonEntries[2].CreditAccountID, transactonEntries[3].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[2].DebitAccountID, transactonEntries[3].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(bobSatRequested))
+	// check if there are 5 transaction entries, with reversed credit and debit account ids for last 2
+	assert.Equal(suite.T(), 5, len(transactonEntries))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntries[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntries[1].Amount)
+	assert.Equal(suite.T(), int64(fee), transactonEntries[2].Amount)
+	assert.Equal(suite.T(), transactonEntries[3].CreditAccountID, transactonEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), transactonEntries[3].DebitAccountID, transactonEntries[4].CreditAccountID)
 	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
+	assert.Equal(suite.T(), transactonEntries[4].Amount, int64(bobSatRequested))
 	// assert that balance was reduced only once
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested), int64(aliceBalance))
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested+fee), int64(aliceBalance))
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {
