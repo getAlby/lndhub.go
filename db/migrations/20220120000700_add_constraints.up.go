@@ -34,6 +34,7 @@ func init() {
 				DECLARE
 					sum BIGINT;
 					debit_account_type VARCHAR;
+					credit_account_type VARCHAR;
 				BEGIN
 
 					-- LOCK the account if the transaction is not from an incoming account
@@ -48,8 +49,18 @@ func init() {
 					--   This can happen when two transactions try to access the same account
 					FOR UPDATE NOWAIT;
 
-					-- If it is an incoming account return; otherwise check the balance
-					IF debit_account_type IS NULL
+					-- check if credit_account type is fees, if it's fees we don't check for negative balance constraint
+					SELECT INTO credit_account_type type
+					FROM accounts
+					WHERE id = NEW.credit_account_id AND type <> 'fees'
+					-- IMPORTANT: lock rows but do not wait for another lock to be released.
+					--   Waiting would result in a deadlock because two parallel transactions could try to lock the same rows
+					--   NOWAIT reports an error rather than waiting for the lock to be released
+					--   This can happen when two transactions try to access the same account
+					FOR UPDATE NOWAIT;
+
+					-- If it is an debit incoming account or fees credit account return; otherwise check the balance
+					IF debit_account_type IS NULL OR credit_account_type IS NULL
 					THEN
 						RETURN NEW;
 					END IF;
@@ -60,7 +71,7 @@ func init() {
 					WHERE account_ledgers.account_id = NEW.debit_account_id;
 
 					-- IF the account would go negative raise an exception
-					IF sum < 0 AND debit_account_type != 'incoming'
+					IF sum < 0
 					THEN
 						RAISE EXCEPTION 'invalid balance [user_id:%] [debit_account_id:%] balance [%]',
 						NEW.user_id,
