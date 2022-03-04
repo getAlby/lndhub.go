@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"math/rand"
@@ -98,29 +99,15 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 }
 
 func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
-	if invoice.KeySend {
-		return svc.KeySendPaymentSync(ctx, invoice)
-	}
 	sendPaymentResponse := SendPaymentResponse{}
-	// TODO: set dynamic fee limit
-	feeLimit := lnrpc.FeeLimit{
-		//Limit: &lnrpc.FeeLimit_Percent{
-		//	Percent: 2,
-		//},
-		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: 300,
-		},
-	}
 
-	// Prepare the LNRPC call
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoice.PaymentRequest,
-		Amt:            invoice.Amount,
-		FeeLimit:       &feeLimit,
+	sendPaymentRequest, err := createLnRpcSendRequest(invoice)
+	if err != nil {
+		return sendPaymentResponse, err
 	}
 
 	// Execute the payment
-	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, &sendPaymentRequest)
+	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, sendPaymentRequest)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -138,6 +125,44 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 	sendPaymentResponse.PaymentHashStr = hex.EncodeToString(paymentHash[:])
 	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: sendPaymentResult.PaymentRoute.TotalAmt, TotalFees: sendPaymentResult.PaymentRoute.TotalFees}
 	return sendPaymentResponse, nil
+}
+
+func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
+	// TODO: set dynamic fee limit
+	feeLimit := lnrpc.FeeLimit{
+		//Limit: &lnrpc.FeeLimit_Percent{
+		//	Percent: 2,
+		//},
+		Limit: &lnrpc.FeeLimit_Fixed{
+			Fixed: 300,
+		},
+	}
+
+	if !invoice.KeySend {
+		return &lnrpc.SendRequest{
+			PaymentRequest: invoice.PaymentRequest,
+			Amt:            invoice.Amount,
+			FeeLimit:       &feeLimit,
+		}, nil
+	}
+
+	preImage := makePreimageHex()
+	pHash := sha256.New()
+	pHash.Write(preImage)
+	// Prepare the LNRPC call
+	//See: https://github.com/hsjoberg/blixt-wallet/blob/9fcc56a7dc25237bc14b85e6490adb9e044c009c/src/lndmobile/index.ts#L251-L270
+	destBytes, err := hex.DecodeString(invoice.DestinationPubkeyHex)
+	if err != nil {
+		return nil, err
+	}
+	return &lnrpc.SendRequest{
+		Dest:              destBytes,
+		Amt:               invoice.Amount,
+		PaymentHash:       pHash.Sum(nil),
+		FeeLimit:          &feeLimit,
+		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
+		DestCustomRecords: map[uint64][]byte{KEYSEND_CUSTOM_RECORD: preImage, TLV_WHATSAT_MESSAGE: []byte(invoice.Memo)},
+	}, nil
 }
 
 func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoice) (*SendPaymentResponse, error) {
