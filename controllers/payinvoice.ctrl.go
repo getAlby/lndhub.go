@@ -69,7 +69,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 	*/
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, decodedPaymentRequest)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, decodedPaymentRequest, false)
 	if err != nil {
 		return err
 	}

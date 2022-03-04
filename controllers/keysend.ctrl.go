@@ -1,0 +1,109 @@
+package controllers
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/responses"
+	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getsentry/sentry-go"
+	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
+)
+
+// KeySendController : Pay invoice controller struct
+type KeySendController struct {
+	svc *service.LndhubService
+}
+
+func NewKeySendController(svc *service.LndhubService) *KeySendController {
+	return &KeySendController{svc: svc}
+}
+
+type KeySendRequestBody struct {
+	Amount      int64  `json:"amount" validate:"required"`
+	Destination string `json:"destination" validate:"required"`
+	Memo        string `json:"memo" validate:"omitempty"`
+}
+
+type KeySendResponseBody struct {
+	RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
+	Amount             int64                 `json:"num_satoshis,omitempty"`
+	Description        string                `json:"description,omitempty"`
+	Destination        string                `json:"destination,omitempty"`
+	DescriptionHashStr string                `json:"description_hash,omitempty"`
+	PaymentError       string                `json:"payment_error,omitempty"`
+	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
+	PaymentRoute       *service.Route        `json:"route,omitempty"`
+}
+
+// KeySend : Pay invoice Controller
+func (controller *KeySendController) KeySend(c echo.Context) error {
+	/*
+		TODO: copy code from payinvoice.ctrl.go and modify where needed:
+		- do not decode the payment request because there is no payment request.
+		  Instead, construct the lnrpc.PaymentRequest manually from the KeySendRequestBody.
+		- add outgoing invoice: same as payinvoice, make sure to set keysend=true
+		- do a balance check: same as payinvoice, in fact do this before doing anything else
+		- call svc.PayInvoice : same as payinvoice as long as keysend=true in Invoice
+		- response will be slightly different due to lack of payment request
+	*/
+
+	userID := c.Get("UserID").(int64)
+	reqBody := KeySendRequestBody{}
+	if err := c.Bind(&reqBody); err != nil {
+		c.Logger().Errorf("Failed to load payinvoice request body: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+
+	if err := c.Validate(&reqBody); err != nil {
+		c.Logger().Errorf("Invalid payinvoice request body: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+
+	paymentRequest := &lnrpc.PayReq{
+		Destination: reqBody.Destination,
+		NumSatoshis: reqBody.Amount,
+		Description: reqBody.Memo,
+	}
+
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", paymentRequest, true)
+	if err != nil {
+		return err
+	}
+
+	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
+	if err != nil {
+		return err
+	}
+
+	if currentBalance < invoice.Amount {
+		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
+
+		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
+	}
+
+	_, err = controller.svc.PayInvoice(c.Request().Context(), invoice)
+	if err != nil {
+		c.Logger().Errorf("Payment failed: %v", err)
+		sentry.CaptureException(err)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":   true,
+			"code":    10,
+			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
+		})
+	}
+	responseBody := &PayInvoiceResponseBody{}
+	// responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
+	// responseBody.PaymentRequest = paymentRequest
+	// responseBody.PayReq = paymentRequest
+	// responseBody.Amount = invoice.Amount
+	// responseBody.Description = invoice.Memo
+	// responseBody.DescriptionHashStr = invoice.DescriptionHash
+	// responseBody.PaymentError = sendPaymentResponse.PaymentError
+	// responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
+	// responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
+
+	return c.JSON(http.StatusOK, responseBody)
+}

@@ -238,7 +238,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	return err
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq, keysend bool) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
@@ -250,6 +250,7 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 		DestinationPubkeyHex: decodedInvoice.Destination,
 		DescriptionHash:      decodedInvoice.DescriptionHash,
 		Memo:                 decodedInvoice.Description,
+		KeySend:              keysend,
 		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Timestamp, 0).Add(time.Duration(decodedInvoice.Expiry) * time.Second)},
 	}
 
