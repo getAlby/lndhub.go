@@ -98,6 +98,9 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 }
 
 func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
+	if invoice.KeySend {
+		return svc.KeySendPaymentSync(ctx, invoice)
+	}
 	sendPaymentResponse := SendPaymentResponse{}
 	// TODO: set dynamic fee limit
 	feeLimit := lnrpc.FeeLimit{
