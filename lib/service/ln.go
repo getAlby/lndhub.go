@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 
@@ -29,11 +30,18 @@ func (svc *LndhubService) KeySendPaymentSync(ctx context.Context, invoice *model
 		},
 	}
 	preImage := makePreimageHex()
+	pHash := sha256.New()
+	pHash.Write(preImage)
 	// Prepare the LNRPC call
 	//See: https://github.com/hsjoberg/blixt-wallet/blob/9fcc56a7dc25237bc14b85e6490adb9e044c009c/src/lndmobile/index.ts#L251-L270
+	destBytes, err := hex.DecodeString(invoice.DestinationPubkeyHex)
+	if err != nil {
+		return sendPaymentResponse, err
+	}
 	sendPaymentRequest := lnrpc.SendRequest{
-		Dest:              []byte(invoice.DestinationPubkeyHex),
+		Dest:              destBytes,
 		Amt:               invoice.Amount,
+		PaymentHash:       pHash.Sum(nil),
 		FeeLimit:          &feeLimit,
 		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
 		DestCustomRecords: map[uint64][]byte{KEYSEND_CUSTOM_RECORD: preImage, TLV_WHATSAT_MESSAGE: []byte(invoice.Memo)},

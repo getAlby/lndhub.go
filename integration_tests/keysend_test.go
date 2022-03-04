@@ -9,4 +9,14 @@ func (suite *PaymentTestSuite) TestKeysendPayment() {
 	// fund account, test making keysend payments to any of these nodes (lnd-2 and lnd-3 is fine)
 	// test making a keysend payment to a destination that does not exist
 	// test making a keysend payment with a memo that is waaaaaaay too long
+	// inv, err := svc.KeySendPaymentSync(context.Background(), &models.Invoice{
+	// 	ID:                   0,
+	// 	Amount:               69420,
+	// 	Memo:                 "keysend integration test",
+	// 	DestinationPubkeyHex: "025c1d5d1b4c983cc6350fc2d756fbb59b4dc365e45e87f8e3afe07e24013e8220",
+	// 	Internal:             false,
+	// 	KeySend:              true,
+	// 	AddIndex:             0,
+	// })
+	// fmt.Println(inv, err)
 }
