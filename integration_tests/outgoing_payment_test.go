@@ -13,7 +13,8 @@ import (
 func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	aliceFundingSats := 1000
 	externalSatRequested := 500
-	fee := 10
+	// 1 sat + 1 ppm
+	fee := 1
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{

@@ -34,8 +34,8 @@ type PaymentTestSuite struct {
 
 func (suite *PaymentTestSuite) SetupSuite() {
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
+		Address:     lnd3RegtestAddress,
+		MacaroonHex: lnd3RegtestMacaroonHex,
 	})
 	if err != nil {
 		log.Fatalf("Error setting up funding client: %v", err)
@@ -85,7 +85,8 @@ func (suite *PaymentTestSuite) TearDownTest() {
 func (suite *PaymentTestSuite) TestInternalPayment() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500
-	fee := 10
+	// currently fee is 0 for internal payments
+	fee := 0
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -131,9 +132,10 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 }
 
 func (suite *PaymentTestSuite) TestInternalPaymentFail() {
-	aliceFundingSats := 1010
+	aliceFundingSats := 1000
 	bobSatRequested := 500
-	fee := 10
+	// currently fee is 0 for internal payments
+	fee := 0
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
