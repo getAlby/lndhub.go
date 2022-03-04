@@ -98,16 +98,29 @@ func main() {
 		e.Use(sentryecho.New(sentryecho.Options{}))
 	}
 
-	// Init new LND client
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     c.LNDAddress,
-		MacaroonHex: c.LNDMacaroonHex,
-		CertHex:     c.LNDCertHex,
-	})
+	// Init new Lightning client
+	var lnClient lnd.LightningClientWrapper
+
+	switch c.LightningType {
+	case service.LND_TYPE:
+		lnClient, err = lnd.NewLNDclient(lnd.LNDoptions{
+			Address:     c.LNDAddress,
+			MacaroonHex: c.LNDMacaroonHex,
+			CertHex:     c.LNDCertHex,
+		})
+	case service.CLN_TYPE:
+		lnClient, err = lnd.NewCLNClient(lnd.CLNClientOptions{
+			SparkUrl:   c.LNDAddress,
+			SparkToken: c.LNDMacaroonHex,
+		})
+	default:
+		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
+	}
+
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
-	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	getInfo, err := lnClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
@@ -116,7 +129,7 @@ func main() {
 	svc := &service.LndhubService{
 		Config:         c,
 		DB:             dbConn,
-		LndClient:      lndClient,
+		LndClient:      lnClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
 	}
