@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -256,6 +257,19 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
+	}
+
+	userBalance, err := svc.CurrentUserBalance(ctx, entry.UserID)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		return err
+	}
+
+	if userBalance < 0 {
+		amountMsg := fmt.Sprintf("User balance is negative transaction_entry_id:%v user_id:%v amount:%v", entry.ID, entry.UserID, userBalance)
+		svc.Logger.Info(amountMsg)
+		sentry.CaptureMessage(amountMsg)
 	}
 
 	return nil
