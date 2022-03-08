@@ -1,22 +1,126 @@
 package integration_tests
 
-func (suite *PaymentTestSuite) TestKeysendPayment() {
-	// destination pubkey strings:
-	// simnet-lnd-2: 025c1d5d1b4c983cc6350fc2d756fbb59b4dc365e45e87f8e3afe07e24013e8220
-	// simnet-lnd-3: 03c7092d076f799ab18806743634b4c9bb34e351bdebc91d5b35963f3dc63ec5aa
-	// simnet-cln-1: 0242898f86064c2fd72de22059c947a83ba23e9d97aedeae7b6dba647123f1d71b
-	// (put this in utils)
-	// fund account, test making keysend payments to any of these nodes (lnd-2 and lnd-3 is fine)
-	// test making a keysend payment to a destination that does not exist
-	// test making a keysend payment with a memo that is waaaaaaay too long
-	// inv, err := svc.KeySendPaymentSync(context.Background(), &models.Invoice{
-	// 	ID:                   0,
-	// 	Amount:               69420,
-	// 	Memo:                 "keysend integration test",
-	// 	DestinationPubkeyHex: "025c1d5d1b4c983cc6350fc2d756fbb59b4dc365e45e87f8e3afe07e24013e8220",
-	// 	Internal:             false,
-	// 	KeySend:              true,
-	// 	AddIndex:             0,
-	// })
-	// fmt.Println(inv, err)
+import (
+	"context"
+	"fmt"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/getAlby/lndhub.go/controllers"
+	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/responses"
+	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
+)
+
+type KeySendTestSuite struct {
+	TestSuite
+	fundingClient            *lnd.LNDWrapper
+	service                  *service.LndhubService
+	aliceLogin               controllers.CreateUserResponseBody
+	aliceToken               string
+	bobLogin                 controllers.CreateUserResponseBody
+	bobToken                 string
+	invoiceUpdateSubCancelFn context.CancelFunc
+}
+
+func (suite *KeySendTestSuite) SetupSuite() {
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:     lnd2RegtestAddress,
+		MacaroonHex: lnd2RegtestMacaroonHex,
+	})
+	if err != nil {
+		log.Fatalf("Error setting up funding client: %v", err)
+	}
+	suite.fundingClient = lndClient
+
+	svc, err := LndHubTestServiceInit(nil)
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
+	}
+	users, userTokens, err := createUsers(svc, 2)
+	if err != nil {
+		log.Fatalf("Error creating test users: %v", err)
+	}
+	// Subscribe to LND invoice updates in the background
+	// store cancel func to be called in tear down suite
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.invoiceUpdateSubCancelFn = cancel
+	go svc.InvoiceUpdateSubscription(ctx)
+	suite.service = svc
+	e := echo.New()
+
+	e.HTTPErrorHandler = responses.HTTPErrorHandler
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+	suite.echo = e
+	assert.Equal(suite.T(), 2, len(users))
+	assert.Equal(suite.T(), 2, len(userTokens))
+	suite.aliceLogin = users[0]
+	suite.aliceToken = userTokens[0]
+	suite.bobLogin = users[1]
+	suite.bobToken = userTokens[1]
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
+	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
+	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
+	suite.echo.POST("/keysend", controllers.NewKeySendController(suite.service).KeySend)
+}
+
+func (suite *KeySendTestSuite) TearDownSuite() {
+	suite.invoiceUpdateSubCancelFn()
+}
+
+func (suite *KeySendTestSuite) TestKeysendPayment() {
+	aliceFundingSats := 1000
+	externalSatRequested := 500
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoiceResponse.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+
+	suite.createKeySendReq(int64(externalSatRequested), "key send test", simnetLnd3PubKey, suite.aliceToken)
+
+	// check that balance was reduced
+	userId := getUserIdFromToken(suite.aliceToken)
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested), aliceBalance)
+}
+
+func (suite *KeySendTestSuite) TestKeysendPaymentNonExistendDestination() {
+	aliceFundingSats := 1000
+	externalSatRequested := 500
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoiceResponse.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+
+	suite.createKeySendReqError(int64(externalSatRequested), "key send test", "12345", suite.aliceToken)
+}
+
+func TestKeySendTestSuite(t *testing.T) {
+	suite.Run(t, new(KeySendTestSuite))
 }
