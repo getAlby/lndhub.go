@@ -70,12 +70,12 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 	*/
 
-	lndPayReq := &lnd.LNDPayReq{
+	lnPayReq := &lnd.LNPayReq{
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
 	}
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lndPayReq)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
 		return err
 	}

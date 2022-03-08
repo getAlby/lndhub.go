@@ -264,20 +264,20 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	return err
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lndPayReq *lnd.LNDPayReq) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
 		UserID:               userID,
 		PaymentRequest:       paymentRequest,
-		RHash:                lndPayReq.PayReq.PaymentHash,
-		Amount:               lndPayReq.PayReq.NumSatoshis,
+		RHash:                lnPayReq.PayReq.PaymentHash,
+		Amount:               lnPayReq.PayReq.NumSatoshis,
 		State:                common.InvoiceStateInitialized,
-		DestinationPubkeyHex: lndPayReq.PayReq.Destination,
-		DescriptionHash:      lndPayReq.PayReq.DescriptionHash,
-		Memo:                 lndPayReq.PayReq.Description,
-		Keysend:              lndPayReq.Keysend,
-		ExpiresAt:            bun.NullTime{Time: time.Unix(lndPayReq.PayReq.Timestamp, 0).Add(time.Duration(lndPayReq.PayReq.Expiry) * time.Second)},
+		DestinationPubkeyHex: lnPayReq.PayReq.Destination,
+		DescriptionHash:      lnPayReq.PayReq.DescriptionHash,
+		Memo:                 lnPayReq.PayReq.Description,
+		Keysend:              lnPayReq.Keysend,
+		ExpiresAt:            bun.NullTime{Time: time.Unix(lnPayReq.PayReq.Timestamp, 0).Add(time.Duration(lnPayReq.PayReq.Expiry) * time.Second)},
 	}
 
 	// Save invoice

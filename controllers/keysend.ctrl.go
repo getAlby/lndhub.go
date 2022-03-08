@@ -53,7 +53,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	lndPayReq := &lnd.LNDPayReq{
+	lnPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
 			Destination: reqBody.Destination,
 			NumSatoshis: reqBody.Amount,
@@ -62,7 +62,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		Keysend: true,
 	}
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lndPayReq)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return err
 	}

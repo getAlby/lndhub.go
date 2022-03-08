@@ -15,7 +15,7 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
-type LNDPayReq struct {
+type LNPayReq struct {
 	PayReq  *lnrpc.PayReq
 	Keysend bool
 }
