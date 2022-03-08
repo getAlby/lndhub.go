@@ -138,7 +138,7 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 		},
 	}
 
-	if !invoice.KeySend {
+	if !invoice.Keysend {
 		return &lnrpc.SendRequest{
 			PaymentRequest: invoice.PaymentRequest,
 			Amt:            invoice.Amount,
@@ -275,7 +275,7 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 		DestinationPubkeyHex: decodedInvoice.Destination,
 		DescriptionHash:      decodedInvoice.DescriptionHash,
 		Memo:                 decodedInvoice.Description,
-		KeySend:              keysend,
+		Keysend:              keysend,
 		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Timestamp, 0).Add(time.Duration(decodedInvoice.Expiry) * time.Second)},
 	}
 
