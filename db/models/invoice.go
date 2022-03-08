@@ -22,6 +22,7 @@ type Invoice struct {
 	RHash                string       `json:"r_hash"`
 	Preimage             string       `json:"preimage" bun:",nullzero"`
 	Internal             bool         `json:"internal" bun:",nullzero"`
+	Keysend              bool         `json:"keysend" bun:",nullzero"`
 	State                string       `json:"state" bun:",default:'initialized'"`
 	ErrorMessage         string       `json:"error_message" bun:",nullzero"`
 	AddIndex             uint64       `json:"add_index" bun:",nullzero"`
