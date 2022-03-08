@@ -84,7 +84,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
-	_, err = controller.svc.PayInvoice(c.Request().Context(), invoice)
+	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed: %v", err)
 		sentry.CaptureException(err)
@@ -95,15 +95,13 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		})
 	}
 	responseBody := &PayInvoiceResponseBody{}
-	// responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
-	// responseBody.PaymentRequest = paymentRequest
-	// responseBody.PayReq = paymentRequest
-	// responseBody.Amount = invoice.Amount
-	// responseBody.Description = invoice.Memo
-	// responseBody.DescriptionHashStr = invoice.DescriptionHash
-	// responseBody.PaymentError = sendPaymentResponse.PaymentError
-	// responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
-	// responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
+	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
+	responseBody.Amount = invoice.Amount
+	responseBody.Description = invoice.Memo
+	responseBody.DescriptionHashStr = invoice.DescriptionHash
+	responseBody.PaymentError = sendPaymentResponse.PaymentError
+	responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
+	responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
 
 	return c.JSON(http.StatusOK, responseBody)
 }
