@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"time"
 
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -26,6 +28,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/traefik/yaegi/interp"
+	"github.com/traefik/yaegi/stdlib"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 )
@@ -157,6 +161,40 @@ func main() {
 			e.Logger.Fatal("shutting down the server")
 		}
 	}()
+
+	// Plugins! Highly reckless!
+	// See: https://segmentfault.com/a/1190000040875946/en
+
+	//todo: we can fetch the source from a url
+	src, err := os.ReadFile("plugins/daemon_example.go")
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+	intp := interp.New(interp.Options{})
+	err = intp.Use(stdlib.Symbols)
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+	//todo: use go generate for symbol resolution
+	err = intp.Use(map[string]map[string]reflect.Value{
+		"github.com/getAlby/lndhub.go/lib/service/service": {
+			"LndhubService": reflect.ValueOf((*service.LndhubService)(nil)),
+		},
+		"github.com/getAlby/lndhub.go/db/models/models": {
+			"User": reflect.ValueOf((*models.User)(nil)),
+		},
+	})
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+	_, err = intp.Eval(string(src))
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+	v, _ := intp.Eval("plugin.Run")
+	fu := v.Interface().(func(svc *service.LndhubService))
+	//start daemon plugin
+	go fu(svc)
 
 	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
 	// Use a buffered channel to avoid missing signals as recommended for signal.Notify
