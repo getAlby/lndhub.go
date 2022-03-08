@@ -69,6 +69,11 @@ func (suite *KeySendTestSuite) SetupSuite() {
 	suite.echo.POST("/keysend", controllers.NewKeySendController(suite.service).KeySend)
 }
 
+func (suite *KeySendTestSuite) TearDownTest() {
+	clearTable(suite.service, "transaction_entries")
+	clearTable(suite.service, "invoices")
+}
+
 func (suite *KeySendTestSuite) TearDownSuite() {
 	suite.invoiceUpdateSubCancelFn()
 }
@@ -76,6 +81,8 @@ func (suite *KeySendTestSuite) TearDownSuite() {
 func (suite *KeySendTestSuite) TestKeysendPayment() {
 	aliceFundingSats := 1000
 	externalSatRequested := 500
+	// 1 sat + 1 ppm
+	fee := 1
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
 	sendPaymentRequest := lnrpc.SendRequest{
@@ -96,7 +103,7 @@ func (suite *KeySendTestSuite) TestKeysendPayment() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested), aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+fee), aliceBalance)
 }
 
 func (suite *KeySendTestSuite) TestKeysendPaymentNonExistentDestination() {
