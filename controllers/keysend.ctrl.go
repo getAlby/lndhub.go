@@ -40,25 +40,15 @@ type KeySendResponseBody struct {
 
 // KeySend : Pay invoice Controller
 func (controller *KeySendController) KeySend(c echo.Context) error {
-	/*
-		TODO: copy code from payinvoice.ctrl.go and modify where needed:
-		- do not decode the payment request because there is no payment request.
-		  Instead, construct the lnrpc.PaymentRequest manually from the KeySendRequestBody.
-		- add outgoing invoice: same as payinvoice, make sure to set keysend=true
-		- do a balance check: same as payinvoice, in fact do this before doing anything else
-		- call svc.PayInvoice : same as payinvoice as long as keysend=true in Invoice
-		- response will be slightly different due to lack of payment request
-	*/
-
 	userID := c.Get("UserID").(int64)
 	reqBody := KeySendRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
-		c.Logger().Errorf("Failed to load payinvoice request body: %v", err)
+		c.Logger().Errorf("Failed to load keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	if err := c.Validate(&reqBody); err != nil {
-		c.Logger().Errorf("Invalid payinvoice request body: %v", err)
+		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 

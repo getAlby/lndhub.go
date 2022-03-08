@@ -26,8 +26,6 @@ type KeySendTestSuite struct {
 	service                  *service.LndhubService
 	aliceLogin               controllers.CreateUserResponseBody
 	aliceToken               string
-	bobLogin                 controllers.CreateUserResponseBody
-	bobToken                 string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
@@ -45,7 +43,7 @@ func (suite *KeySendTestSuite) SetupSuite() {
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
-	users, userTokens, err := createUsers(svc, 2)
+	users, userTokens, err := createUsers(svc, 1)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
 	}
@@ -60,12 +58,10 @@ func (suite *KeySendTestSuite) SetupSuite() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 	suite.echo = e
-	assert.Equal(suite.T(), 2, len(users))
-	assert.Equal(suite.T(), 2, len(userTokens))
+	assert.Equal(suite.T(), 1, len(users))
+	assert.Equal(suite.T(), 1, len(userTokens))
 	suite.aliceLogin = users[0]
 	suite.aliceToken = userTokens[0]
-	suite.bobLogin = users[1]
-	suite.bobToken = userTokens[1]
 	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
@@ -103,7 +99,7 @@ func (suite *KeySendTestSuite) TestKeysendPayment() {
 	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested), aliceBalance)
 }
 
-func (suite *KeySendTestSuite) TestKeysendPaymentNonExistendDestination() {
+func (suite *KeySendTestSuite) TestKeysendPaymentNonExistentDestination() {
 	aliceFundingSats := 1000
 	externalSatRequested := 500
 	//fund alice account
