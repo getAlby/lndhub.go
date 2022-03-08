@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -218,8 +219,10 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	paymentResponse.TransactionEntry = &entry
 
 	// The payment was successful.
+	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	err = svc.HandleSuccessfulPayment(context.Background(), invoice)
+	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
+	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
 }
 
@@ -252,7 +255,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return err
 }
 
-func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice) error {
+func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
@@ -261,7 +264,44 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 	}
-	return err
+
+	// Get the user's fee account for the transaction entry, current account is already there in parent entry
+	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
+	if err != nil {
+		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
+		return err
+	}
+
+	// add transaction entry for fee
+	entry := models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: feeAccount.ID,
+		DebitAccountID:  parentEntry.DebitAccountID,
+		Amount:          int64(invoice.Fee),
+		ParentID:        parentEntry.ID,
+	}
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		return err
+	}
+
+	userBalance, err := svc.CurrentUserBalance(ctx, entry.UserID)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		return err
+	}
+
+	if userBalance < 0 {
+		amountMsg := fmt.Sprintf("User balance is negative transaction_entry_id:%v user_id:%v amount:%v", entry.ID, entry.UserID, userBalance)
+		svc.Logger.Info(amountMsg)
+		sentry.CaptureMessage(amountMsg)
+	}
+
+	return nil
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, error) {
