@@ -4,17 +4,17 @@ import (
 	"net/http"
 
 	"github.com/getAlby/lndhub.go/lib/service"
-	plugin "github.com/getAlby/lndhub.go/plugins"
 	"github.com/labstack/echo/v4"
 )
 
 // BalanceController : BalanceController struct
 type BalanceController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func(int64, *service.LndhubService) (int64, error)
 }
 
-func NewBalanceController(svc *service.LndhubService) *BalanceController {
-	return &BalanceController{svc: svc}
+func NewBalanceController(svc *service.LndhubService, plug func(int64, *service.LndhubService) (int64, error)) *BalanceController {
+	return &BalanceController{svc: svc, plugin: plug}
 }
 
 type BalanceResponse struct {
@@ -30,12 +30,8 @@ func (controller *BalanceController) Balance(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	v, err := plugin.CreatePlugin("plugins/middleware_example.go", "plugin.ProcessBalanceResponse")
-	if err != nil {
-		return err
-	}
-	fu := v.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
-	balance, err = fu(balance, controller.svc)
+
+	balance, err = controller.plugin(balance, controller.svc)
 	if err != nil {
 		return err
 	}

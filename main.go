@@ -133,7 +133,12 @@ func main() {
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
-	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
+	plug, err := plugin.CreatePlugin("plugins/middleware_example.go", "plugin.ProcessBalanceResponse")
+	if err != nil {
+		e.Logger.Fatal("Error creating middleware plugin %v", err)
+	}
+	mwPlugin := plug.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
+	secured.GET("/balance", controllers.NewBalanceController(svc, mwPlugin).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
