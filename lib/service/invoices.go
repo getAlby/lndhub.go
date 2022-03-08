@@ -10,6 +10,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -263,20 +264,20 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	return err
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq, keysend bool) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lndPayReq *lnd.LNDPayReq) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
 		UserID:               userID,
 		PaymentRequest:       paymentRequest,
-		RHash:                decodedInvoice.PaymentHash,
-		Amount:               decodedInvoice.NumSatoshis,
+		RHash:                lndPayReq.PayReq.PaymentHash,
+		Amount:               lndPayReq.PayReq.NumSatoshis,
 		State:                common.InvoiceStateInitialized,
-		DestinationPubkeyHex: decodedInvoice.Destination,
-		DescriptionHash:      decodedInvoice.DescriptionHash,
-		Memo:                 decodedInvoice.Description,
-		Keysend:              keysend,
-		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Timestamp, 0).Add(time.Duration(decodedInvoice.Expiry) * time.Second)},
+		DestinationPubkeyHex: lndPayReq.PayReq.Destination,
+		DescriptionHash:      lndPayReq.PayReq.DescriptionHash,
+		Memo:                 lndPayReq.PayReq.Description,
+		Keysend:              lndPayReq.Keysend,
+		ExpiresAt:            bun.NullTime{Time: time.Unix(lndPayReq.PayReq.Timestamp, 0).Add(time.Duration(lndPayReq.PayReq.Expiry) * time.Second)},
 	}
 
 	// Save invoice

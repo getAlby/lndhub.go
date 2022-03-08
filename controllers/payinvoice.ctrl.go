@@ -7,6 +7,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 )
@@ -69,7 +70,12 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 	*/
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, decodedPaymentRequest, false)
+	lndPayReq := &lnd.LNDPayReq{
+		PayReq:  decodedPaymentRequest,
+		Keysend: false,
+	}
+
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lndPayReq)
 	if err != nil {
 		return err
 	}

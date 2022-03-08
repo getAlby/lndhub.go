@@ -7,6 +7,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -52,13 +53,16 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	paymentRequest := &lnrpc.PayReq{
-		Destination: reqBody.Destination,
-		NumSatoshis: reqBody.Amount,
-		Description: reqBody.Memo,
+	lndPayReq := &lnd.LNDPayReq{
+		PayReq: &lnrpc.PayReq{
+			Destination: reqBody.Destination,
+			NumSatoshis: reqBody.Amount,
+			Description: reqBody.Memo,
+		},
+		Keysend: true,
 	}
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", paymentRequest, true)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lndPayReq)
 	if err != nil {
 		return err
 	}

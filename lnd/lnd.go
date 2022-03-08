@@ -15,6 +15,11 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
+type LNDPayReq struct {
+	PayReq  *lnrpc.PayReq
+	Keysend bool
+}
+
 // LNDoptions are the options for the connection to the lnd node.
 type LNDoptions struct {
 	Address      string
