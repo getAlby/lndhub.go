@@ -8,18 +8,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"time"
 
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
-	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
+	plugin "github.com/getAlby/lndhub.go/plugins"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
@@ -28,8 +27,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 )
@@ -165,33 +162,7 @@ func main() {
 	// Plugins! Highly reckless!
 	// See: https://segmentfault.com/a/1190000040875946/en
 
-	//todo: we can fetch the source from a url
-	src, err := os.ReadFile("plugins/daemon_example.go")
-	if err != nil {
-		e.Logger.Fatal(err)
-	}
-	intp := interp.New(interp.Options{})
-	err = intp.Use(stdlib.Symbols)
-	if err != nil {
-		e.Logger.Fatal(err)
-	}
-	//todo: use go generate for symbol resolution
-	err = intp.Use(map[string]map[string]reflect.Value{
-		"github.com/getAlby/lndhub.go/lib/service/service": {
-			"LndhubService": reflect.ValueOf((*service.LndhubService)(nil)),
-		},
-		"github.com/getAlby/lndhub.go/db/models/models": {
-			"User": reflect.ValueOf((*models.User)(nil)),
-		},
-	})
-	if err != nil {
-		e.Logger.Fatal(err)
-	}
-	_, err = intp.Eval(string(src))
-	if err != nil {
-		e.Logger.Fatal(err)
-	}
-	v, _ := intp.Eval("plugin.Run")
+	v, err := plugin.CreatePlugin("plugins/daemon_example.go", "plugin.Run")
 	fu := v.Interface().(func(svc *service.LndhubService))
 	//start daemon plugin
 	go fu(svc)
