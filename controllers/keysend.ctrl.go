@@ -84,9 +84,10 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
 		})
 	}
-	responseBody := &PayInvoiceResponseBody{}
+	responseBody := &KeySendResponseBody{}
 	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
 	responseBody.Amount = invoice.Amount
+	responseBody.Destination = invoice.DestinationPubkeyHex
 	responseBody.Description = invoice.Memo
 	responseBody.DescriptionHashStr = invoice.DescriptionHash
 	responseBody.PaymentError = sendPaymentResponse.PaymentError
