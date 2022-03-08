@@ -12,7 +12,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
-// KeySendController : Pay invoice controller struct
+// KeySendController : Key send controller struct
 type KeySendController struct {
 	svc *service.LndhubService
 }
@@ -38,7 +38,7 @@ type KeySendResponseBody struct {
 	PaymentRoute       *service.Route        `json:"route,omitempty"`
 }
 
-// KeySend : Pay invoice Controller
+// KeySend : Key send Controller
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := KeySendRequestBody{}
@@ -70,7 +70,6 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 
 	if currentBalance < invoice.Amount {
 		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
-
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
@@ -84,6 +83,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
 		})
 	}
+
 	responseBody := &KeySendResponseBody{}
 	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
 	responseBody.Amount = invoice.Amount
