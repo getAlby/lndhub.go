@@ -134,7 +134,7 @@ func main() {
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
-	secured.GET("/keysend", controllers.NewKeySendController(svc).KeySend)
+	secured.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
