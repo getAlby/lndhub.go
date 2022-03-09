@@ -18,6 +18,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
+	plugin "github.com/getAlby/lndhub.go/plugins"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
@@ -132,7 +133,12 @@ func main() {
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
-	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
+	plug, err := plugin.CreatePlugin("plugins/middleware_example.go", "plugin.ProcessBalanceResponse")
+	if err != nil {
+		e.Logger.Fatal("Error creating middleware plugin %v", err)
+	}
+	mwPlugin := plug.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
+	secured.GET("/balance", controllers.NewBalanceController(svc, mwPlugin).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
 	secured.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
 
@@ -158,6 +164,14 @@ func main() {
 			e.Logger.Fatal("shutting down the server")
 		}
 	}()
+
+	// Plugins! Highly reckless!
+	// See: https://segmentfault.com/a/1190000040875946/en
+
+	v, err := plugin.CreatePlugin("plugins/daemon_example.go", "plugin.Run")
+	fu := v.Interface().(func(svc *service.LndhubService))
+	//start daemon plugin
+	go fu(svc)
 
 	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
 	// Use a buffered channel to avoid missing signals as recommended for signal.Notify

@@ -9,11 +9,12 @@ import (
 
 // BalanceController : BalanceController struct
 type BalanceController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func(int64, *service.LndhubService) (int64, error)
 }
 
-func NewBalanceController(svc *service.LndhubService) *BalanceController {
-	return &BalanceController{svc: svc}
+func NewBalanceController(svc *service.LndhubService, plug func(int64, *service.LndhubService) (int64, error)) *BalanceController {
+	return &BalanceController{svc: svc, plugin: plug}
 }
 
 type BalanceResponse struct {
@@ -26,6 +27,11 @@ type BalanceResponse struct {
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)
+	if err != nil {
+		return err
+	}
+
+	balance, err = controller.plugin(balance, controller.svc)
 	if err != nil {
 		return err
 	}
