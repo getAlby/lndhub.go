@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"time"
 
+	cache "github.com/SporkHubr/echo-http-cache"
+	"github.com/SporkHubr/echo-http-cache/adapter/memory"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -153,7 +155,7 @@ func main() {
 
 	//Index page endpoints, no Authorization required
 	homeController := controllers.NewHomeController(svc, indexHtml)
-	e.GET("/", homeController.Home)
+	e.GET("/", homeController.Home, createCacheClient().Middleware())
 	e.GET("/qr", homeController.QR)
 	//workaround, just adding /static would make a request to these resources hit the authorized group
 	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
@@ -179,4 +181,26 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
+}
+
+func createCacheClient() *cache.Client {
+	memcached, err := memory.NewAdapter(
+		memory.AdapterWithAlgorithm(memory.LRU),
+		memory.AdapterWithCapacity(10000000),
+	)
+
+	if err != nil {
+		log.Fatalf("Error creating cache client memory adapter: %v", err)
+	}
+
+	cacheClient, err := cache.NewClient(
+		cache.ClientWithAdapter(memcached),
+		cache.ClientWithTTL(10*time.Minute),
+		cache.ClientWithRefreshKey("opn"),
+	)
+
+	if err != nil {
+		log.Fatalf("Error creating cache client: %v", err)
+	}
+	return cacheClient
 }
