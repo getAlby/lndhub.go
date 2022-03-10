@@ -28,6 +28,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
+	"golang.org/x/time/rate"
 )
 
 //go:embed templates/index.html
@@ -121,14 +122,23 @@ func main() {
 		IdentityPubkey: getInfo.IdentityPubkey,
 	}
 
+	// configure rate limiter for 1 in 10s
+	onePer10sConfig := middleware.RateLimiterMemoryStoreConfig{
+		Rate:  rate.Every(10 * time.Second),
+		Burst: 1,
+	}
+	onePer10sMiddleware := middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(onePer10sConfig))
+
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
-	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
+	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, onePer10sMiddleware)
 
 	// Secured endpoints which require a Authorization token (JWT)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret))
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(1)))
+	securedWith10sLimit := e.Group("", tokens.Middleware(c.JWTSecret), onePer10sMiddleware)
+
 	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
-	secured.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
+	securedWith10sLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
