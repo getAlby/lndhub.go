@@ -124,13 +124,7 @@ func main() {
 		IdentityPubkey: getInfo.IdentityPubkey,
 	}
 
-	// configure rate limiter for 1 in 10s
-	onePer10sConfig := middleware.RateLimiterMemoryStoreConfig{
-		Rate:  rate.Every(10 * time.Second),
-		Burst: 1,
-	}
-	onePer10sMiddleware := middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(onePer10sConfig))
-
+	onePer10sMiddleware := createRateLimitMiddleware(10, 1)
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, onePer10sMiddleware)
@@ -138,7 +132,6 @@ func main() {
 	// Secured endpoints which require a Authorization token (JWT)
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(1)))
 	securedWith10sLimit := e.Group("", tokens.Middleware(c.JWTSecret), onePer10sMiddleware)
-
 	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
 	securedWith10sLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
@@ -181,6 +174,14 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
+}
+
+func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
+	config := middleware.RateLimiterMemoryStoreConfig{
+		Rate:  rate.Every(time.Duration(seconds) * time.Second),
+		Burst: burst,
+	}
+	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
 }
 
 func createCacheClient() *cache.Client {
