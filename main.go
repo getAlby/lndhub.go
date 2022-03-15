@@ -124,22 +124,22 @@ func main() {
 		IdentityPubkey: getInfo.IdentityPubkey,
 	}
 
-	onePer10sMiddleware := createRateLimitMiddleware(10, 1)
+	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
-	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, onePer10sMiddleware)
+	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware)
 
 	// Secured endpoints which require a Authorization token (JWT)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(1)))
-	securedWith10sLimit := e.Group("", tokens.Middleware(c.JWTSecret), onePer10sMiddleware)
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
+	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
 	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
-	securedWith10sLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
+	securedWithStrictRateLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
-	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
-	secured.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
+	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo, createCacheClient().Middleware())
+	securedWithStrictRateLimit.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
