@@ -39,8 +39,9 @@ vim .env # edit your config
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
 + `PORT`: (default: 3000) Port the app should listen on
-
-
++ `DEFAULT_RATE_LIMIT`: (default: 10) Requests per second rate limit
++ `STRICT_RATE_LIMIT`: (default: 10) Requests per burst rate limit (e.g. 1 request each 10 seconds)
++ `BURST_RATE_LIMIT`: (default: 1) Rate limit burst
 ## Developing
 
 ```shell
