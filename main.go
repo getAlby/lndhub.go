@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"time"
 
+	cache "github.com/SporkHubr/echo-http-cache"
+	"github.com/SporkHubr/echo-http-cache/adapter/memory"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -28,6 +30,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
+	"golang.org/x/time/rate"
 )
 
 //go:embed templates/index.html
@@ -121,20 +124,22 @@ func main() {
 		IdentityPubkey: getInfo.IdentityPubkey,
 	}
 
+	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
-	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser)
+	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware)
 
 	// Secured endpoints which require a Authorization token (JWT)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret))
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
+	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
 	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
-	secured.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
+	securedWithStrictRateLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
-	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
-	secured.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
+	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo, createCacheClient().Middleware())
+	securedWithStrictRateLimit.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
@@ -143,7 +148,7 @@ func main() {
 
 	//Index page endpoints, no Authorization required
 	homeController := controllers.NewHomeController(svc, indexHtml)
-	e.GET("/", homeController.Home)
+	e.GET("/", homeController.Home, createCacheClient().Middleware())
 	e.GET("/qr", homeController.QR)
 	//workaround, just adding /static would make a request to these resources hit the authorized group
 	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
@@ -169,4 +174,34 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
+}
+
+func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
+	config := middleware.RateLimiterMemoryStoreConfig{
+		Rate:  rate.Every(time.Duration(seconds) * time.Second),
+		Burst: burst,
+	}
+	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
+}
+
+func createCacheClient() *cache.Client {
+	memcached, err := memory.NewAdapter(
+		memory.AdapterWithAlgorithm(memory.LRU),
+		memory.AdapterWithCapacity(10000000),
+	)
+
+	if err != nil {
+		log.Fatalf("Error creating cache client memory adapter: %v", err)
+	}
+
+	cacheClient, err := cache.NewClient(
+		cache.ClientWithAdapter(memcached),
+		cache.ClientWithTTL(10*time.Minute),
+		cache.ClientWithRefreshKey("opn"),
+	)
+
+	if err != nil {
+		log.Fatalf("Error creating cache client: %v", err)
+	}
+	return cacheClient
 }
