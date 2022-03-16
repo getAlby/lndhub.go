@@ -14,7 +14,7 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 
 ## Known Issues
 
-* Currently no fee handling (users are currently not charged for lightning transaction fees)
+* Fee reserves are not checked prior to making the payment. This can cause a user's balance to go below 0.
 
 ## Configuration
 
