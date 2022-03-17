@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/getAlby/lndhub.go/common"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
@@ -11,11 +12,19 @@ import (
 
 // GetTXSController : GetTXSController struct
 type GetTXSController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func([]models.Invoice, *service.LndhubService) ([]models.Invoice, error)
 }
 
 func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
-	return &GetTXSController{svc: svc}
+	result := &GetTXSController{svc: svc}
+	//check for plugin
+	if plug, ok := svc.MiddlewarePlugins["gettxs"]; ok {
+		mwPlugin := plug.Interface().(func(in []models.Invoice, svc *service.LndhubService) ([]models.Invoice, error))
+		result.plugin = mwPlugin
+	}
+
+	return result
 }
 
 type OutgoingInvoice struct {

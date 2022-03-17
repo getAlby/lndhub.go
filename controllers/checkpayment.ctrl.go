@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
@@ -10,7 +11,8 @@ import (
 
 // CheckPaymentController : CheckPaymentController struct
 type CheckPaymentController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func(*models.Invoice, *service.LndhubService) (*models.Invoice, error)
 }
 
 type CheckPaymentResponseBody struct {
@@ -18,7 +20,14 @@ type CheckPaymentResponseBody struct {
 }
 
 func NewCheckPaymentController(svc *service.LndhubService) *CheckPaymentController {
-	return &CheckPaymentController{svc: svc}
+	result := &CheckPaymentController{svc: svc}
+	//check for plugin
+	if plug, ok := svc.MiddlewarePlugins["checkpayment"]; ok {
+		mwPlugin := plug.Interface().(func(in *models.Invoice, svc *service.LndhubService) (*models.Invoice, error))
+		result.plugin = mwPlugin
+	}
+
+	return result
 }
 
 // CheckPayment : Check Payment Controller

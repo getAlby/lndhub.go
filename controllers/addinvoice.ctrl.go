@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getsentry/sentry-go"
@@ -11,11 +12,19 @@ import (
 
 // AddInvoiceController : Add invoice controller struct
 type AddInvoiceController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func(*models.Invoice, *service.LndhubService) (*models.Invoice, error)
 }
 
 func NewAddInvoiceController(svc *service.LndhubService) *AddInvoiceController {
-	return &AddInvoiceController{svc: svc}
+	result := &AddInvoiceController{svc: svc}
+	//check for plugin
+	if plug, ok := svc.MiddlewarePlugins["addinvoice"]; ok {
+		mwPlugin := plug.Interface().(func(in *models.Invoice, svc *service.LndhubService) (*models.Invoice, error))
+		result.plugin = mwPlugin
+	}
+
+	return result
 }
 
 type AddInvoiceRequestBody struct {

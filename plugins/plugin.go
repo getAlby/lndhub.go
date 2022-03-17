@@ -15,31 +15,37 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 )
 
-func LoadMiddlewarePlugins(pluginList string) (res map[string]reflect.Value, err error) {
+func LoadMiddlewarePlugins(pluginList string) (res map[string]reflect.Value, urls []string, err error) {
 	res = map[string]reflect.Value{}
+	if pluginList == "" {
+		return res, []string{}, nil
+	}
 	pluginSlice := strings.Split(pluginList, ",")
 	for _, url := range pluginSlice {
-		endpoint, err := extractMiddlewareEndpoint(url)
+		endpoint, _, err := extractMiddlewareEndpoint(url)
+		if err != nil {
+			return nil, nil, err
+		}
 		plug, err := CreateMiddlewarePlugin(url, "plugin.Middleware")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		res[endpoint] = plug
 	}
-	return res, nil
+	return res, pluginSlice, nil
 }
 
-func extractMiddlewareEndpoint(pluginUrl string) (result string, err error) {
+func extractMiddlewareEndpoint(pluginUrl string) (result, name string, err error) {
 	//the middleware plugin url should have the following structure: https://example.com/path/to/your/middleware_<endpoint>_<name>.go
 	u, err := url.Parse(pluginUrl)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	parts := strings.Split(path.Base(u.Path), "_")
 	if len(parts) != 3 {
-		return "", fmt.Errorf("Invalid format %s", pluginUrl)
+		return "", "", fmt.Errorf("Invalid format %s", pluginUrl)
 	}
-	return parts[1], nil
+	return parts[1], parts[2], nil
 }
 
 func CreateMiddlewarePlugin(url, funcName string) (res reflect.Value, err error) {

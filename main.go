@@ -113,9 +113,12 @@ func main() {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
-	plugins, err := plugin.LoadMiddlewarePlugins(c.Plugins)
+	plugins, urls, err := plugin.LoadMiddlewarePlugins(c.Plugins)
 	if err != nil {
-		e.Logger.Fatal("Error loading plugins %v", err)
+		e.Logger.Fatal("Error loading plugins %s", err.Error())
+	}
+	for _, url := range urls {
+		e.Logger.Infof("Loaded middleware plugin: %s", url)
 	}
 	svc := &service.LndhubService{
 		Config:            c,

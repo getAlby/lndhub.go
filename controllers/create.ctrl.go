@@ -10,11 +10,19 @@ import (
 
 // CreateUserController : Create user controller struct
 type CreateUserController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func(CreateUserResponseBody, *service.LndhubService) (CreateUserResponseBody, error)
 }
 
 func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
-	return &CreateUserController{svc: svc}
+	result := &CreateUserController{svc: svc}
+	//check for plugin
+	if plug, ok := svc.MiddlewarePlugins["create"]; ok {
+		mwPlugin := plug.Interface().(func(in CreateUserResponseBody, svc *service.LndhubService) (CreateUserResponseBody, error))
+		result.plugin = mwPlugin
+	}
+
+	return result
 }
 
 type CreateUserResponseBody struct {

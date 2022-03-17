@@ -13,11 +13,19 @@ import (
 
 // PayInvoiceController : Pay invoice controller struct
 type PayInvoiceController struct {
-	svc *service.LndhubService
+	svc    *service.LndhubService
+	plugin func(*service.SendPaymentResponse, *service.LndhubService) (*service.SendPaymentResponse, error)
 }
 
 func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
-	return &PayInvoiceController{svc: svc}
+	result := &PayInvoiceController{svc: svc}
+	//check for plugin
+	if plug, ok := svc.MiddlewarePlugins["payinvoice"]; ok {
+		mwPlugin := plug.Interface().(func(in *service.SendPaymentResponse, svc *service.LndhubService) (*service.SendPaymentResponse, error))
+		result.plugin = mwPlugin
+	}
+
+	return result
 }
 
 type PayInvoiceRequestBody struct {

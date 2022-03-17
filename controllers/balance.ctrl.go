@@ -14,9 +14,14 @@ type BalanceController struct {
 }
 
 func NewBalanceController(svc *service.LndhubService) *BalanceController {
-	plug := svc.MiddlewarePlugins["balance"]
-	mwPlugin := plug.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
-	return &BalanceController{svc: svc, plugin: mwPlugin}
+	result := &BalanceController{svc: svc}
+	//check for plugin
+	if plug, ok := svc.MiddlewarePlugins["balance"]; ok {
+		mwPlugin := plug.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
+		result.plugin = mwPlugin
+	}
+
+	return result
 }
 
 type BalanceResponse struct {
@@ -33,10 +38,13 @@ func (controller *BalanceController) Balance(c echo.Context) error {
 		return err
 	}
 
-	balance, err = controller.plugin(balance, controller.svc)
-	if err != nil {
-		return err
+	if controller.plugin != nil {
+		balance, err = controller.plugin(balance, controller.svc)
+		if err != nil {
+			return err
+		}
 	}
+
 	return c.JSON(http.StatusOK, &BalanceResponse{
 		BTC: struct{ AvailableBalance int64 }{
 			AvailableBalance: balance,
