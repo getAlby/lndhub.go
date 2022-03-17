@@ -113,13 +113,17 @@ func main() {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
-
+	plugins, err := plugin.LoadMiddlewarePlugins(c.Plugins)
+	if err != nil {
+		e.Logger.Fatal("Error loading plugins %v", err)
+	}
 	svc := &service.LndhubService{
-		Config:         c,
-		DB:             dbConn,
-		LndClient:      lndClient,
-		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
+		Config:            c,
+		DB:                dbConn,
+		LndClient:         lndClient,
+		Logger:            logger,
+		IdentityPubkey:    getInfo.IdentityPubkey,
+		MiddlewarePlugins: plugins,
 	}
 
 	// Public endpoints for account creation and authentication
@@ -133,12 +137,8 @@ func main() {
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
 	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
-	plug, err := plugin.CreatePlugin("plugins/middleware_example.go", "plugin.ProcessBalanceResponse")
-	if err != nil {
-		e.Logger.Fatal("Error creating middleware plugin %v", err)
-	}
-	mwPlugin := plug.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
-	secured.GET("/balance", controllers.NewBalanceController(svc, mwPlugin).Balance)
+
+	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
@@ -167,10 +167,10 @@ func main() {
 	// Plugins! Highly reckless!
 	// See: https://segmentfault.com/a/1190000040875946/en
 
-	v, err := plugin.CreatePlugin("plugins/daemon_example.go", "plugin.Run")
-	fu := v.Interface().(func(svc *service.LndhubService))
+	///v, err := plugin.CreatePlugin("plugins/daemon_example.go", "plugin.Run")
+	//fu := v.Interface().(func(svc *service.LndhubService))
 	//start daemon plugin
-	go fu(svc)
+	//go fu(svc)
 
 	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
 	// Use a buffered channel to avoid missing signals as recommended for signal.Notify

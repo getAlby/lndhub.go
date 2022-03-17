@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/getAlby/lndhub.go/db/models"
@@ -17,11 +18,12 @@ import (
 const alphaNumBytes = random.Alphanumeric
 
 type LndhubService struct {
-	Config         *Config
-	DB             *bun.DB
-	LndClient      lnd.LightningClientWrapper
-	Logger         *lecho.Logger
-	IdentityPubkey string
+	Config            *Config
+	DB                *bun.DB
+	LndClient         lnd.LightningClientWrapper
+	Logger            *lecho.Logger
+	IdentityPubkey    string
+	MiddlewarePlugins map[string]reflect.Value
 }
 
 func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {

@@ -13,8 +13,10 @@ type BalanceController struct {
 	plugin func(int64, *service.LndhubService) (int64, error)
 }
 
-func NewBalanceController(svc *service.LndhubService, plug func(int64, *service.LndhubService) (int64, error)) *BalanceController {
-	return &BalanceController{svc: svc, plugin: plug}
+func NewBalanceController(svc *service.LndhubService) *BalanceController {
+	plug := svc.MiddlewarePlugins["balance"]
+	mwPlugin := plug.Interface().(func(in int64, svc *service.LndhubService) (int64, error))
+	return &BalanceController{svc: svc, plugin: mwPlugin}
 }
 
 type BalanceResponse struct {
