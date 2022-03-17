@@ -84,7 +84,12 @@ func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
+	if controller.plugin != nil {
+		invoices, err = controller.plugin(invoices, controller.svc)
+		if err != nil {
+			return err
+		}
+	}
 	response := make([]IncomingInvoice, len(invoices))
 	for i, invoice := range invoices {
 		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)

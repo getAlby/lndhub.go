@@ -54,6 +54,11 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	var ResponseBody CreateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Password = user.Password
-
+	if controller.plugin != nil {
+		ResponseBody, err = controller.plugin(ResponseBody, controller.svc)
+		if err != nil {
+			return err
+		}
+	}
 	return c.JSON(http.StatusOK, &ResponseBody)
 }

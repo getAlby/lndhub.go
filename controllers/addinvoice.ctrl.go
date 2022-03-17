@@ -66,6 +66,12 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
+	if controller.plugin != nil {
+		invoice, err = controller.plugin(invoice, controller.svc)
+		if err != nil {
+			return err
+		}
+	}
 	responseBody := AddInvoiceResponseBody{}
 	responseBody.RHash = invoice.RHash
 	responseBody.PaymentRequest = invoice.PaymentRequest

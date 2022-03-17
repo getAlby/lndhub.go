@@ -42,7 +42,12 @@ func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
 		c.Logger().Errorf("Invalid checkpayment request payment_hash=%s", rHash)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
+	if controller.plugin != nil {
+		invoice, err = controller.plugin(invoice, controller.svc)
+		if err != nil {
+			return err
+		}
+	}
 	responseBody := &CheckPaymentResponseBody{}
 	responseBody.IsPaid = !invoice.SettledAt.IsZero()
 	return c.JSON(http.StatusOK, &responseBody)

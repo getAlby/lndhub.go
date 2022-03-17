@@ -103,6 +103,12 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
 		})
 	}
+	if controller.plugin != nil {
+		sendPaymentResponse, err = controller.plugin(sendPaymentResponse, controller.svc)
+		if err != nil {
+			return err
+		}
+	}
 	responseBody := &PayInvoiceResponseBody{}
 	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
 	responseBody.PaymentRequest = paymentRequest
