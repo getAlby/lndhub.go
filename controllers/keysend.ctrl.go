@@ -83,7 +83,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	for key, value := range reqBody.CustomRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
-			return err
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
 	}
