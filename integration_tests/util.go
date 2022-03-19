@@ -164,6 +164,8 @@ func (suite *TestSuite) createKeySendReq(amount int64, memo, destination, token 
 		Amount:      amount,
 		Destination: destination,
 		Memo:        memo,
+		//add memo as WHATSAT_MESSAGE custom record
+		CustomRecords: map[string]string{fmt.Sprint(service.TLV_WHATSAT_MESSAGE): memo},
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/keysend", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

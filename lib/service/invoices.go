@@ -157,13 +157,14 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 	if err != nil {
 		return nil, err
 	}
+	invoice.DestinationCustomRecords[KEYSEND_CUSTOM_RECORD] = preImage
 	return &lnrpc.SendRequest{
 		Dest:              destBytes,
 		Amt:               invoice.Amount,
 		PaymentHash:       pHash.Sum(nil),
 		FeeLimit:          &feeLimit,
 		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
-		DestCustomRecords: map[uint64][]byte{KEYSEND_CUSTOM_RECORD: preImage, TLV_WHATSAT_MESSAGE: []byte(invoice.Memo)},
+		DestCustomRecords: invoice.DestinationCustomRecords,
 	}, nil
 }
 

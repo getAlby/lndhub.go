@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -23,9 +24,10 @@ func NewKeySendController(svc *service.LndhubService) *KeySendController {
 }
 
 type KeySendRequestBody struct {
-	Amount      int64  `json:"amount" validate:"required"`
-	Destination string `json:"destination" validate:"required"`
-	Memo        string `json:"memo" validate:"omitempty"`
+	Amount        int64             `json:"amount" validate:"required"`
+	Destination   string            `json:"destination" validate:"required"`
+	Memo          string            `json:"memo" validate:"omitempty"`
+	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
 }
 
 type KeySendResponseBody struct {
@@ -77,6 +79,14 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
+	invoice.DestinationCustomRecords = map[uint64][]byte{}
+	for key, value := range reqBody.CustomRecords {
+		intKey, err := strconv.Atoi(key)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
+	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed: %v", err)
