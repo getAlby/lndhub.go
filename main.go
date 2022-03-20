@@ -15,6 +15,7 @@ import (
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -117,11 +118,12 @@ func main() {
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
-		Config:         c,
-		DB:             dbConn,
-		LndClient:      lndClient,
-		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
+		Config:             c,
+		DB:                 dbConn,
+		LndClient:          lndClient,
+		Logger:             logger,
+		IdentityPubkey:     getInfo.IdentityPubkey,
+		InvoiceSubscribers: map[int64]chan models.Invoice{},
 	}
 
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
@@ -153,6 +155,9 @@ func main() {
 	//workaround, just adding /static would make a request to these resources hit the authorized group
 	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
+
+	//invoice streaming
+	secured.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
