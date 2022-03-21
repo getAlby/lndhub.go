@@ -2,6 +2,7 @@ package lnd
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"time"
@@ -38,7 +39,7 @@ func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
 		handler: handler,
 		client: &cln.Client{
 			PaymentHandler: handler.Handle,
-			CallTimeout:          24 * 3600 * time.Second, //should be infinite actually
+			CallTimeout:    24 * 3600 * time.Second, //should be infinite actually
 			//Path:                  "",
 			//LightningDir:          "",
 			SparkURL:   options.SparkUrl,
@@ -170,7 +171,7 @@ func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 	arg := req.Memo
 	if !reflect.DeepEqual(req.DescriptionHash, []byte("")) {
 		methodToCall = "invoicewithdescriptionhash"
-		arg = string(req.DescriptionHash)
+		arg = hex.EncodeToString(req.DescriptionHash)
 	}
 	res, err := cl.client.Call(methodToCall, mSatAmt, uuid.String(), arg)
 	if err != nil {
