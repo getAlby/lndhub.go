@@ -33,6 +33,10 @@ type AddInvoiceResponseBody struct {
 // AddInvoice : Add invoice Controller
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
+	return AddInvoice(c, controller.svc, userID)
+}
+
+func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error {
 	var body AddInvoiceRequestBody
 
 	if err := c.Bind(&body); err != nil {
@@ -45,13 +49,13 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	amount, err := controller.svc.ParseInt(body.Amount)
+	amount, err := svc.ParseInt(body.Amount)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, amount, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
+	invoice, err := svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: %v", err)
 		sentry.CaptureException(err)
