@@ -140,6 +140,13 @@ type TestSuite struct {
 	echo *echo.Echo
 }
 
+func checkErrResponse(suite *TestSuite, rec *httptest.ResponseRecorder) *responses.ErrorResponse {
+	errorResponse := &responses.ErrorResponse{}
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
+	return errorResponse
+}
+
 func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
@@ -183,10 +190,7 @@ func (suite *TestSuite) createInvoiceReqError(amt int, memo, userLogin string) *
 	req := httptest.NewRequest(http.MethodPost, "/invoice/"+userLogin, &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	suite.echo.ServeHTTP(rec, req)
-	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
-	return errorResponse
+	return checkErrResponse(suite, rec)
 }
 
 func (suite *TestSuite) createKeySendReq(amount int64, memo, destination, token string) *controllers.KeySendResponseBody {
@@ -220,11 +224,7 @@ func (suite *TestSuite) createKeySendReqError(amount int64, memo, destination, t
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	suite.echo.ServeHTTP(rec, req)
-
-	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
-	return errorResponse
+	return checkErrResponse(suite, rec)
 }
 
 func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *controllers.PayInvoiceResponseBody {
@@ -254,11 +254,7 @@ func (suite *TestSuite) createPayInvoiceReqError(payReq string, token string) *r
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	suite.echo.ServeHTTP(rec, req)
-
-	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
-	return errorResponse
+	return checkErrResponse(suite, rec)
 }
 
 func (suite *TestSuite) createPayInvoiceReqWithCancel(payReq string, token string) {
