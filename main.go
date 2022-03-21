@@ -15,6 +15,7 @@ import (
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -124,11 +125,12 @@ func main() {
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
-		Config:         c,
-		DB:             dbConn,
-		LndClient:      lndClient,
-		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
+		Config:             c,
+		DB:                 dbConn,
+		LndClient:          lndClient,
+		Logger:             logger,
+		IdentityPubkey:     getInfo.IdentityPubkey,
+		InvoiceSubscribers: map[int64]chan models.Invoice{},
 	}
 
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
@@ -166,6 +168,8 @@ func main() {
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 
 	e.GET("/bolt12/decode/:offer", controllers.NewBolt12Controller(svc).Decode)
+	//invoice streaming
+	secured.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	// Subscribe to LND invoice updates in the background
 	// CLN: todo: re-write logic
@@ -185,6 +189,10 @@ func main() {
 	<-quit
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	//close all channels
+	for _, sub := range svc.InvoiceSubscribers {
+		close(sub)
+	}
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
