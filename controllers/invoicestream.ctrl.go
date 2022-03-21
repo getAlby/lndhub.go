@@ -27,21 +27,26 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	enc := json.NewEncoder(c.Response())
 	invoiceChan := make(chan models.Invoice)
 	controller.svc.InvoiceSubscribers[userId] = invoiceChan
-	for invoice := range invoiceChan {
-		if err := enc.Encode(IncomingInvoice{
-			PaymentHash:    invoice.RHash,
-			PaymentRequest: invoice.PaymentRequest,
-			Description:    invoice.Memo,
-			PayReq:         invoice.PaymentRequest,
-			Timestamp:      invoice.CreatedAt.Unix(),
-			Type:           common.InvoiceTypeUser,
-			ExpireTime:     3600 * 24,
-			Amount:         invoice.Amount,
-			IsPaid:         invoice.State == common.InvoiceStateSettled,
-		}); err != nil {
-			return err
+	ctx := c.Request().Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case invoice := <-invoiceChan:
+			if err := enc.Encode(IncomingInvoice{
+				PaymentHash:    invoice.RHash,
+				PaymentRequest: invoice.PaymentRequest,
+				Description:    invoice.Memo,
+				PayReq:         invoice.PaymentRequest,
+				Timestamp:      invoice.CreatedAt.Unix(),
+				Type:           common.InvoiceTypeUser,
+				ExpireTime:     3600 * 24,
+				Amount:         invoice.Amount,
+				IsPaid:         invoice.State == common.InvoiceStateSettled,
+			}); err != nil {
+				return err
+			}
 		}
 		c.Response().Flush()
 	}
-	return nil
 }
