@@ -145,7 +145,7 @@ func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *contro
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
 		Amount: amt,
-		Memo:   "integration test IncomingPaymentTestSuite",
+		Memo:   memo,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -155,6 +155,38 @@ func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *contro
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
 	return invoiceResponse
+}
+
+func (suite *TestSuite) createInvoiceReq(amt int, memo, userLogin string) *controllers.AddInvoiceResponseBody {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
+		Amount: amt,
+		Memo:   memo,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/invoice/"+userLogin, &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	suite.echo.ServeHTTP(rec, req)
+	invoiceResponse := &controllers.AddInvoiceResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
+	return invoiceResponse
+}
+
+func (suite *TestSuite) createInvoiceReqError(amt int, memo, userLogin string) *responses.ErrorResponse {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
+		Amount: amt,
+		Memo:   memo,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/invoice/"+userLogin, &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	suite.echo.ServeHTTP(rec, req)
+	errorResponse := &responses.ErrorResponse{}
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
+	return errorResponse
 }
 
 func (suite *TestSuite) createKeySendReq(amount int64, memo, destination, token string) *controllers.KeySendResponseBody {
