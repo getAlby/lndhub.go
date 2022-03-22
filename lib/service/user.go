@@ -65,6 +65,16 @@ func (svc *LndhubService) FindUser(ctx context.Context, userId int64) (*models.U
 	return &user, nil
 }
 
+func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*models.User, error) {
+	var user models.User
+
+	err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Limit(1).Scan(ctx)
+	if err != nil {
+		return &user, err
+	}
+	return &user, nil
+}
+
 func (svc *LndhubService) CurrentUserBalance(ctx context.Context, userId int64) (int64, error) {
 	var balance int64
 
