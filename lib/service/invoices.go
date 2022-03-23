@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -130,15 +131,7 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 }
 
 func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
-	// TODO: set dynamic fee limit
-	feeLimit := lnrpc.FeeLimit{
-		//Limit: &lnrpc.FeeLimit_Percent{
-		//	Percent: 2,
-		//},
-		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: 300,
-		},
-	}
+	feeLimit := calcFeeLimit(invoice)
 
 	if !invoice.Keysend {
 		return &lnrpc.SendRequest{
@@ -166,6 +159,19 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
 		DestCustomRecords: invoice.DestinationCustomRecords,
 	}, nil
+}
+
+func calcFeeLimit(invoice *models.Invoice) lnrpc.FeeLimit {
+	limit := int64(10)
+	if invoice.Amount > 1000 {
+		limit = int64(math.Ceil(float64(invoice.Amount)*float64(0.01)) + 1)
+	}
+
+	return lnrpc.FeeLimit{
+		Limit: &lnrpc.FeeLimit_Fixed{
+			Fixed: limit,
+		},
+	}
 }
 
 func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoice) (*SendPaymentResponse, error) {
