@@ -38,7 +38,7 @@ type KeySendResponseBody struct {
 	DescriptionHashStr string                `json:"description_hash,omitempty"`
 	PaymentError       string                `json:"payment_error,omitempty"`
 	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
-	PaymentRoute       *service.Route        `json:"route,omitempty"`
+	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
 // KeySend : Key send Controller
