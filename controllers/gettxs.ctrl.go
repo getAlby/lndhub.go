@@ -19,7 +19,7 @@ func NewGetTXSController(svc *service.LndhubService) *GetTXSController {
 }
 
 type OutgoingInvoice struct {
-	RHash           interface{} `json:"r_hash"`
+	RHash           interface{} `json:"r_hash,omitempty"`
 	PaymentHash     interface{} `json:"payment_hash"`
 	PaymentPreimage string      `json:"payment_preimage"`
 	Value           int64       `json:"value"`
@@ -30,7 +30,7 @@ type OutgoingInvoice struct {
 }
 
 type IncomingInvoice struct {
-	RHash          interface{} `json:"r_hash"`
+	RHash          interface{} `json:"r_hash,omitempty"`
 	PaymentHash    interface{} `json:"payment_hash"`
 	PaymentRequest string      `json:"payment_request"`
 	Description    string      `json:"description"`

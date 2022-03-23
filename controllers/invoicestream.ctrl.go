@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -19,6 +20,11 @@ func NewInvoiceStreamController(svc *service.LndhubService) *InvoiceStreamContro
 	return &InvoiceStreamController{svc: svc}
 }
 
+type InvoiceEvent struct {
+	Invoice *IncomingInvoice `json:"invoice,omitempty"`
+	Type    string
+}
+
 // Stream invoices streams incoming payments to the client
 func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
@@ -28,22 +34,32 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	invoiceChan := make(chan models.Invoice)
 	controller.svc.InvoiceSubscribers[userId] = invoiceChan
 	ctx := c.Request().Context()
+	ticker := time.NewTicker(30 * time.Second)
 	for {
 		select {
+		case <-ticker.C:
+			if err := enc.Encode(
+				InvoiceEvent{
+					Type: "keepalive",
+				}); err != nil {
+				return err
+			}
 		case <-ctx.Done():
 			return nil
 		case invoice := <-invoiceChan:
-			if err := enc.Encode(IncomingInvoice{
-				PaymentHash:    invoice.RHash,
-				PaymentRequest: invoice.PaymentRequest,
-				Description:    invoice.Memo,
-				PayReq:         invoice.PaymentRequest,
-				Timestamp:      invoice.CreatedAt.Unix(),
-				Type:           common.InvoiceTypeUser,
-				ExpireTime:     3600 * 24,
-				Amount:         invoice.Amount,
-				IsPaid:         invoice.State == common.InvoiceStateSettled,
-			}); err != nil {
+			if err := enc.Encode(
+				InvoiceEvent{
+					Type: "invoice",
+					Invoice: &IncomingInvoice{
+						PaymentHash:    invoice.RHash,
+						PaymentRequest: invoice.PaymentRequest,
+						Description:    invoice.Memo,
+						PayReq:         invoice.PaymentRequest,
+						Timestamp:      invoice.CreatedAt.Unix(),
+						Type:           common.InvoiceTypeUser,
+						Amount:         invoice.Amount,
+						IsPaid:         invoice.State == common.InvoiceStateSettled,
+					}}); err != nil {
 				return err
 			}
 		}

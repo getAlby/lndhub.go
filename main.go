@@ -189,12 +189,12 @@ func main() {
 	<-quit
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
 	//close all channels
 	for _, sub := range svc.InvoiceSubscribers {
 		close(sub)
-	}
-	if err := e.Shutdown(ctx); err != nil {
-		e.Logger.Fatal(err)
 	}
 }
 
