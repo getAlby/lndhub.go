@@ -19,7 +19,7 @@ type InvoiceStreamController struct {
 
 type InvoiceEventWrapper struct {
 	Type    string           `json:"type"`
-	Invoice *IncomingInvoice `json:"invoice, omitempty"`
+	Invoice *IncomingInvoice `json:"invoice,omitempty"`
 }
 
 func NewInvoiceStreamController(svc *service.LndhubService) *InvoiceStreamController {
