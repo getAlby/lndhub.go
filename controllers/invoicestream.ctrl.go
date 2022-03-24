@@ -1,13 +1,13 @@
 package controllers
 
 import (
-	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
 
@@ -20,49 +20,44 @@ func NewInvoiceStreamController(svc *service.LndhubService) *InvoiceStreamContro
 	return &InvoiceStreamController{svc: svc}
 }
 
-type InvoiceEvent struct {
-	Invoice *IncomingInvoice `json:"invoice,omitempty"`
-	Type    string
-}
-
 // Stream invoices streams incoming payments to the client
 func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error {
-	userId := c.Get("UserID").(int64)
-	c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	c.Response().WriteHeader(http.StatusOK)
-	enc := json.NewEncoder(c.Response())
+	userId, err := tokens.ParseToken(controller.svc.Config.JWTSecret, (c.QueryParam("token")))
+	if err != nil {
+		return err
+	}
 	invoiceChan := make(chan models.Invoice)
 	controller.svc.InvoiceSubscribers[userId] = invoiceChan
 	ctx := c.Request().Context()
-	ticker := time.NewTicker(30 * time.Second)
+	upgrader := websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		return err
+	}
+	defer ws.Close()
+SocketLoop:
 	for {
 		select {
-		case <-ticker.C:
-			if err := enc.Encode(
-				InvoiceEvent{
-					Type: "keepalive",
-				}); err != nil {
-				return err
-			}
 		case <-ctx.Done():
-			return nil
+			break SocketLoop
 		case invoice := <-invoiceChan:
-			if err := enc.Encode(
-				InvoiceEvent{
-					Type: "invoice",
-					Invoice: &IncomingInvoice{
-						PaymentHash:    invoice.RHash,
-						PaymentRequest: invoice.PaymentRequest,
-						Description:    invoice.Memo,
-						PayReq:         invoice.PaymentRequest,
-						Timestamp:      invoice.CreatedAt.Unix(),
-						Type:           common.InvoiceTypeUser,
-						Amount:         invoice.Amount,
-						IsPaid:         invoice.State == common.InvoiceStateSettled,
-					}}); err != nil {
-				return err
+			err := ws.WriteJSON(
+				&IncomingInvoice{
+					PaymentHash:    invoice.RHash,
+					PaymentRequest: invoice.PaymentRequest,
+					Description:    invoice.Memo,
+					PayReq:         invoice.PaymentRequest,
+					Timestamp:      invoice.CreatedAt.Unix(),
+					Type:           common.InvoiceTypeUser,
+					Amount:         invoice.Amount,
+					IsPaid:         invoice.State == common.InvoiceStateSettled,
+				})
+			if err != nil {
+				controller.svc.Logger.Error(err)
+				break SocketLoop
 			}
 		}
-		c.Response().Flush()
 	}
+	return nil
 }

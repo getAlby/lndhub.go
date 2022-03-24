@@ -157,7 +157,8 @@ func main() {
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 
 	//invoice streaming
-	secured.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
+	//Authentication should be done through the query param because this is a websocket
+	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
