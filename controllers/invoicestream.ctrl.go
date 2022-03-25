@@ -43,6 +43,12 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	defer ws.Close()
+	//start with keepalive message
+	err = ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
+	if err != nil {
+		controller.svc.Logger.Error(err)
+		return err
+	}
 SocketLoop:
 	for {
 		select {
