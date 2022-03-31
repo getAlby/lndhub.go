@@ -39,6 +39,11 @@ var indexHtml string
 //go:embed static/*
 var staticContent embed.FS
 
+type RouteDetails struct {
+	Handler func(echo.Context) error
+	Method  string
+}
+
 func main() {
 	c := &service.Config{}
 
@@ -130,22 +135,58 @@ func main() {
 	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware)
 	e.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice, middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
 
-	// Secured endpoints which require a Authorization token (JWT)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
-	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
-	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
-	securedWithStrictRateLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
-	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
-	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
-	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
-	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
-	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo, createCacheClient().Middleware())
-	securedWithStrictRateLimit.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
+	securedRoutes := map[string]RouteDetails{
+		"/gettxs": {
+			Handler: controllers.NewGetTXSController(svc).GetTXS,
+			Method:  "GET",
+		},
+		"/getuserinvoices": {
+			Handler: controllers.NewGetTXSController(svc).GetUserInvoices,
+			Method:  "GET",
+		},
+		"/checkpayment/:payment_hash": {
+			Handler: controllers.NewCheckPaymentController(svc).CheckPayment,
+			Method:  "GET",
+		},
+		"/balance": {
+			Handler: controllers.NewBalanceController(svc).Balance,
+			Method:  "GET",
+		},
+		"/getbtc": {
+			Handler: controllers.NewBlankController(svc).GetBtc,
+			Method:  "GET",
+		},
+		"/getpending": {
+			Handler: controllers.NewBlankController(svc).GetPending,
+			Method:  "GET",
+		},
+		"/addinvoice": {
+			Handler: controllers.NewAddInvoiceController(svc).AddInvoice,
+			Method:  "POST",
+		},
+	}
 
-	// These endpoints are currently not supported and we return a blank response for backwards compatibility
-	blankController := controllers.NewBlankController(svc)
-	secured.GET("/getbtc", blankController.GetBtc)
-	secured.GET("/getpending", blankController.GetPending)
+	securedCachedRoutes := map[string]RouteDetails{
+		"/getinfo": {
+			Handler: controllers.NewGetInfoController(svc).GetInfo,
+			Method:  "GET",
+		},
+	}
+
+	securedStrictRateRoutes := map[string]RouteDetails{
+		"/payinvoice": {
+			Handler: controllers.NewPayInvoiceController(svc).PayInvoice,
+			Method:  "POST",
+		},
+		"/keysend": {
+			Handler: controllers.NewKeySendController(svc).KeySend,
+			Method:  "POST",
+		},
+	}
+
+	registerRoutes(e, securedRoutes, tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
+	registerRoutes(e, securedCachedRoutes, tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))), createCacheClient().Middleware())
+	registerRoutes(e, securedStrictRateRoutes, tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
 
 	//Index page endpoints, no Authorization required
 	homeController := controllers.NewHomeController(svc, indexHtml)
@@ -174,6 +215,17 @@ func main() {
 	defer cancel()
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
+	}
+}
+
+func registerRoutes(e *echo.Echo, routes map[string]RouteDetails, middlewares ...echo.MiddlewareFunc) {
+	for k, v := range routes {
+		switch v.Method {
+		case "GET":
+			e.GET(k, v.Handler, middlewares...)
+		case "POST":
+			e.POST(k, v.Handler, middlewares...)
+		}
 	}
 }
 
