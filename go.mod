@@ -28,6 +28,7 @@ require (
 
 require (
 	github.com/SporkHubr/echo-http-cache v0.0.0-20200706100054-1d7ae9f38029
+	github.com/labstack/echo-contrib v0.12.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
