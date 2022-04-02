@@ -154,6 +154,9 @@ func main() {
 	//workaround, just adding /static would make a request to these resources hit the authorized group
 	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
+	e.Pre(middleware.Rewrite(map[string]string{
+		"/favicon.ico": "/static/img/favicon.png",
+	}))
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
