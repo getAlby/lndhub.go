@@ -23,7 +23,7 @@ import (
 type GetInfoTestSuite struct {
 	TestSuite
 	service   *service.LndhubService
-	userLogin controllers.CreateUserResponseBody
+	userLogin ExpectedCreateUserResponseBody
 	userToken string
 }
 

@@ -19,7 +19,7 @@ import (
 type InvoiceTestSuite struct {
 	TestSuite
 	service    *service.LndhubService
-	aliceLogin controllers.CreateUserResponseBody
+	aliceLogin ExpectedCreateUserResponseBody
 }
 
 func (suite *InvoiceTestSuite) SetupSuite() {

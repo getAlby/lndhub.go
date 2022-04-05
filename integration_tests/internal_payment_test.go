@@ -25,9 +25,9 @@ type PaymentTestSuite struct {
 	TestSuite
 	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
-	aliceLogin               controllers.CreateUserResponseBody
+	aliceLogin               ExpectedCreateUserResponseBody
 	aliceToken               string
-	bobLogin                 controllers.CreateUserResponseBody
+	bobLogin                 ExpectedCreateUserResponseBody
 	bobToken                 string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }

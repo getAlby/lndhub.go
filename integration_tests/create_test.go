@@ -53,7 +53,7 @@ func (suite *CreateUserTestSuite) TestCreate() {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	controller := controllers.NewCreateUserController(suite.Service)
-	responseBody := controllers.CreateUserResponseBody{}
+	responseBody := ExpectedCreateUserResponseBody{}
 	if assert.NoError(suite.T(), controller.CreateUser(c)) {
 		assert.Equal(suite.T(), http.StatusOK, rec.Code)
 		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -70,7 +70,7 @@ func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {
 	var buf bytes.Buffer
 	const testLogin = "test login"
 	const testPassword = "test password"
-	json.NewEncoder(&buf).Encode(&controllers.CreateUserRequestBody{
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
 		Login:    testLogin,
 		Password: testPassword,
 	})
@@ -79,7 +79,7 @@ func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	controller := controllers.NewCreateUserController(suite.Service)
-	responseBody := controllers.CreateUserResponseBody{}
+	responseBody := ExpectedCreateUserResponseBody{}
 	if assert.NoError(suite.T(), controller.CreateUser(c)) {
 		assert.Equal(suite.T(), http.StatusOK, rec.Code)
 		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
