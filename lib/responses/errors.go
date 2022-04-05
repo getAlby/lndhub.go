@@ -44,7 +44,7 @@ func HTTPErrorHandler(err error, c echo.Context) {
 		return
 	}
 	c.Logger().Error(err)
-	if hub := sentryecho.GetHubFromContext(c); hub != nil && isErrResponseAllowedForSentry(errToErrorResponse(err)) {
+	if hub := sentryecho.GetHubFromContext(c); hub != nil && isErrAllowedForSentry(err) {
 		hub.WithScope(func(scope *sentry.Scope) {
 			scope.SetExtra("UserID", c.Get("UserID"))
 			hub.CaptureException(err)
@@ -60,29 +60,31 @@ func HTTPErrorHandler(err error, c echo.Context) {
 	// TODO: use an error matching the error code
 }
 
-// this is a simple way to try to convert err.Message interface to ErrorResponse
-// without external packages
+// this is a simple way to try to convert err.Message interface
+// to ErrorResponse without external packages
 func errToErrorResponse(err error) *ErrorResponse {
-	he, ok := err.(*echo.HTTPError)
+	httpError, ok := err.(*echo.HTTPError)
 	if !ok {
 		return nil
 	}
 
-	heJson, err := json.Marshal(he.Message)
+	responseJson, err := json.Marshal(httpError.Message)
 	if err != nil {
 		return nil
 	}
 
-	heBadResponse := &ErrorResponse{}
-	err = json.Unmarshal(heJson, heBadResponse)
+	errorResponse := &ErrorResponse{}
+	err = json.Unmarshal(responseJson, errorResponse)
 	if err != nil {
 		return nil
 	}
 
-	return heBadResponse
+	return errorResponse
 }
 
 // currently only bad auth errors are not allowed
-func isErrResponseAllowedForSentry(errResponse *ErrorResponse) bool {
-	return errResponse != nil && errResponse.Code != BadAuthError.Code
+func isErrAllowedForSentry(err error) bool {
+	errResponse := errToErrorResponse(err)
+
+	return errResponse == nil || errResponse.Code != BadAuthError.Code
 }
