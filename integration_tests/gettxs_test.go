@@ -27,7 +27,7 @@ type GetTxTestSuite struct {
 	TestSuite
 	Service                  *service.LndhubService
 	fundingClient            *lnd.LNDWrapper
-	userLogin                controllers.CreateUserResponseBody
+	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
@@ -84,7 +84,7 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	responseBody := &[]controllers.OutgoingInvoice{}
+	responseBody := &[]ExpectedOutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
@@ -108,7 +108,7 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec = httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	responseBody = &[]controllers.OutgoingInvoice{}
+	responseBody = &[]ExpectedOutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Equal(suite.T(), 1, len(*responseBody))
@@ -120,7 +120,7 @@ func (suite *GetTxTestSuite) TestGetIncomingInvoices() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	responseBody := &[]controllers.IncomingInvoice{}
+	responseBody := &[]ExpectedIncomingInvoice{}
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
 	// create incoming invoice
@@ -131,7 +131,7 @@ func (suite *GetTxTestSuite) TestGetIncomingInvoices() {
 	rec = httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	// controller := controllers.NewGetTXSController(suite.Service)
-	responseBody = &[]controllers.IncomingInvoice{}
+	responseBody = &[]ExpectedIncomingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Equal(suite.T(), 1, len(*responseBody))
