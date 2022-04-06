@@ -103,17 +103,10 @@ func main() {
 	}
 
 	// Init new LND client
-	//lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-	//	Address:     c.LNDAddress,
-	//	MacaroonHex: c.LNDMacaroonHex,
-	//	CertHex:     c.LNDCertHex,
-	//})
-
-	//Init new CLN client
-	//re-use other config to not make things overcomplicated
-	lndClient, err := lnd.NewCLNClient(lnd.CLNClientOptions{
-		SparkUrl:   c.LNDAddress,
-		SparkToken: c.LNDMacaroonHex,
+	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:     c.LNDAddress,
+		MacaroonHex: c.LNDMacaroonHex,
+		CertHex:     c.LNDCertHex,
 	})
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
@@ -150,9 +143,6 @@ func main() {
 	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
 	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo, createCacheClient().Middleware())
 	securedWithStrictRateLimit.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
-	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo)
-	secured.POST("/bolt12/fetchinvoice", controllers.NewBolt12Controller(svc).FetchInvoice)
-	secured.POST("/bolt12/pay", controllers.NewBolt12Controller(svc).PayBolt12)
 
 	// These endpoints are currently not supported and we return a blank response for backwards compatibility
 	blankController := controllers.NewBlankController(svc)
@@ -167,13 +157,11 @@ func main() {
 	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
 
-	e.GET("/bolt12/decode/:offer", controllers.NewBolt12Controller(svc).Decode)
 	//invoice streaming
 	//Authentication should be done through the query param because this is a websocket
 	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	// Subscribe to LND invoice updates in the background
-	// CLN: todo: re-write logic
 	go svc.InvoiceUpdateSubscription(context.Background())
 
 	// Start server

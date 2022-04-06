@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -121,11 +120,4 @@ func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, opti
 	return wrapper.client.DecodePayReq(ctx, &lnrpc.PayReqString{
 		PayReq: bolt11,
 	})
-}
-
-func (wrapper *LNDWrapper) DecodeBolt12(ctx context.Context, bolt12 string) (*Bolt12, error) {
-	return nil, fmt.Errorf("Bolt12 is not supported yet, LL get on with it!")
-}
-func (wrapper *LNDWrapper) FetchBolt12Invoice(ctx context.Context, offer, memo string, amount int64) (*Bolt12, error) {
-	return nil, fmt.Errorf("Bolt12 is not supported yet, LL get on with it!")
 }
