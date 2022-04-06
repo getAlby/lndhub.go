@@ -33,7 +33,8 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	invoiceChan := make(chan models.Invoice)
-	controller.svc.InvoiceSubscribers[userId] = invoiceChan
+	reqId := c.Response().Header().Get(echo.HeaderXRequestID)
+	controller.svc.InvoicePubSub.Subscribe(reqId, userId, invoiceChan)
 	ctx := c.Request().Context()
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
@@ -80,5 +81,6 @@ SocketLoop:
 			}
 		}
 	}
+	controller.svc.InvoicePubSub.Unsubscribe(reqId, userId)
 	return nil
 }

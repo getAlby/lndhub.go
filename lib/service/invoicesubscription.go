@@ -97,9 +97,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
-	if sub, ok := svc.InvoiceSubscribers[invoice.UserID]; ok {
-		sub <- invoice
-	}
+	svc.InvoicePubSub.Publish(invoice.UserID, invoice)
 
 	return nil
 }

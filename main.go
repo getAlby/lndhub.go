@@ -15,7 +15,6 @@ import (
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
-	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -119,12 +118,12 @@ func main() {
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
-		Config:             c,
-		DB:                 dbConn,
-		LndClient:          lndClient,
-		Logger:             logger,
-		IdentityPubkey:     getInfo.IdentityPubkey,
-		InvoiceSubscribers: map[int64]chan models.Invoice{},
+		Config:         c,
+		DB:             dbConn,
+		LndClient:      lndClient,
+		Logger:         logger,
+		IdentityPubkey: getInfo.IdentityPubkey,
+		InvoicePubSub:  service.NewPubsub(),
 	}
 
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
@@ -204,9 +203,7 @@ func main() {
 		e.Logger.Fatal(err)
 	}
 	//close all channels
-	for _, sub := range svc.InvoiceSubscribers {
-		close(sub)
-	}
+	svc.InvoicePubSub.CloseAll()
 	if echoPrometheus != nil {
 		if err := echoPrometheus.Shutdown(ctx); err != nil {
 			e.Logger.Fatal(err)

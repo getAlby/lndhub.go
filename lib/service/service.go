@@ -17,12 +17,12 @@ import (
 const alphaNumBytes = random.Alphanumeric
 
 type LndhubService struct {
-	Config             *Config
-	DB                 *bun.DB
-	LndClient          lnd.LightningClientWrapper
-	Logger             *lecho.Logger
-	IdentityPubkey     string
-	InvoiceSubscribers map[int64]chan models.Invoice
+	Config         *Config
+	DB             *bun.DB
+	LndClient      lnd.LightningClientWrapper
+	Logger         *lecho.Logger
+	IdentityPubkey string
+	InvoicePubSub  *Pubsub
 }
 
 func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
