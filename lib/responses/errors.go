@@ -1,7 +1,6 @@
 package responses
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/getsentry/sentry-go"
@@ -44,7 +43,7 @@ func HTTPErrorHandler(err error, c echo.Context) {
 		return
 	}
 	c.Logger().Error(err)
-	if hub := sentryecho.GetHubFromContext(c); hub != nil && isErrAllowedForSentry(err) {
+	if hub := sentryecho.GetHubFromContext(c); hub != nil {
 		hub.WithScope(func(scope *sentry.Scope) {
 			scope.SetExtra("UserID", c.Get("UserID"))
 			hub.CaptureException(err)
@@ -58,33 +57,4 @@ func HTTPErrorHandler(err error, c echo.Context) {
 		c.JSON(http.StatusInternalServerError, GeneralServerError)
 	}
 	// TODO: use an error matching the error code
-}
-
-// this is a simple way to try to convert err.Message interface
-// to ErrorResponse without external packages
-func errToErrorResponse(err error) *ErrorResponse {
-	httpError, ok := err.(*echo.HTTPError)
-	if !ok {
-		return nil
-	}
-
-	responseJson, err := json.Marshal(httpError.Message)
-	if err != nil {
-		return nil
-	}
-
-	errorResponse := &ErrorResponse{}
-	err = json.Unmarshal(responseJson, errorResponse)
-	if err != nil {
-		return nil
-	}
-
-	return errorResponse
-}
-
-// currently only bad auth errors are not allowed
-func isErrAllowedForSentry(err error) bool {
-	errResponse := errToErrorResponse(err)
-
-	return errResponse == nil || errResponse.Code != BadAuthError.Code
 }
