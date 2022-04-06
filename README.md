@@ -68,6 +68,11 @@ Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/
 ## Database
 LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does not support the same data consistency checks as PostgreSQL.
 
+## Prometheus
+
+Prometheus metrics can be optionally exposed through the `ENABLE_PROMETHEUS` environment variable.
+For an example dashboard, see https://grafana.com/grafana/dashboards/10913.
+
 ### Ideas
 + Using low level database constraints to prevent data inconsistencies
 + Follow double-entry bookkeeping ideas (Every transaction is a debit of one account and a credit to another one)
