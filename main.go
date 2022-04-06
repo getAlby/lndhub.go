@@ -25,6 +25,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -161,6 +162,24 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
 
+	//Start Prometheus server if necessary
+	var echoPrometheus *echo.Echo
+	if svc.Config.EnablePrometheus {
+		// Create Prometheus server and Middleware
+		echoPrometheus = echo.New()
+		echoPrometheus.HideBanner = true
+		prom := prometheus.NewPrometheus("echo", nil)
+		// Scrape metrics from Main Server
+		e.Use(prom.HandlerFunc)
+		// Setup metrics endpoint at another server
+		prom.SetMetricsPath(echoPrometheus)
+		go func() {
+			echoPrometheus.Logger = logger
+			echoPrometheus.Logger.Infof("Starting prometheus on port %d", svc.Config.PrometheusPort)
+			echoPrometheus.Logger.Fatal(echoPrometheus.Start(fmt.Sprintf(":%d", svc.Config.PrometheusPort)))
+		}()
+	}
+
 	// Start server
 	go func() {
 		if err := e.Start(fmt.Sprintf(":%v", c.Port)); err != nil && err != http.ErrServerClosed {
@@ -178,6 +197,12 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
+	if echoPrometheus != nil {
+		if err := echoPrometheus.Shutdown(ctx); err != nil {
+			e.Logger.Fatal(err)
+		}
+	}
+
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
