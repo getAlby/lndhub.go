@@ -24,7 +24,7 @@ type KeySendTestSuite struct {
 	TestSuite
 	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
-	aliceLogin               controllers.CreateUserResponseBody
+	aliceLogin               ExpectedCreateUserResponseBody
 	aliceToken               string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }

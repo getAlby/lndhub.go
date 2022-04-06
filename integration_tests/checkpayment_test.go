@@ -27,7 +27,7 @@ type CheckPaymentTestSuite struct {
 	TestSuite
 	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
-	userLogin                controllers.CreateUserResponseBody
+	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
@@ -103,7 +103,7 @@ func (suite *CheckPaymentTestSuite) TestCheckPaymentProperIsPaidResponse() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	checkPaymentResponse := &controllers.CheckPaymentResponseBody{}
+	checkPaymentResponse := &ExpectedCheckPaymentResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(checkPaymentResponse))
 	assert.False(suite.T(), checkPaymentResponse.IsPaid)
@@ -117,7 +117,7 @@ func (suite *CheckPaymentTestSuite) TestCheckPaymentProperIsPaidResponse() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec = httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	checkPaymentResponse = &controllers.CheckPaymentResponseBody{}
+	checkPaymentResponse = &ExpectedCheckPaymentResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(checkPaymentResponse))
 	assert.True(suite.T(), checkPaymentResponse.IsPaid)

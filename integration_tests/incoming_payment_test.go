@@ -28,7 +28,7 @@ type IncomingPaymentTestSuite struct {
 	TestSuite
 	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
-	userLogin                controllers.CreateUserResponseBody
+	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
@@ -81,7 +81,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.ServeHTTP(rec, req)
-	balance := &controllers.BalanceResponse{}
+	balance := &ExpectedBalanceResponse{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
 	//assert the user has no balance to start with
@@ -103,7 +103,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	suite.echo.ServeHTTP(rec, req)
-	balance = &controllers.BalanceResponse{}
+	balance = &ExpectedBalanceResponse{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
 	//assert the balance was added to the user's account

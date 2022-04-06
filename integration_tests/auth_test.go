@@ -26,7 +26,7 @@ type UserAuthTestSuite struct {
 	suite.Suite
 	Service   *service.LndhubService
 	echo      *echo.Echo
-	userLogin controllers.CreateUserResponseBody
+	userLogin ExpectedCreateUserResponseBody
 }
 
 func (suite *UserAuthTestSuite) SetupSuite() {
@@ -54,7 +54,7 @@ func (suite *UserAuthTestSuite) TearDownSuite() {
 
 func (suite *UserAuthTestSuite) TestAuth() {
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Login:    suite.userLogin.Login,
 		Password: suite.userLogin.Password,
 	}))
@@ -63,7 +63,7 @@ func (suite *UserAuthTestSuite) TestAuth() {
 	rec := httptest.NewRecorder()
 	c := suite.echo.NewContext(req, rec)
 	controller := controllers.NewAuthController(suite.Service)
-	responseBody := &controllers.AuthResponseBody{}
+	responseBody := &ExpectedAuthResponseBody{}
 	assert.NoError(suite.T(), controller.Auth(c))
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -72,7 +72,7 @@ func (suite *UserAuthTestSuite) TestAuth() {
 	fmt.Printf("Succesfully got a token using login and password: %s\n", responseBody.AccessToken)
 
 	// login again with only refresh token
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		RefreshToken: responseBody.RefreshToken,
 	}))
 	req = httptest.NewRequest(http.MethodPost, "/auth", &buf)
@@ -80,7 +80,7 @@ func (suite *UserAuthTestSuite) TestAuth() {
 	rec = httptest.NewRecorder()
 	c = suite.echo.NewContext(req, rec)
 	controller = controllers.NewAuthController(suite.Service)
-	responseBody = &controllers.AuthResponseBody{}
+	responseBody = &ExpectedAuthResponseBody{}
 	assert.NoError(suite.T(), controller.Auth(c))
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -92,7 +92,7 @@ func (suite *UserAuthTestSuite) TestAuth() {
 func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
 	// log in with login and password
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Login:    suite.userLogin.Login,
 		Password: suite.userLogin.Password,
 	}))
@@ -101,7 +101,7 @@ func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
 	rec := httptest.NewRecorder()
 	c := suite.echo.NewContext(req, rec)
 	controller := controllers.NewAuthController(suite.Service)
-	responseBody := &controllers.AuthResponseBody{}
+	responseBody := &ExpectedAuthResponseBody{}
 	assert.NoError(suite.T(), controller.Auth(c))
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -114,7 +114,7 @@ func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
 	expiredRefreshToken, _ := tokens.GenerateRefreshToken(suite.Service.Config.JWTSecret, 0, user)
 
 	// login again with only expired refresh token
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		RefreshToken: expiredRefreshToken,
 	}))
 
@@ -138,7 +138,7 @@ func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
 func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 	// log in with login and password
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Login:    suite.userLogin.Login,
 		Password: suite.userLogin.Password,
 	}))
@@ -147,7 +147,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 	rec := httptest.NewRecorder()
 	c := suite.echo.NewContext(req, rec)
 	controller := controllers.NewAuthController(suite.Service)
-	responseBody := &controllers.AuthResponseBody{}
+	responseBody := &ExpectedAuthResponseBody{}
 	assert.NoError(suite.T(), controller.Auth(c))
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -160,7 +160,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 	expiredRefreshToken, _ := tokens.GenerateRefreshToken([]byte("INVALID SECRET"), suite.Service.Config.JWTRefreshTokenExpiry, user)
 
 	// login again with only refresh token
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		RefreshToken: expiredRefreshToken,
 	}))
 
@@ -181,7 +181,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 	// log in with login and password
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Login:    suite.userLogin.Login,
 		Password: suite.userLogin.Password,
 	}))
@@ -190,7 +190,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 	rec := httptest.NewRecorder()
 	c := suite.echo.NewContext(req, rec)
 	controller := controllers.NewAuthController(suite.Service)
-	responseBody := &controllers.AuthResponseBody{}
+	responseBody := &ExpectedAuthResponseBody{}
 	assert.NoError(suite.T(), controller.Auth(c))
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -202,7 +202,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 	expiredRefreshToken, _ := tokens.GenerateRefreshToken(suite.Service.Config.JWTSecret, suite.Service.Config.JWTRefreshTokenExpiry, user)
 
 	// login again with only refresh token
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		RefreshToken: expiredRefreshToken,
 	}))
 
@@ -223,7 +223,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 func (suite *UserAuthTestSuite) TestAuthWithAccessToken() {
 	// log in with login and password
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Login:    suite.userLogin.Login,
 		Password: suite.userLogin.Password,
 	}))
@@ -232,13 +232,13 @@ func (suite *UserAuthTestSuite) TestAuthWithAccessToken() {
 	rec := httptest.NewRecorder()
 	c := suite.echo.NewContext(req, rec)
 	controller := controllers.NewAuthController(suite.Service)
-	responseBody := &controllers.AuthResponseBody{}
+	responseBody := &ExpectedAuthResponseBody{}
 	assert.NoError(suite.T(), controller.Auth(c))
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 
 	// login again with only access token
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		RefreshToken: responseBody.AccessToken,
 	}))
 
@@ -259,7 +259,7 @@ func (suite *UserAuthTestSuite) TestAuthWithAccessToken() {
 func (suite *UserAuthTestSuite) TestAuthWithNotParseableRefreshToken() {
 	var buf bytes.Buffer
 	// login with random not parseable refresh token
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AuthRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		RefreshToken: "12345",
 	}))
 
