@@ -1,8 +1,6 @@
 name: Docker build & push
 on:
   push:
-    branches:
-      - main
   release:
     types: [published]
 jobs:
@@ -30,6 +28,7 @@ jobs:
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     # Always update dev environment 
     - name: Update dev environment
+      if: ${{ github.ref == 'refs/heads/main' }}
       uses: fjogeleit/yaml-update-action@v0.7.0
       with:
         valueFile: 'alby-simnet-deployment/values.yaml'
