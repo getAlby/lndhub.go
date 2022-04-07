@@ -20,7 +20,9 @@ func NewPubsub() *Pubsub {
 func (ps *Pubsub) Subscribe(id string, topic int64, ch chan models.Invoice) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-
+	if ps.subs[topic] == nil {
+		ps.subs[topic] = make(map[string]chan models.Invoice)
+	}
 	ps.subs[topic][id] = ch
 }
 
