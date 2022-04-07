@@ -94,7 +94,8 @@ func main() {
 	// Setup exception tracking with Sentry if configured
 	if c.SentryDSN != "" {
 		if err = sentry.Init(sentry.ClientOptions{
-			Dsn: c.SentryDSN,
+			Dsn:          c.SentryDSN,
+			IgnoreErrors: []string{"401"},
 		}); err != nil {
 			logger.Errorf("sentry init error: %v", err)
 		}
