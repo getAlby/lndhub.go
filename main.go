@@ -202,8 +202,6 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
-	//close all channels
-	svc.InvoicePubSub.CloseAll()
 	if echoPrometheus != nil {
 		if err := echoPrometheus.Shutdown(ctx); err != nil {
 			e.Logger.Fatal(err)

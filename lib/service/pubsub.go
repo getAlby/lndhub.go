@@ -26,10 +26,12 @@ func (ps *Pubsub) Subscribe(id string, topic int64, ch chan models.Invoice) {
 	ps.subs[topic][id] = ch
 }
 
-func (ps *Pubsub) Unsubscribe(id string, topic int64) {
+func (ps *Pubsub) Unsubscribe(id string, topic int64) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
+	close(ps.subs[topic][id])
 	delete(ps.subs[topic], id)
+	return nil
 }
 
 func (ps *Pubsub) Publish(topic int64, msg models.Invoice) {
@@ -38,13 +40,5 @@ func (ps *Pubsub) Publish(topic int64, msg models.Invoice) {
 
 	for _, ch := range ps.subs[topic] {
 		ch <- msg
-	}
-}
-
-func (ps *Pubsub) CloseAll() {
-	for _, subs := range ps.subs {
-		for _, ch := range subs {
-			close(ch)
-		}
 	}
 }

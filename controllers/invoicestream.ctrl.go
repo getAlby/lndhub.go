@@ -35,7 +35,6 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	invoiceChan := make(chan models.Invoice)
 	reqId := c.Response().Header().Get(echo.HeaderXRequestID)
 	controller.svc.InvoicePubSub.Subscribe(reqId, userId, invoiceChan)
-	ctx := c.Request().Context()
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	ticker := time.NewTicker(30 * time.Second)
@@ -44,6 +43,19 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	defer ws.Close()
+
+	//start listening for close messages
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			_, _, err := ws.ReadMessage()
+			if err != nil {
+				return
+			}
+		}
+	}()
+
 	//start with keepalive message
 	err = ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
 	if err != nil {
@@ -53,7 +65,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 SocketLoop:
 	for {
 		select {
-		case <-ctx.Done():
+		case <-done:
 			break SocketLoop
 		case <-ticker.C:
 			err := ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
@@ -81,6 +93,5 @@ SocketLoop:
 			}
 		}
 	}
-	controller.svc.InvoicePubSub.Unsubscribe(reqId, userId)
-	return nil
+	return controller.svc.InvoicePubSub.Unsubscribe(reqId, userId)
 }
