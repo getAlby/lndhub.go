@@ -46,7 +46,7 @@ jobs:
       uses: fjogeleit/yaml-update-action@v0.7.0
       with:
         valueFile: 'alby-mainnet-deployment/values.yaml'
-        propertyPath: 'lndhub.image.tag'
+        propertyPath: 'lndhub-canary.image.tag'
         value: ${{ steps.build.outputs.tags }}
         repository: getalby/alby-deployment
         branch: main
