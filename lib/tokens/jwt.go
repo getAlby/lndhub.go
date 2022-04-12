@@ -25,7 +25,7 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 	config.SigningKey = secret
 	config.ErrorHandlerWithContext = func(err error, c echo.Context) error {
 		c.Logger().Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+		return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
 			"error":   true,
 			"code":    1,
 			"message": "bad auth",

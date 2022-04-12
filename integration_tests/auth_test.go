@@ -128,7 +128,7 @@ func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
 	controller = controllers.NewAuthController(suite.Service)
 	assert.NoError(suite.T(), controller.Auth(c))
 	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
 	assert.Equal(suite.T(), responses.BadAuthError.Code, errorResponse.Code)
 	assert.Equal(suite.T(), responses.BadAuthError.Message, errorResponse.Message)
@@ -171,7 +171,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 	controller = controllers.NewAuthController(suite.Service)
 	assert.NoError(suite.T(), controller.Auth(c))
 	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
 	assert.Equal(suite.T(), responses.BadAuthError.Code, errorResponse.Code)
 	assert.Equal(suite.T(), responses.BadAuthError.Message, errorResponse.Message)
@@ -213,7 +213,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 	controller = controllers.NewAuthController(suite.Service)
 	assert.NoError(suite.T(), controller.Auth(c))
 	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
 	assert.Equal(suite.T(), responses.BadAuthError.Code, errorResponse.Code)
 	assert.Equal(suite.T(), responses.BadAuthError.Message, errorResponse.Message)
@@ -249,7 +249,7 @@ func (suite *UserAuthTestSuite) TestAuthWithAccessToken() {
 	controller = controllers.NewAuthController(suite.Service)
 	assert.NoError(suite.T(), controller.Auth(c))
 	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
 	assert.Equal(suite.T(), responses.BadAuthError.Code, errorResponse.Code)
 	assert.Equal(suite.T(), responses.BadAuthError.Message, errorResponse.Message)
@@ -270,7 +270,7 @@ func (suite *UserAuthTestSuite) TestAuthWithNotParseableRefreshToken() {
 	controller := controllers.NewAuthController(suite.Service)
 	assert.NoError(suite.T(), controller.Auth(c))
 	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
 	assert.Equal(suite.T(), responses.BadAuthError.Code, errorResponse.Code)
 	assert.Equal(suite.T(), responses.BadAuthError.Message, errorResponse.Message)

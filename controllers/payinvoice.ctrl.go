@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -52,6 +53,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 
 	paymentRequest := reqBody.Invoice
+	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
 		c.Logger().Errorf("Invalid payment request: %v", err)
