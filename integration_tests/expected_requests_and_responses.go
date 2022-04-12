@@ -90,6 +90,10 @@ type ExpectedIncomingInvoice struct {
 	Amount         int64       `json:"amt"`
 	IsPaid         bool        `json:"ispaid"`
 }
+type ExpectedInvoiceEventWrapper struct {
+	Type    string                   `json:"type"`
+	Invoice *ExpectedIncomingInvoice `json:"invoice,omitempty"`
+}
 
 type ExpectedPayInvoiceRequestBody struct {
 	Invoice string      `json:"invoice" validate:"required"`

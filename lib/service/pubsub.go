@@ -17,13 +17,16 @@ func NewPubsub() *Pubsub {
 	return ps
 }
 
-func (ps *Pubsub) Subscribe(id string, topic int64, ch chan models.Invoice) {
+func (ps *Pubsub) Subscribe(topic int64, ch chan models.Invoice) (subId string) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	if ps.subs[topic] == nil {
 		ps.subs[topic] = make(map[string]chan models.Invoice)
 	}
-	ps.subs[topic][id] = ch
+	//re-use preimage code for a uuid
+	subId = string(makePreimageHex())
+	ps.subs[topic][subId] = ch
+	return subId
 }
 
 func (ps *Pubsub) Unsubscribe(id string, topic int64) error {

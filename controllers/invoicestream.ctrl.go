@@ -33,13 +33,13 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	invoiceChan := make(chan models.Invoice)
-	reqId := c.Response().Header().Get(echo.HeaderXRequestID)
-	controller.svc.InvoicePubSub.Subscribe(reqId, userId, invoiceChan)
+	subId := controller.svc.InvoicePubSub.Subscribe(userId, invoiceChan)
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	ticker := time.NewTicker(30 * time.Second)
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
+		controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
 		return err
 	}
 	defer ws.Close()
@@ -60,6 +60,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	err = ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
 	if err != nil {
 		controller.svc.Logger.Error(err)
+		controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
 		return err
 	}
 SocketLoop:
@@ -93,5 +94,5 @@ SocketLoop:
 			}
 		}
 	}
-	return controller.svc.InvoicePubSub.Unsubscribe(reqId, userId)
+	return controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
 }
