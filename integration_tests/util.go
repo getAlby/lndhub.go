@@ -92,6 +92,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 	}
 	svc.IdentityPubkey = getInfo.IdentityPubkey
 
+	svc.InvoicePubSub = service.NewPubsub()
 	return svc, nil
 }
 
