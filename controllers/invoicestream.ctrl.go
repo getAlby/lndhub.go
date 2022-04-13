@@ -35,6 +35,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	invoiceChan := make(chan models.Invoice)
 	ticker := time.NewTicker(30 * time.Second)
 	ws, done, err := createWebsocketUpgrader(c)
+	defer ws.Close()
 	if err != nil {
 		return err
 	}
@@ -91,7 +92,6 @@ func createWebsocketUpgrader(c echo.Context) (conn *websocket.Conn, done chan st
 	if err != nil {
 		return nil, nil, err
 	}
-	defer ws.Close()
 
 	//start listening for close messages
 	done = make(chan struct{})

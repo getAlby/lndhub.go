@@ -100,15 +100,14 @@ func (suite *WebSocketTestSuite) SetupSuite() {
 }
 
 func (suite *WebSocketTestSuite) TestWebSocket() {
-
 	//start listening to websocket
 	ws, _, err := websocket.DefaultDialer.Dial(suite.wsUrl, nil)
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	_, msg, err := ws.ReadMessage()
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	keepAlive := KeepAlive{}
 	err = json.Unmarshal([]byte(msg), &keepAlive)
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), "keepalive", keepAlive.Type)
 
 	// create incoming invoice and fund account
@@ -121,29 +120,37 @@ func (suite *WebSocketTestSuite) TestWebSocket() {
 	assert.NoError(suite.T(), err)
 
 	_, msg, err = ws.ReadMessage()
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	event := ExpectedInvoiceEventWrapper{}
 	err = json.Unmarshal([]byte(msg), &event)
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), event.Type, "invoice")
 	assert.Equal(suite.T(), int64(1000), event.Invoice.Amount)
 	assert.Equal(suite.T(), "integration test websocket 1", event.Invoice.Description)
+}
+
+func (suite *WebSocketTestSuite) TestWebSocketDoubeSubscription() {
+	//create 1st subscription
+	ws1, _, err := websocket.DefaultDialer.Dial(suite.wsUrl, nil)
+	assert.NoError(suite.T(), err)
+	//read keepalive msg
+	_, _, err = ws1.ReadMessage()
 	//create 2nd subscription, create invoice, pay invoice, assert that invoice is received twice
 	//start listening to websocket
 	ws2, _, err := websocket.DefaultDialer.Dial(suite.wsUrl, nil)
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	//read keepalive msg
 	_, _, err = ws2.ReadMessage()
-	assert.NoError(suite.T(), err, err)
-	invoice = suite.createAddInvoiceReq(1000, "integration test websocket 2", suite.userToken)
-	sendPaymentRequest = lnrpc.SendRequest{
+	assert.NoError(suite.T(), err)
+	invoice := suite.createAddInvoiceReq(1000, "integration test websocket 2", suite.userToken)
+	sendPaymentRequest := lnrpc.SendRequest{
 		PaymentRequest: invoice.PayReq,
 		FeeLimit:       nil,
 	}
 	_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
 	assert.NoError(suite.T(), err)
-	_, msg1, err := ws.ReadMessage()
-	assert.NoError(suite.T(), err, err)
+	_, msg1, err := ws1.ReadMessage()
+	assert.NoError(suite.T(), err)
 	_, msg2, err := ws2.ReadMessage()
 	assert.NoError(suite.T(), err)
 
@@ -152,11 +159,11 @@ func (suite *WebSocketTestSuite) TestWebSocket() {
 	assert.NoError(suite.T(), err)
 	event2 := ExpectedInvoiceEventWrapper{}
 	err = json.Unmarshal([]byte(msg2), &event2)
-	assert.NoError(suite.T(), err, err)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), "integration test websocket 2", event1.Invoice.Description)
 	assert.Equal(suite.T(), "integration test websocket 2", event2.Invoice.Description)
 	//close 1 subscription, assert that the existing sub still receives their invoices
-	ws.Close()
+	ws1.Close()
 	invoice = suite.createAddInvoiceReq(1000, "integration test websocket 3", suite.userToken)
 	sendPaymentRequest = lnrpc.SendRequest{
 		PaymentRequest: invoice.PayReq,
@@ -164,12 +171,22 @@ func (suite *WebSocketTestSuite) TestWebSocket() {
 	}
 	_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
 	assert.NoError(suite.T(), err)
-	_, msg2, err = ws2.ReadMessage()
+	_, msg3, err := ws2.ReadMessage()
 	assert.NoError(suite.T(), err)
-	event2 = ExpectedInvoiceEventWrapper{}
-	err = json.Unmarshal([]byte(msg2), &event2)
+	event3 := ExpectedInvoiceEventWrapper{}
+	err = json.Unmarshal([]byte(msg3), &event3)
 	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), "integration test websocket 3", event2.Invoice.Description)
+	assert.Equal(suite.T(), "integration test websocket 3", event3.Invoice.Description)
+
+}
+func (suite *WebSocketTestSuite) TestWebSocketDoubleUser() {
+
+	//create subs for 2 different users, assert that they each get their own invoice updates
+	user1Ws, _, err := websocket.DefaultDialer.Dial(suite.wsUrl, nil)
+	assert.NoError(suite.T(), err)
+	//read keepalive msg
+	_, _, err = user1Ws.ReadMessage()
+	assert.NoError(suite.T(), err)
 	//create subs for 2 different users, assert that they each get their own invoice updates
 	user2Ws, _, err := websocket.DefaultDialer.Dial(suite.wsUrl2, nil)
 	assert.NoError(suite.T(), err)
@@ -194,7 +211,7 @@ func (suite *WebSocketTestSuite) TestWebSocket() {
 	_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequestUser2)
 	assert.NoError(suite.T(), err)
 	//read user 1 received msg
-	_, user1Msg, err := ws2.ReadMessage()
+	_, user1Msg, err := user1Ws.ReadMessage()
 	assert.NoError(suite.T(), err)
 	//assert it's their's
 	eventUser1 := ExpectedInvoiceEventWrapper{}
