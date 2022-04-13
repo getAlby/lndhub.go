@@ -33,7 +33,10 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	invoiceChan := make(chan models.Invoice)
-	subId := controller.svc.InvoicePubSub.Subscribe(userId, invoiceChan)
+	subId, err := controller.svc.InvoicePubSub.Subscribe(userId, invoiceChan)
+	if err != nil {
+		return err
+	}
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	ticker := time.NewTicker(30 * time.Second)
