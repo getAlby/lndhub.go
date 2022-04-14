@@ -114,10 +114,7 @@ func main() {
 			CertHex:     c.LNDCertHex,
 		})
 	case service.CLN_TYPE:
-		lnClient, err = lnd.NewCLNClient(lnd.CLNClientOptions{
-			SparkUrl:   c.LNDAddress,
-			SparkToken: c.LNDMacaroonHex,
-		})
+		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
 	default:
 		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
 	}
