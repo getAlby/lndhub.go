@@ -9,7 +9,6 @@ import (
 
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -68,9 +67,6 @@ func loadTLSCredentials(caCertHex, clientCertHex, clientKeyHex string) (credenti
 }
 
 func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
-	handler := &InvoiceHandler{
-		invoiceChan: make(chan *lnrpc.Invoice),
-	}
 	credentials, err := loadTLSCredentials(options.CaCertHex, options.ClientCertHex, options.ClientKeyHex)
 	if err != nil {
 		return nil, err
@@ -85,8 +81,7 @@ func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
 		return nil, err
 	}
 	return &CLNClient{
-		handler: handler,
-		client:  NewNodeClient(conn),
+		client: NewNodeClient(conn),
 	}, nil
 }
 
@@ -94,13 +89,35 @@ func (cln *CLNClient) Recv() (invoice *lnrpc.Invoice, err error) {
 	return <-cln.handler.invoiceChan, nil
 }
 
-func (handler *InvoiceHandler) Handle(res gjson.Result) {
-	invoice := &lnrpc.Invoice{}
-	handler.invoiceChan <- invoice
+func (cl *CLNClient) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
+	peers, err := cl.client.ListPeers(ctx, &ListpeersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	channels := []*lnrpc.Channel{}
+	for _, p := range peers.Peers {
+		for _, ch := range p.Channels {
+			channels = append(channels, &lnrpc.Channel{
+				Active:        p.Connected,
+				RemotePubkey:  string(p.Id),
+				ChannelPoint:  fmt.Sprintf("%s:%d", string(ch.FundingTxid), *ch.FundingOutnum),
+				ChanId:        convertChanId(ch.ShortChannelId),
+				Capacity:      int64(ch.TotalMsat.Msat / MSAT_PER_SAT),
+				LocalBalance:  int64(ch.ToUsMsat.Msat / MSAT_PER_SAT),
+				RemoteBalance: int64(ch.ReceivableMsat.Msat / MSAT_PER_SAT),
+			})
+		}
+	}
+	return &lnrpc.ListChannelsResponse{
+		Channels: channels,
+	}, nil
 }
 
-func (cl *CLNClient) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
-	return nil, nil
+func convertChanId(in *string) (out uint64) {
+	if in == nil {
+		return 0
+	}
+	return 0
 }
 
 func (cl *CLNClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
@@ -119,7 +136,33 @@ func (cl *CLNClient) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSu
 }
 
 func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
-	return nil, nil
+	info, err := cl.client.Getinfo(ctx, &GetinfoRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return &lnrpc.GetInfoResponse{
+		Version:             info.Version,
+		CommitHash:          info.Version,
+		IdentityPubkey:      string(info.Id),
+		Alias:               info.Alias,
+		Color:               string(info.Color),
+		NumPendingChannels:  info.NumPendingChannels,
+		NumActiveChannels:   info.NumActiveChannels,
+		NumInactiveChannels: info.NumInactiveChannels,
+		NumPeers:            info.NumPeers,
+		BlockHeight:         info.Blockheight,
+		BlockHash:           "",
+		BestHeaderTimestamp: 0,
+		SyncedToChain:       true,
+		SyncedToGraph:       true,
+		Testnet:             info.Network == "mainnet",
+		Chains: []*lnrpc.Chain{
+			{
+				Chain:   "bitcoin",
+				Network: "mainnet",
+			},
+		},
+	}, nil
 }
 
 func (cl *CLNClient) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
