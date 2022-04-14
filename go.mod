@@ -22,7 +22,7 @@ require (
 	github.com/uptrace/bun/extra/bundebug v1.0.21
 	github.com/ziflex/lecho/v3 v3.1.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.45.0
 	gopkg.in/macaroon.v2 v2.1.0
 )
 
@@ -30,8 +30,10 @@ require (
 	github.com/SporkHubr/echo-http-cache v0.0.0-20200706100054-1d7ae9f38029
 	github.com/labstack/echo-contrib v0.12.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/tidwall/gjson v1.14.0
 	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/genproto v0.0.0-20220114231437-d2e6a121cae0 // indirect
+	google.golang.org/protobuf v1.28.0
 )
