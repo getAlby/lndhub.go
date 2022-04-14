@@ -18,4 +18,9 @@ type Config struct {
 	LNDCertHex            string `envconfig:"LND_CERT_HEX"`
 	CustomName            string `envconfig:"CUSTOM_NAME"`
 	Port                  int    `envconfig:"PORT" default:"3000"`
+	DefaultRateLimit      int    `envconfig:"DEFAULT_RATE_LIMIT" default:"10"`
+	StrictRateLimit       int    `envconfig:"STRICT_RATE_LIMIT" default:"10"`
+	BurstRateLimit        int    `envconfig:"BURST_RATE_LIMIT" default:"1"`
+	EnablePrometheus      bool   `envconfig:"ENABLE_PROMETHEUS" default:"false"`
+	PrometheusPort        int    `envconfig:"PROMETHEUS_PORT" default:"9092"`
 }

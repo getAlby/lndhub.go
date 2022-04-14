@@ -35,7 +35,8 @@ func (controller *AuthController) Auth(c echo.Context) error {
 	var body AuthRequestBody
 
 	if err := c.Bind(&body); err != nil {
-		return err
+		c.Logger().Errorf("Failed to load auth user request body: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if err := c.Validate(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
@@ -43,7 +44,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 
 	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, responses.BadAuthError)
+		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
 
 	return c.JSON(http.StatusOK, &AuthResponseBody{

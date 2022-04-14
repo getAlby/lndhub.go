@@ -25,7 +25,7 @@ type PaymentTestErrorsSuite struct {
 	TestSuite
 	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
-	userLogin                controllers.CreateUserResponseBody
+	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }

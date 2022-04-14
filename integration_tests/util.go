@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/lib"
@@ -29,12 +28,19 @@ const (
 	lnd1RegtestMacaroonHex = "0201036c6e6402f801030a10e2133a1cac2c5b4d56e44e32dc64c8551201301a160a0761646472657373120472656164120577726974651a130a04696e666f120472656164120577726974651a170a08696e766f69636573120472656164120577726974651a210a086d616361726f6f6e120867656e6572617465120472656164120577726974651a160a076d657373616765120472656164120577726974651a170a086f6666636861696e120472656164120577726974651a160a076f6e636861696e120472656164120577726974651a140a057065657273120472656164120577726974651a180a067369676e6572120867656e657261746512047265616400000620c4f9783e0873fa50a2091806f5ebb919c5dc432e33800b401463ada6485df0ed"
 	lnd2RegtestAddress     = "rpc.lnd2.regtest.getalby.com:443"
 	lnd2RegtestMacaroonHex = "0201036C6E6402F801030A101782922F4358E80655920FC7A7C3E9291201301A160A0761646472657373120472656164120577726974651A130A04696E666F120472656164120577726974651A170A08696E766F69636573120472656164120577726974651A210A086D616361726F6F6E120867656E6572617465120472656164120577726974651A160A076D657373616765120472656164120577726974651A170A086F6666636861696E120472656164120577726974651A160A076F6E636861696E120472656164120577726974651A140A057065657273120472656164120577726974651A180A067369676E6572120867656E657261746512047265616400000620628FFB2938C8540DD3AA5E578D9B43456835FAA176E175FFD4F9FBAE540E3BE9"
+	// Use lnd3 for a funding client when testing out fee handling for payments done by lnd-1, since lnd3 doesn't have a direct channel to lnd1.
+	// This will cause payment to be routed through lnd2, which will charge a fee (lnd default fee 1 sat base + 1 ppm).
+	lnd3RegtestAddress     = "rpc.lnd3.regtest.getalby.com:443"
+	lnd3RegtestMacaroonHex = "0201036c6e6402f801030a102a5aa69a5efdf4b4a55a5304b164641f1201301a160a0761646472657373120472656164120577726974651a130a04696e666f120472656164120577726974651a170a08696e766f69636573120472656164120577726974651a210a086d616361726f6f6e120867656e6572617465120472656164120577726974651a160a076d657373616765120472656164120577726974651a170a086f6666636861696e120472656164120577726974651a160a076f6e636861696e120472656164120577726974651a140a057065657273120472656164120577726974651a180a067369676e6572120867656e657261746512047265616400000620defbb5a809262297fd661a9ab6d3deb4b7acca4f1309c79addb952f0dc2d8c82"
+	simnetLnd1PubKey       = "0242898f86064c2fd72de22059c947a83ba23e9d97aedeae7b6dba647123f1d71b"
+	simnetLnd2PubKey       = "025c1d5d1b4c983cc6350fc2d756fbb59b4dc365e45e87f8e3afe07e24013e8220"
+	simnetLnd3PubKey       = "03c7092d076f799ab18806743634b4c9bb34e351bdebc91d5b35963f3dc63ec5aa"
 )
 
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
 	// change this if you want to run tests using sqlite
 	// dbUri := "file:data_test.db"
-	//make sure the datbase is empty every time you run the test suite
+	// make sure the datbase is empty every time you run the test suite
 	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
 		DatabaseUri:           dbUri,
@@ -107,15 +113,15 @@ func getUserIdFromToken(token string) int64 {
 	return int64(claims["id"].(float64))
 }
 
-func createUsers(svc *service.LndhubService, usersToCreate int) (logins []controllers.CreateUserResponseBody, tokens []string, err error) {
-	logins = []controllers.CreateUserResponseBody{}
+func createUsers(svc *service.LndhubService, usersToCreate int) (logins []ExpectedCreateUserResponseBody, tokens []string, err error) {
+	logins = []ExpectedCreateUserResponseBody{}
 	tokens = []string{}
 	for i := 0; i < usersToCreate; i++ {
 		user, err := svc.CreateUser(context.Background(), "", "")
 		if err != nil {
 			return nil, nil, err
 		}
-		var login controllers.CreateUserResponseBody
+		var login ExpectedCreateUserResponseBody
 		login.Login = user.Login
 		login.Password = user.Password
 		logins = append(logins, login)
@@ -133,27 +139,99 @@ type TestSuite struct {
 	echo *echo.Echo
 }
 
-func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *controllers.AddInvoiceResponseBody {
+func checkErrResponse(suite *TestSuite, rec *httptest.ResponseRecorder) *responses.ErrorResponse {
+	errorResponse := &responses.ErrorResponse{}
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
+	return errorResponse
+}
+
+func (suite *TestSuite) createAddInvoiceReq(amt int, memo, token string) *ExpectedAddInvoiceResponseBody {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.AddInvoiceRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
 		Amount: amt,
-		Memo:   "integration test IncomingPaymentTestSuite",
+		Memo:   memo,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	suite.echo.ServeHTTP(rec, req)
-	invoiceResponse := &controllers.AddInvoiceResponseBody{}
+	invoiceResponse := &ExpectedAddInvoiceResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
 	return invoiceResponse
 }
 
-func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *controllers.PayInvoiceResponseBody {
+func (suite *TestSuite) createInvoiceReq(amt int, memo, userLogin string) *ExpectedAddInvoiceResponseBody {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
+		Amount: amt,
+		Memo:   memo,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/invoice/"+userLogin, &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	suite.echo.ServeHTTP(rec, req)
+	invoiceResponse := &ExpectedAddInvoiceResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(invoiceResponse))
+	return invoiceResponse
+}
+
+func (suite *TestSuite) createInvoiceReqError(amt int, memo, userLogin string) *responses.ErrorResponse {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
+		Amount: amt,
+		Memo:   memo,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/invoice/"+userLogin, &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	suite.echo.ServeHTTP(rec, req)
+	return checkErrResponse(suite, rec)
+}
+
+func (suite *TestSuite) createKeySendReq(amount int64, memo, destination, token string) *ExpectedKeySendResponseBody {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(ExpectedKeySendRequestBody{
+		Amount:      amount,
+		Destination: destination,
+		Memo:        memo,
+		//add memo as WHATSAT_MESSAGE custom record
+		CustomRecords: map[string]string{fmt.Sprint(service.TLV_WHATSAT_MESSAGE): memo},
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/keysend", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	suite.echo.ServeHTTP(rec, req)
+
+	keySendResponse := &ExpectedKeySendResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(keySendResponse))
+	return keySendResponse
+}
+
+func (suite *TestSuite) createKeySendReqError(amount int64, memo, destination, token string) *responses.ErrorResponse {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(ExpectedKeySendRequestBody{
+		Amount:      amount,
+		Destination: destination,
+		Memo:        memo,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/keysend", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	suite.echo.ServeHTTP(rec, req)
+	return checkErrResponse(suite, rec)
+}
+
+func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *ExpectedPayInvoiceResponseBody {
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
 		Invoice: payReq,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
@@ -161,7 +239,7 @@ func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *contro
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	suite.echo.ServeHTTP(rec, req)
 
-	payInvoiceResponse := &controllers.PayInvoiceResponseBody{}
+	payInvoiceResponse := &ExpectedPayInvoiceResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payInvoiceResponse))
 	return payInvoiceResponse
@@ -170,24 +248,20 @@ func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *contro
 func (suite *TestSuite) createPayInvoiceReqError(payReq string, token string) *responses.ErrorResponse {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
 		Invoice: payReq,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	suite.echo.ServeHTTP(rec, req)
-
-	errorResponse := &responses.ErrorResponse{}
-	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
-	return errorResponse
+	return checkErrResponse(suite, rec)
 }
 
 func (suite *TestSuite) createPayInvoiceReqWithCancel(payReq string, token string) {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&controllers.PayInvoiceRequestBody{
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
 		Invoice: payReq,
 	}))
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

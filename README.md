@@ -14,7 +14,7 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 
 ## Known Issues
 
-* Currently no fee handling (users are currently not charged for lightning transaction fees)
+* Fee reserves are not checked prior to making the payment. This can cause a user's balance to go below 0.
 
 ## Configuration
 
@@ -39,8 +39,11 @@ vim .env # edit your config
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
 + `PORT`: (default: 3000) Port the app should listen on
-
-
++ `DEFAULT_RATE_LIMIT`: (default: 10) Requests per second rate limit
++ `STRICT_RATE_LIMIT`: (default: 10) Requests per burst rate limit (e.g. 1 request each 10 seconds)
++ `BURST_RATE_LIMIT`: (default: 1) Rate limit burst
++ `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
++ `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
 ## Developing
 
 ```shell
@@ -64,6 +67,11 @@ Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/
 
 ## Database
 LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does not support the same data consistency checks as PostgreSQL.
+
+## Prometheus
+
+Prometheus metrics can be optionally exposed through the `ENABLE_PROMETHEUS` environment variable.
+For an example dashboard, see https://grafana.com/grafana/dashboards/10913.
 
 ### Ideas
 + Using low level database constraints to prevent data inconsistencies

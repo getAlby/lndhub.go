@@ -3,7 +3,7 @@ package controllers
 import (
 	"fmt"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -11,73 +11,60 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
-// PayInvoiceController : Pay invoice controller struct
-type PayInvoiceController struct {
+// KeySendController : Key send controller struct
+type KeySendController struct {
 	svc *service.LndhubService
 }
 
-func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
-	return &PayInvoiceController{svc: svc}
+func NewKeySendController(svc *service.LndhubService) *KeySendController {
+	return &KeySendController{svc: svc}
 }
 
-type PayInvoiceRequestBody struct {
-	Invoice string      `json:"invoice" validate:"required"`
-	Amount  interface{} `json:"amount" validate:"omitempty"`
+type KeySendRequestBody struct {
+	Amount        int64             `json:"amount" validate:"required"`
+	Destination   string            `json:"destination" validate:"required"`
+	Memo          string            `json:"memo" validate:"omitempty"`
+	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
 }
-type PayInvoiceResponseBody struct {
+
+type KeySendResponseBody struct {
 	RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
-	PaymentRequest     string                `json:"payment_request,omitempty"`
-	PayReq             string                `json:"pay_req,omitempty"`
 	Amount             int64                 `json:"num_satoshis,omitempty"`
 	Description        string                `json:"description,omitempty"`
+	Destination        string                `json:"destination,omitempty"`
 	DescriptionHashStr string                `json:"description_hash,omitempty"`
 	PaymentError       string                `json:"payment_error,omitempty"`
 	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-// PayInvoice : Pay invoice Controller
-func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
+// KeySend : Key send Controller
+func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-	reqBody := PayInvoiceRequestBody{}
+	reqBody := KeySendRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
-		c.Logger().Errorf("Failed to load payinvoice request body: %v", err)
+		c.Logger().Errorf("Failed to load keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	if err := c.Validate(&reqBody); err != nil {
-		c.Logger().Errorf("Invalid payinvoice request body: %v", err)
+		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
-	paymentRequest := reqBody.Invoice
-	paymentRequest = strings.ToLower(paymentRequest)
-	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
-	if err != nil {
-		c.Logger().Errorf("Invalid payment request: %v", err)
-		sentry.CaptureException(err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-	}
-	// TODO: zero amount invoices
-	/*
-		_, err = controller.svc.ParseInt(reqBody.Amount)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{
-				"error":   true,
-				"code":    8,
-				"message": "Bad arguments",
-			})
-		}
-	*/
 
 	lnPayReq := &lnd.LNPayReq{
-		PayReq:  decodedPaymentRequest,
-		Keysend: false,
+		PayReq: &lnrpc.PayReq{
+			Destination: reqBody.Destination,
+			NumSatoshis: reqBody.Amount,
+			Description: reqBody.Memo,
+		},
+		Keysend: true,
 	}
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return err
 	}
@@ -89,10 +76,17 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	if currentBalance < invoice.Amount {
 		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
-
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
+	invoice.DestinationCustomRecords = map[uint64][]byte{}
+	for key, value := range reqBody.CustomRecords {
+		intKey, err := strconv.Atoi(key)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
+	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed: %v", err)
@@ -103,11 +97,11 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
 		})
 	}
-	responseBody := &PayInvoiceResponseBody{}
+
+	responseBody := &KeySendResponseBody{}
 	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
-	responseBody.PaymentRequest = paymentRequest
-	responseBody.PayReq = paymentRequest
 	responseBody.Amount = invoice.Amount
+	responseBody.Destination = invoice.DestinationPubkeyHex
 	responseBody.Description = invoice.Memo
 	responseBody.DescriptionHashStr = invoice.DescriptionHash
 	responseBody.PaymentError = sendPaymentResponse.PaymentError

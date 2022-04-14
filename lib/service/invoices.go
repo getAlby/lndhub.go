@@ -2,13 +2,17 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -99,25 +103,14 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 
 func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
-	// TODO: set dynamic fee limit
-	feeLimit := lnrpc.FeeLimit{
-		//Limit: &lnrpc.FeeLimit_Percent{
-		//	Percent: 2,
-		//},
-		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: 300,
-		},
-	}
 
-	// Prepare the LNRPC call
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoice.PaymentRequest,
-		Amt:            invoice.Amount,
-		FeeLimit:       &feeLimit,
+	sendPaymentRequest, err := createLnRpcSendRequest(invoice)
+	if err != nil {
+		return sendPaymentResponse, err
 	}
 
 	// Execute the payment
-	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, &sendPaymentRequest)
+	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, sendPaymentRequest)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -135,6 +128,50 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 	sendPaymentResponse.PaymentHashStr = hex.EncodeToString(paymentHash[:])
 	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: sendPaymentResult.PaymentRoute.TotalAmt, TotalFees: sendPaymentResult.PaymentRoute.TotalFees}
 	return sendPaymentResponse, nil
+}
+
+func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
+	feeLimit := calcFeeLimit(invoice)
+
+	if !invoice.Keysend {
+		return &lnrpc.SendRequest{
+			PaymentRequest: invoice.PaymentRequest,
+			Amt:            invoice.Amount,
+			FeeLimit:       &feeLimit,
+		}, nil
+	}
+
+	preImage := makePreimageHex()
+	pHash := sha256.New()
+	pHash.Write(preImage)
+	// Prepare the LNRPC call
+	//See: https://github.com/hsjoberg/blixt-wallet/blob/9fcc56a7dc25237bc14b85e6490adb9e044c009c/src/lndmobile/index.ts#L251-L270
+	destBytes, err := hex.DecodeString(invoice.DestinationPubkeyHex)
+	if err != nil {
+		return nil, err
+	}
+	invoice.DestinationCustomRecords[KEYSEND_CUSTOM_RECORD] = preImage
+	return &lnrpc.SendRequest{
+		Dest:              destBytes,
+		Amt:               invoice.Amount,
+		PaymentHash:       pHash.Sum(nil),
+		FeeLimit:          &feeLimit,
+		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
+		DestCustomRecords: invoice.DestinationCustomRecords,
+	}, nil
+}
+
+func calcFeeLimit(invoice *models.Invoice) lnrpc.FeeLimit {
+	limit := int64(10)
+	if invoice.Amount > 1000 {
+		limit = int64(math.Ceil(float64(invoice.Amount)*float64(0.01)) + 1)
+	}
+
+	return lnrpc.FeeLimit{
+		Limit: &lnrpc.FeeLimit_Fixed{
+			Fixed: limit,
+		},
+	}
 }
 
 func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoice) (*SendPaymentResponse, error) {
@@ -189,8 +226,10 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	paymentResponse.TransactionEntry = &entry
 
 	// The payment was successful.
+	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	err = svc.HandleSuccessfulPayment(context.Background(), invoice)
+	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
+	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
 }
 
@@ -223,7 +262,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return err
 }
 
-func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice) error {
+func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
@@ -232,22 +271,60 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 	}
-	return err
+
+	// Get the user's fee account for the transaction entry, current account is already there in parent entry
+	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
+	if err != nil {
+		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
+		return err
+	}
+
+	// add transaction entry for fee
+	entry := models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: feeAccount.ID,
+		DebitAccountID:  parentEntry.DebitAccountID,
+		Amount:          int64(invoice.Fee),
+		ParentID:        parentEntry.ID,
+	}
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		return err
+	}
+
+	userBalance, err := svc.CurrentUserBalance(ctx, entry.UserID)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		return err
+	}
+
+	if userBalance < 0 {
+		amountMsg := fmt.Sprintf("User balance is negative transaction_entry_id:%v user_id:%v amount:%v", entry.ID, entry.UserID, userBalance)
+		svc.Logger.Info(amountMsg)
+		sentry.CaptureMessage(amountMsg)
+	}
+
+	return nil
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, decodedInvoice *lnrpc.PayReq) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, error) {
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
 		UserID:               userID,
 		PaymentRequest:       paymentRequest,
-		RHash:                decodedInvoice.PaymentHash,
-		Amount:               decodedInvoice.NumSatoshis,
+		RHash:                lnPayReq.PayReq.PaymentHash,
+		Amount:               lnPayReq.PayReq.NumSatoshis,
 		State:                common.InvoiceStateInitialized,
-		DestinationPubkeyHex: decodedInvoice.Destination,
-		DescriptionHash:      decodedInvoice.DescriptionHash,
-		Memo:                 decodedInvoice.Description,
-		ExpiresAt:            bun.NullTime{Time: time.Unix(decodedInvoice.Timestamp, 0).Add(time.Duration(decodedInvoice.Expiry) * time.Second)},
+		DestinationPubkeyHex: lnPayReq.PayReq.Destination,
+		DescriptionHash:      lnPayReq.PayReq.DescriptionHash,
+		Memo:                 lnPayReq.PayReq.Description,
+		Keysend:              lnPayReq.Keysend,
+		ExpiresAt:            bun.NullTime{Time: time.Unix(lnPayReq.PayReq.Timestamp, 0).Add(time.Duration(lnPayReq.PayReq.Expiry) * time.Second)},
 	}
 
 	// Save invoice
