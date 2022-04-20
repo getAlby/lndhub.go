@@ -49,6 +49,15 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
 		return err
 	}
+	fromPaymentHash := c.QueryParam("from_payment_hash")
+	if fromPaymentHash != "" {
+		err = controller.writeMissingInvoices(c, userId, ws, fromPaymentHash)
+		if err != nil {
+			controller.svc.Logger.Error(err)
+			controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
+			return err
+		}
+	}
 SocketLoop:
 	for {
 		select {
@@ -105,4 +114,37 @@ func createWebsocketUpgrader(c echo.Context) (conn *websocket.Conn, done chan st
 		}
 	}()
 	return ws, done, nil
+}
+
+func (controller *InvoiceStreamController) writeMissingInvoices(c echo.Context, userId int64, ws *websocket.Conn, hash string) error {
+	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
+	if err != nil {
+		return err
+	}
+	for _, inv := range invoices {
+		//invoices are order from newest to oldest (with a maximum of 100 invoices being returned)
+		//so if we get a match on the hash, we have processed all missing invoices for this client
+		if inv.DescriptionHash == hash {
+			break
+		}
+		if inv.State == common.InvoiceStateSettled {
+			err := ws.WriteJSON(
+				&InvoiceEventWrapper{
+					Type: "invoice",
+					Invoice: &IncomingInvoice{
+						PaymentHash:    inv.RHash,
+						PaymentRequest: inv.PaymentRequest,
+						Description:    inv.Memo,
+						PayReq:         inv.PaymentRequest,
+						Timestamp:      inv.CreatedAt.Unix(),
+						Type:           common.InvoiceTypeUser,
+						Amount:         inv.Amount,
+						IsPaid:         inv.State == common.InvoiceStateSettled,
+					}})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
