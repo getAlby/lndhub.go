@@ -124,6 +124,7 @@ func main() {
 		LndClient:      lndClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
+		InvoicePubSub:  service.NewPubsub(),
 	}
 
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
@@ -159,6 +160,10 @@ func main() {
 	e.Pre(middleware.Rewrite(map[string]string{
 		"/favicon.ico": "/static/img/favicon.png",
 	}))
+
+	//invoice streaming
+	//Authentication should be done through the query param because this is a websocket
+	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
