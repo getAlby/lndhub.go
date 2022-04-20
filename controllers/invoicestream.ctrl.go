@@ -49,7 +49,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
 		return err
 	}
-	fromPaymentHash := c.QueryParam("from_payment_hash")
+	fromPaymentHash := c.QueryParam("since_payment_hash")
 	if fromPaymentHash != "" {
 		err = controller.writeMissingInvoices(c, userId, ws, fromPaymentHash)
 		if err != nil {
@@ -124,7 +124,7 @@ func (controller *InvoiceStreamController) writeMissingInvoices(c echo.Context, 
 	for _, inv := range invoices {
 		//invoices are order from newest to oldest (with a maximum of 100 invoices being returned)
 		//so if we get a match on the hash, we have processed all missing invoices for this client
-		if inv.DescriptionHash == hash {
+		if inv.RHash == hash {
 			break
 		}
 		if inv.State == common.InvoiceStateSettled {

@@ -228,6 +228,45 @@ func (suite *WebSocketTestSuite) TestWebSocketDoubleUser() {
 	assert.Equal(suite.T(), "integration test websocket user 2", eventUser2.Invoice.Description)
 
 }
+func (suite *WebSocketTestSuite) TestWebSocketMissingInvoice() {
+	// create incoming invoice and fund account
+	invoice1 := suite.createAddInvoiceReq(1000, "integration test websocket missing invoices", suite.userToken)
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoice1.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	// create 2nd invoice and pay it as well
+	invoice2 := suite.createAddInvoiceReq(1000, "integration test websocket missing invoices 2nd", suite.userToken)
+	sendPaymentRequest = lnrpc.SendRequest{
+		PaymentRequest: invoice2.PayReq,
+		FeeLimit:       nil,
+	}
+	_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//start listening to websocket after 2nd invoice has been paid
+	//we should get an event for the 2nd invoice if we specify the hash as the query parameter
+	ws, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("%s&since_payment_hash=%s", suite.wsUrl, invoice1.RHash), nil)
+	assert.NoError(suite.T(), err)
+	_, msg, err := ws.ReadMessage()
+	assert.NoError(suite.T(), err)
+	keepAlive := KeepAlive{}
+	err = json.Unmarshal([]byte(msg), &keepAlive)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "keepalive", keepAlive.Type)
+
+	_, msg, err = ws.ReadMessage()
+	assert.NoError(suite.T(), err)
+	event := ExpectedInvoiceEventWrapper{}
+	err = json.Unmarshal([]byte(msg), &event)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), event.Type, "invoice")
+	assert.Equal(suite.T(), int64(1000), event.Invoice.Amount)
+	assert.Equal(suite.T(), "integration test websocket missing invoices 2nd", event.Invoice.Description)
+}
 
 func (suite *WebSocketTestSuite) TearDownSuite() {
 	suite.invoiceUpdateSubCancelFn()
