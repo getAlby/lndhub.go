@@ -28,7 +28,7 @@ func NewInvoiceStreamController(svc *service.LndhubService) *InvoiceStreamContro
 
 // Stream invoices streams incoming payments to the client
 func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error {
-	userId, err := tokens.ParseToken(controller.svc.Config.JWTSecret, (c.QueryParam("token")))
+	userId, err := tokens.ParseToken(controller.svc.Config.JWTSecret, (c.QueryParam("token")), false)
 	if err != nil {
 		return err
 	}
