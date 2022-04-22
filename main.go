@@ -166,7 +166,8 @@ func main() {
 	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	ctx, cancelBackGroundProcess := context.WithCancel(context.Background())
+	go svc.InvoiceUpdateSubscription(ctx)
 
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
@@ -203,6 +204,7 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
+	cancelBackGroundProcess()
 	if echoPrometheus != nil {
 		if err := echoPrometheus.Shutdown(ctx); err != nil {
 			e.Logger.Fatal(err)
