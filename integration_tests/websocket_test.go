@@ -271,6 +271,7 @@ func (suite *WebSocketTestSuite) TestWebSocketMissingInvoice() {
 func (suite *WebSocketTestSuite) TearDownSuite() {
 	suite.invoiceUpdateSubCancelFn()
 	suite.websocketServer.Close()
+	clearTable(suite.service, "invoices")
 }
 
 func TestWebSocketSuite(t *testing.T) {
