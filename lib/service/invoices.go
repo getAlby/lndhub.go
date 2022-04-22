@@ -97,6 +97,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
 	}
+	svc.InvoicePubSub.Publish(incomingInvoice.UserID, incomingInvoice)
 
 	return sendPaymentResponse, nil
 }
