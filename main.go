@@ -184,7 +184,7 @@ func main() {
 	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	//Swagger API spec
-	docs.SwaggerInfo.Host = "localhost:3000"
+	docs.SwaggerInfo.Host = c.Host
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	// Subscribe to LND invoice updates in the background
