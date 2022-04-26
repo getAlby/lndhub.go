@@ -60,7 +60,7 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 			PaymentPreimage: invoice.Preimage,
 			Value:           invoice.Amount,
 			Type:            common.InvoiceTypePaid,
-			Fee:             0, //TODO charge fees
+			Fee:             invoice.Fee,
 			Timestamp:       invoice.CreatedAt.Unix(),
 			Memo:            invoice.Memo,
 		}
