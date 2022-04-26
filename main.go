@@ -42,9 +42,9 @@ var indexHtml string
 //go:embed static/*
 var staticContent embed.FS
 
-// @title           LNDhub.go
-// @version         0.6.1
-// @description     Accounting wrapper for the Lightning Network providing separate accounts for end-users.
+// @title        LNDhub.go
+// @version      0.6.1
+// @description  Accounting wrapper for the Lightning Network providing separate accounts for end-users.
 
 // @contact.name   Alby
 // @contact.url    https://getalby.com
@@ -57,6 +57,7 @@ var staticContent embed.FS
 
 // @securitydefinitions.oauth2.password  OAuth2Password
 // @tokenUrl                             /auth
+// @schemes                              http https
 func main() {
 	c := &service.Config{}
 

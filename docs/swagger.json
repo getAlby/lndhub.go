@@ -1,4 +1,8 @@
 {
+    "schemes": [
+        "http",
+        "https"
+    ],
     "swagger": "2.0",
     "info": {
         "description": "Accounting wrapper for the Lightning Network providing separate accounts for end-users.",
@@ -16,6 +20,102 @@
     },
     "basePath": "/",
     "paths": {
+        "/addinvoice": {
+            "post": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Returns a new bolt11 invoice",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Invoice"
+                ],
+                "summary": "Generate a new invoice",
+                "parameters": [
+                    {
+                        "description": "Add Invoice",
+                        "name": "invoice",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AddInvoiceRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AddInvoiceResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth": {
+            "post": {
+                "description": "Exchanges a login + password for a token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Account"
+                ],
+                "summary": "Authenticate",
+                "parameters": [
+                    {
+                        "description": "Login and password",
+                        "name": "AuthRequestBody",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AuthRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AuthResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/balance": {
             "get": {
                 "security": [
@@ -31,7 +131,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "account"
+                    "Account"
                 ],
                 "summary": "Retrieve balance",
                 "responses": {
@@ -39,6 +139,55 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/controllers.BalanceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/checkpayment/{payment_hash}": {
+            "get": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Checks if an invoice is paid, can be incoming our outgoing",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Invoice"
+                ],
+                "summary": "Check if an invoice is paid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment hash",
+                        "name": "payment_hash",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.CheckPaymentResponseBody"
                         }
                     },
                     "400": {
@@ -64,6 +213,9 @@
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Account"
                 ],
                 "summary": "Create an account",
                 "parameters": [
@@ -97,9 +249,401 @@
                     }
                 }
             }
+        },
+        "/getinfo": {
+            "get": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Returns info about the backend node powering this LNDhub instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Info"
+                ],
+                "summary": "Get info about the Lightning node",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GetInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/gettxs": {
+            "get": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Returns a list of outgoing payments for a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Account"
+                ],
+                "summary": "Retrieve outgoing payments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.OutgoingInvoice"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/getuserinvoices": {
+            "get": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Returns a list of incoming invoices for a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Account"
+                ],
+                "summary": "Retrieve incoming invoices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.IncomingInvoice"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/invoice/{user_login}": {
+            "post": {
+                "description": "Returns a new bolt11 invoice for a user with given login, without an Authorization Header",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Invoice"
+                ],
+                "summary": "Generate a new invoice",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User Login",
+                        "name": "user_login",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Add Invoice",
+                        "name": "invoice",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AddInvoiceRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AddInvoiceResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/invoices/stream": {
+            "get": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Websocket: won't work with Swagger web UI. Returns a stream of settled incoming payments.\nA keep-alive message is sent on startup and every 30s.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Invoice"
+                ],
+                "summary": "Websocket for incoming payments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auth token, retrieved from /auth endpoint",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment hash of earliest invoice. If specified, missing updates starting from this payment will be sent.",
+                        "name": "since_payment_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.InvoiceEventWrapper"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/keysend": {
+            "post": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Pay a node without an invoice using it's public key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payment"
+                ],
+                "summary": "Make a keysend payment",
+                "parameters": [
+                    {
+                        "description": "Invoice to pay",
+                        "name": "KeySendRequestBody",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.KeySendRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.KeySendResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payinvoice": {
+            "post": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Pay a bolt11 invoice",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payment"
+                ],
+                "summary": "Pay an invoice",
+                "parameters": [
+                    {
+                        "description": "Invoice to pay",
+                        "name": "PayInvoiceRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PayInvoiceRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PayInvoiceResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "controllers.AddInvoiceRequestBody": {
+            "type": "object",
+            "properties": {
+                "amt": {
+                    "description": "amount in Satoshi"
+                },
+                "description_hash": {
+                    "type": "string"
+                },
+                "memo": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.AddInvoiceResponseBody": {
+            "type": "object",
+            "properties": {
+                "pay_req": {
+                    "type": "string"
+                },
+                "payment_request": {
+                    "type": "string"
+                },
+                "r_hash": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.AuthRequestBody": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.AuthResponseBody": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.BalanceResponse": {
             "type": "object",
             "properties": {
@@ -110,6 +654,27 @@
                             "type": "integer"
                         }
                     }
+                }
+            }
+        },
+        "controllers.Chain": {
+            "type": "object",
+            "properties": {
+                "chain": {
+                    "description": "The blockchain the node is on (eg bitcoin, litecoin)",
+                    "type": "string"
+                },
+                "network": {
+                    "description": "The network the node is on (eg regtest, testnet, mainnet)",
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.CheckPaymentResponseBody": {
+            "type": "object",
+            "properties": {
+                "paid": {
+                    "type": "boolean"
                 }
             }
         },
@@ -141,6 +706,281 @@
                 }
             }
         },
+        "controllers.Feature": {
+            "type": "object",
+            "properties": {
+                "is_known": {
+                    "type": "boolean"
+                },
+                "is_required": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.GetInfoResponse": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "description": "If applicable, the alias of the current node, e.g. \"bob\"",
+                    "type": "string"
+                },
+                "best_header_timestamp": {
+                    "description": "Timestamp of the block best known to the wallet",
+                    "type": "integer"
+                },
+                "block_hash": {
+                    "description": "The node's current view of the hash of the best block",
+                    "type": "string"
+                },
+                "block_height": {
+                    "description": "The node's current view of the height of the best block",
+                    "type": "integer"
+                },
+                "chains": {
+                    "description": "A list of active chains the node is connected to",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.Chain"
+                    }
+                },
+                "color": {
+                    "description": "The color of the current node in hex code format",
+                    "type": "string"
+                },
+                "commit_hash": {
+                    "description": "The SHA1 commit hash that the daemon is compiled with.",
+                    "type": "string"
+                },
+                "features": {
+                    "description": "Features that our node has advertised in our init message, node\nannouncements and invoices.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/controllers.Feature"
+                    }
+                },
+                "identity_pubkey": {
+                    "description": "The identity pubkey of the current node.",
+                    "type": "string"
+                },
+                "num_active_channels": {
+                    "description": "Number of active channels",
+                    "type": "integer"
+                },
+                "num_inactive_channels": {
+                    "description": "Number of inactive channels",
+                    "type": "integer"
+                },
+                "num_peers": {
+                    "description": "Number of peers",
+                    "type": "integer"
+                },
+                "num_pending_channels": {
+                    "description": "Number of pending channels",
+                    "type": "integer"
+                },
+                "synced_to_chain": {
+                    "description": "Whether the wallet's view is synced to the main chain",
+                    "type": "boolean"
+                },
+                "synced_to_graph": {
+                    "description": "Whether we consider ourselves synced with the public channel graph.",
+                    "type": "boolean"
+                },
+                "testnet": {
+                    "description": "Whether the current node is connected to testnet. This field is\ndeprecated and the network field should be used instead\n\nDeprecated: Do not use.",
+                    "type": "boolean"
+                },
+                "uris": {
+                    "description": "The URIs of the current node.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "description": "The version of the LND software that the node is running.",
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.IncomingInvoice": {
+            "type": "object",
+            "properties": {
+                "amt": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "expire_time": {
+                    "type": "integer"
+                },
+                "ispaid": {
+                    "type": "boolean"
+                },
+                "pay_req": {
+                    "type": "string"
+                },
+                "payment_hash": {},
+                "payment_request": {
+                    "type": "string"
+                },
+                "r_hash": {},
+                "timestamp": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.InvoiceEventWrapper": {
+            "type": "object",
+            "properties": {
+                "invoice": {
+                    "$ref": "#/definitions/controllers.IncomingInvoice"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.KeySendRequestBody": {
+            "type": "object",
+            "required": [
+                "amount",
+                "destination"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "customRecords": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "memo": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.KeySendResponseBody": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "description_hash": {
+                    "type": "string"
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "num_satoshis": {
+                    "type": "integer"
+                },
+                "payment_error": {
+                    "type": "string"
+                },
+                "payment_hash": {
+                    "$ref": "#/definitions/lib.JavaScriptBuffer"
+                },
+                "payment_preimage": {
+                    "$ref": "#/definitions/lib.JavaScriptBuffer"
+                },
+                "payment_route": {
+                    "$ref": "#/definitions/service.Route"
+                }
+            }
+        },
+        "controllers.OutgoingInvoice": {
+            "type": "object",
+            "properties": {
+                "fee": {
+                    "type": "integer"
+                },
+                "memo": {
+                    "type": "string"
+                },
+                "payment_hash": {},
+                "payment_preimage": {
+                    "type": "string"
+                },
+                "r_hash": {},
+                "timestamp": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.PayInvoiceRequestBody": {
+            "type": "object",
+            "required": [
+                "invoice"
+            ],
+            "properties": {
+                "amount": {},
+                "invoice": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.PayInvoiceResponseBody": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "description_hash": {
+                    "type": "string"
+                },
+                "num_satoshis": {
+                    "type": "integer"
+                },
+                "pay_req": {
+                    "type": "string"
+                },
+                "payment_error": {
+                    "type": "string"
+                },
+                "payment_hash": {
+                    "$ref": "#/definitions/lib.JavaScriptBuffer"
+                },
+                "payment_preimage": {
+                    "$ref": "#/definitions/lib.JavaScriptBuffer"
+                },
+                "payment_request": {
+                    "type": "string"
+                },
+                "payment_route": {
+                    "$ref": "#/definitions/service.Route"
+                }
+            }
+        },
+        "lib.JavaScriptBuffer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "responses.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -152,6 +992,17 @@
                 },
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "service.Route": {
+            "type": "object",
+            "properties": {
+                "total_amt": {
+                    "type": "integer"
+                },
+                "total_fees": {
+                    "type": "integer"
                 }
             }
         }

@@ -28,11 +28,11 @@ type BalanceResponse struct {
 // @Accept       json
 // @Produce      json
 // @Tags         Account
-// @Success      200      {object}  BalanceResponse
-// @Failure      400      {object}  responses.ErrorResponse
-// @Failure      500      {object}  responses.ErrorResponse
+// @Success      200  {object}  BalanceResponse
+// @Failure      400  {object}  responses.ErrorResponse
+// @Failure      500  {object}  responses.ErrorResponse
 // @Router       /balance [get]
-// @Security OAuth2Password
+// @Security     OAuth2Password
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)

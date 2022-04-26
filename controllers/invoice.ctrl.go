@@ -17,7 +17,18 @@ func NewInvoiceController(svc *service.LndhubService) *InvoiceController {
 	return &InvoiceController{svc: svc}
 }
 
-// Invoice : Invoice Controller
+// Invoice godoc
+// @Summary      Generate a new invoice
+// @Description  Returns a new bolt11 invoice for a user with given login, without an Authorization Header
+// @Accept       json
+// @Produce      json
+// @Tags         Invoice
+// @Param        user_login  path      string                 true  "User Login"
+// @Param        invoice     body      AddInvoiceRequestBody  True  "Add Invoice"
+// @Success      200         {object}  AddInvoiceResponseBody
+// @Failure      400         {object}  responses.ErrorResponse
+// @Failure      500         {object}  responses.ErrorResponse
+// @Router       /invoice/{user_login} [post]
 func (controller *InvoiceController) Invoice(c echo.Context) error {
 	user, err := controller.svc.FindUserByLogin(c.Request().Context(), c.Param("user_login"))
 	if err != nil {

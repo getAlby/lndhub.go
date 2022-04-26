@@ -29,7 +29,17 @@ type AuthResponseBody struct {
 	AccessToken  string `json:"access_token"`
 }
 
-// Auth : Auth Controller
+// Auth godoc
+// @Summary      Authenticate
+// @Description  Exchanges a login + password for a token
+// @Accept       json
+// @Produce      json
+// @Tags         Account
+// @Param        AuthRequestBody  body      AuthRequestBody  false  "Login and password"
+// @Success      200              {object}  AuthResponseBody
+// @Failure      400              {object}  responses.ErrorResponse
+// @Failure      500              {object}  responses.ErrorResponse
+// @Router       /auth [post]
 func (controller *AuthController) Auth(c echo.Context) error {
 
 	var body AuthRequestBody
