@@ -22,7 +22,16 @@ type BalanceResponse struct {
 	}
 }
 
-// Balance : Balance Controller
+// Balance godoc
+// @Summary      Retrieve balance
+// @Description  Current user's balance in satoshi
+// @Accept       json
+// @Produce      json
+// @Success      200      {object}  BalanceResponse
+// @Failure      400      {object}  responses.ErrorResponse
+// @Failure      500      {object}  responses.ErrorResponse
+// @Router       /balance [get]
+// @Security OAuth2Password
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)

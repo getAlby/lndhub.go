@@ -42,6 +42,20 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
+	if body.Login == "" || body.Password == "" {
+		// To support Swagger we also look in the Form data
+		params, err := c.FormParams()
+		if err != nil {
+			return err
+		}
+		username := params.Get("username")
+		password := params.Get("password")
+		if username != "" && password != "" {
+			body.Login = username
+			body.Password = password
+		}
+	}
+
 	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)

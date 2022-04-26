@@ -15,6 +15,7 @@ import (
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/docs"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -29,6 +30,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
@@ -40,6 +42,21 @@ var indexHtml string
 //go:embed static/*
 var staticContent embed.FS
 
+// @title           LNDhub.go
+// @version         0.6.1
+// @description     Accounting wrapper for the Lightning Network providing separate accounts for end-users.
+
+// @contact.name   Alby
+// @contact.url    https://getalby.com
+// @contact.email  hello@getalby.com
+
+// @license.name  GNU GPL
+// @license.url   https://www.gnu.org/licenses/gpl-3.0.en.html
+
+// @BasePath  /
+
+// @securitydefinitions.oauth2.password  OAuth2Password
+// @tokenUrl                             /auth
 func main() {
 	c := &service.Config{}
 
@@ -164,6 +181,10 @@ func main() {
 	//invoice streaming
 	//Authentication should be done through the query param because this is a websocket
 	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
+
+	//Swagger API spec
+	docs.SwaggerInfo.Host = "localhost:3000"
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())

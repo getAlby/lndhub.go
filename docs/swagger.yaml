@@ -1,0 +1,106 @@
+basePath: /
+definitions:
+  controllers.BalanceResponse:
+    properties:
+      btc:
+        properties:
+          availableBalance:
+            type: integer
+        type: object
+    type: object
+  controllers.CreateUserRequestBody:
+    properties:
+      accounttype:
+        type: string
+      login:
+        type: string
+      partnerid:
+        type: string
+      password:
+        type: string
+    type: object
+  controllers.CreateUserResponseBody:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  responses.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: boolean
+      message:
+        type: string
+    type: object
+info:
+  contact:
+    email: hello@getalby.com
+    name: Alby
+    url: https://getalby.com
+  description: Accounting wrapper for the Lightning Network providing separate accounts
+    for end-users.
+  license:
+    name: GNU GPL
+    url: https://www.gnu.org/licenses/gpl-3.0.en.html
+  title: LNDhub.go
+  version: 0.6.1
+paths:
+  /balance:
+    get:
+      consumes:
+      - application/json
+      description: Current user's balance in satoshi
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BalanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Retrieve balance
+  /create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new account with a login and password
+      parameters:
+      - description: Create User
+        in: body
+        name: account
+        schema:
+          $ref: '#/definitions/controllers.CreateUserRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.CreateUserResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      summary: Create an account
+securityDefinitions:
+  OAuth2Password:
+    flow: password
+    tokenUrl: /auth
+    type: oauth2
+swagger: "2.0"
