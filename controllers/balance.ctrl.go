@@ -27,6 +27,7 @@ type BalanceResponse struct {
 // @Description  Current user's balance in satoshi
 // @Accept       json
 // @Produce      json
+// @Tags         Account
 // @Success      200      {object}  BalanceResponse
 // @Failure      400      {object}  responses.ErrorResponse
 // @Failure      500      {object}  responses.ErrorResponse

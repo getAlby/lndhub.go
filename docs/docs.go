@@ -38,6 +38,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "account"
+                ],
                 "summary": "Retrieve balance",
                 "responses": {
                     "200": {

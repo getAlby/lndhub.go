@@ -33,6 +33,7 @@ type CreateUserRequestBody struct {
 // @Description  Create a new account with a login and password
 // @Accept       json
 // @Produce      json
+// @Tags         Account
 // @Param        account  body      CreateUserRequestBody  false  "Create User"
 // @Success      200      {object}  CreateUserResponseBody
 // @Failure      400      {object}  responses.ErrorResponse

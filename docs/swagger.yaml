@@ -71,6 +71,8 @@ paths:
       security:
       - OAuth2Password: []
       summary: Retrieve balance
+      tags:
+      - account
   /create:
     post:
       consumes:
