@@ -2,7 +2,10 @@ package integration_tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -83,6 +86,17 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 
 	// make sure fee entry parent id is previous entry
 	assert.Equal(suite.T(), transactonEntries[1].ID, transactonEntries[2].ParentID)
+
+	//fetch transactions, make sure the fee is there
+	// check invoices again
+	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	rec := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	responseBody := &[]ExpectedOutgoingInvoice{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
+	assert.Equal(suite.T(), int64(fee), (*responseBody)[0].Fee)
 }
 
 func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
