@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -40,13 +41,13 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	//start subscription
-	subId := controller.svc.InvoicePubSub.Subscribe(userId, invoiceChan)
+	subId := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
 
 	//start with keepalive message
 	err = ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
 	if err != nil {
 		controller.svc.Logger.Error(err)
-		controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
+		controller.svc.InvoicePubSub.Unsubscribe(subId, strconv.FormatInt(userId, 10))
 		return err
 	}
 	fromPaymentHash := c.QueryParam("since_payment_hash")
@@ -54,7 +55,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		err = controller.writeMissingInvoices(c, userId, ws, fromPaymentHash)
 		if err != nil {
 			controller.svc.Logger.Error(err)
-			controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
+			controller.svc.InvoicePubSub.Unsubscribe(subId, strconv.FormatInt(userId, 10))
 			return err
 		}
 	}
@@ -89,7 +90,7 @@ SocketLoop:
 			}
 		}
 	}
-	controller.svc.InvoicePubSub.Unsubscribe(subId, userId)
+	controller.svc.InvoicePubSub.Unsubscribe(subId, strconv.FormatInt(userId, 10))
 	return nil
 }
 

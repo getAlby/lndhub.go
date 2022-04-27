@@ -8,16 +8,16 @@ import (
 
 type Pubsub struct {
 	mu   sync.RWMutex
-	subs map[int64]map[string]chan models.Invoice
+	subs map[string]map[string]chan models.Invoice
 }
 
 func NewPubsub() *Pubsub {
 	ps := &Pubsub{}
-	ps.subs = make(map[int64]map[string]chan models.Invoice)
+	ps.subs = make(map[string]map[string]chan models.Invoice)
 	return ps
 }
 
-func (ps *Pubsub) Subscribe(topic int64, ch chan models.Invoice) (subId string) {
+func (ps *Pubsub) Subscribe(topic string, ch chan models.Invoice) (subId string) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	if ps.subs[topic] == nil {
@@ -29,7 +29,7 @@ func (ps *Pubsub) Subscribe(topic int64, ch chan models.Invoice) (subId string) 
 	return subId
 }
 
-func (ps *Pubsub) Unsubscribe(id string, topic int64) {
+func (ps *Pubsub) Unsubscribe(id string, topic string) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	if ps.subs[topic] == nil {
@@ -42,7 +42,7 @@ func (ps *Pubsub) Unsubscribe(id string, topic int64) {
 	delete(ps.subs[topic], id)
 }
 
-func (ps *Pubsub) Publish(topic int64, msg models.Invoice) {
+func (ps *Pubsub) Publish(topic string, msg models.Invoice) {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 

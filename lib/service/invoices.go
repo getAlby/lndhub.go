@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -97,7 +98,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
 	}
-	svc.InvoicePubSub.Publish(incomingInvoice.UserID, incomingInvoice)
+	svc.InvoicePubSub.Publish(strconv.FormatInt(incomingInvoice.UserID, 10), incomingInvoice)
 
 	return sendPaymentResponse, nil
 }
