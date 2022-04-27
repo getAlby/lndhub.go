@@ -99,6 +99,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		return sendPaymentResponse, err
 	}
 	svc.InvoicePubSub.Publish(strconv.FormatInt(incomingInvoice.UserID, 10), incomingInvoice)
+	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, incomingInvoice)
 
 	return sendPaymentResponse, nil
 }
@@ -309,6 +310,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		svc.Logger.Info(amountMsg)
 		sentry.CaptureMessage(amountMsg)
 	}
+	svc.InvoicePubSub.Publish(common.InvoiceTypeOutgoing, *invoice)
 
 	return nil
 }

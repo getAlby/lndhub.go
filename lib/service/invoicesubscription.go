@@ -100,6 +100,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		return err
 	}
 	svc.InvoicePubSub.Publish(strconv.FormatInt(invoice.UserID, 10), invoice)
+	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, invoice)
 
 	return nil
 }
