@@ -57,7 +57,7 @@ var staticContent embed.FS
 
 // @securitydefinitions.oauth2.password  OAuth2Password
 // @tokenUrl                             /auth
-// @schemes                              http https
+// @schemes                              https http
 func main() {
 	c := &service.Config{}
 
