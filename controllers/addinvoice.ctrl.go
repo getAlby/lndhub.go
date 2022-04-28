@@ -30,7 +30,18 @@ type AddInvoiceResponseBody struct {
 	PayReq         string `json:"pay_req"`
 }
 
-// AddInvoice : Add invoice Controller
+// AddInvoice godoc
+// @Summary      Generate a new invoice
+// @Description  Returns a new bolt11 invoice
+// @Accept       json
+// @Produce      json
+// @Tags         Invoice
+// @Param        invoice  body      AddInvoiceRequestBody  True  "Add Invoice"
+// @Success      200      {object}  AddInvoiceResponseBody
+// @Failure      400      {object}  responses.ErrorResponse
+// @Failure      500      {object}  responses.ErrorResponse
+// @Router       /addinvoice [post]
+// @Security     OAuth2Password
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	return AddInvoice(c, controller.svc, userID)
