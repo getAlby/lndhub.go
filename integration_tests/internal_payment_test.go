@@ -103,7 +103,9 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	//create invoice for bob
 	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
 	//pay bob from alice
-	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
+	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: bobInvoice.PayReq,
+	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 
 	aliceId := getUserIdFromToken(suite.aliceToken)
@@ -152,7 +154,9 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	//create invoice for bob
 	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
 	//pay bob from alice
-	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
+	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: bobInvoice.PayReq,
+	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 	//try to pay same invoice again for make it fail
 	_ = suite.createPayInvoiceReqError(bobInvoice.PayReq, suite.aliceToken)

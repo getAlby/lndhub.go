@@ -109,7 +109,9 @@ func (suite *CheckPaymentTestSuite) TestCheckPaymentProperIsPaidResponse() {
 	assert.False(suite.T(), checkPaymentResponse.IsPaid)
 
 	// pay external from user
-	payResponse := suite.createPayInvoiceReq(invoice.PaymentRequest, suite.userToken)
+	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PayReq,
+	}, suite.userToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 
 	// check payment is paid
