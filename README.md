@@ -48,6 +48,7 @@ vim .env # edit your config
 + `BURST_RATE_LIMIT`: (default: 1) Rate limit burst
 + `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
++ `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
 ## Developing
 
 ```shell
@@ -76,6 +77,37 @@ LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does no
 
 Prometheus metrics can be optionally exposed through the `ENABLE_PROMETHEUS` environment variable.
 For an example dashboard, see https://grafana.com/grafana/dashboards/10913.
+
+## Webhooks
+
+If `WEBHOOK_URL` is specified, a http POST request will be dispatched at that location when an incoming payment is settled, or an outgoing payment is completed. Example payload:
+
+```
+{
+  "id": 690,
+  "type": "outgoing",
+  "user_id": 286,
+  "User": null,
+  "amount": 10,
+  "fee": 0,
+  "memo": "memo",
+  "description_hash": "",
+  "payment_request": "lnbcrt100n1p3xjtw3pp5s56uj7d4lpchz0d25jggq0au5r65skvtp8f5dvm5e3l4c6cxg9aqdqy09eqcqzpgxqrrsssp53pyhm6j2vl4sr7ul8pa4sfvptk96yn2lkeceh8z2etkl8emapkgq9qyyssqgpxy39ktu60gkct8y7ehkemu5c77dffg905cd6sr5cukgjna2nwnfew65zkems5sm5xmdllrkf8ym3dhc2asj7hn27tq7xe0dq5hq5spt2g4c2",
+  "destination_pubkey_hex": "025c1d5d1b4c983cc6350fc2d756fbb59b4dc365e45e87f8e3afe07e24013e8220",
+  "DestinationCustomRecords": null,
+  "r_hash": "8535c979b5f871713daaa490803fbca0f548598b09d346b374cc7f5c6b06417a",
+  "preimage": "fa40fd77183b1bae11fec8a1479f08e210f1711f07a5a6a45b8d46a34cd820b1",
+  "internal": false,
+  "keysend": false,
+  "state": "settled",
+  "error_message": "",
+  "add_index": 0,
+  "CreatedAt": "2022-04-27T13:50:43.938597+02:00",
+  "ExpiresAt": "2022-04-27T14:49:37+02:00",
+  "updated_at": "2022-04-27T13:50:44.313549+02:00",
+  "settled_at": "2022-04-27T13:50:44.313539+02:00"
+}
+```
 
 ### Ideas
 + Using low level database constraints to prevent data inconsistencies
