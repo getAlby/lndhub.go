@@ -85,7 +85,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		}
 
 		if rawInvoice.AmtPaidSat != invoice.Amount {
-			svc.Logger.Infof("Incoming invoice amount mismatch. Invoice id:%v, amt: %d, amt_paid: %d.", invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
+			svc.Logger.Infof("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
 		}
 
 		// Save the transaction entry
