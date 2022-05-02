@@ -209,5 +209,5 @@ func (suite *PaymentTestSuite) TestZeroAmountInvoice() {
 		Amount:  amtToPay,
 	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
-	assert.Equal(suite.T(), amtToPay, payResponse.Amount)
+	assert.Equal(suite.T(), int64(amtToPay), payResponse.Amount)
 }
