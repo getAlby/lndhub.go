@@ -53,8 +53,11 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	//start subscription
-	subId := controller.svc.InvoicePubSub.Subscribe(userId, invoiceChan)
-
+	subId, err := controller.svc.InvoicePubSub.Subscribe(userId, invoiceChan)
+	if err != nil {
+		controller.svc.Logger.Error(err)
+		return err
+	}
 	//start with keepalive message
 	err = ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
 	if err != nil {

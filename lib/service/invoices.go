@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -142,7 +141,10 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 		}, nil
 	}
 
-	preImage := makePreimageHex()
+	preImage, err := makePreimageHex()
+	if err != nil {
+		return nil, err
+	}
 	pHash := sha256.New()
 	pHash.Write(preImage)
 	// Prepare the LNRPC call
@@ -337,7 +339,10 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 }
 
 func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
-	preimage := makePreimageHex()
+	preimage, err := makePreimageHex()
+	if err != nil {
+		return nil, err
+	}
 	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
 	invoice := models.Invoice{
@@ -351,7 +356,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	}
 
 	// Save invoice - we save the invoice early to have a record in case the LN call fails
-	_, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
+	_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -396,10 +401,6 @@ func (svc *LndhubService) DecodePaymentRequest(ctx context.Context, bolt11 strin
 
 const hexBytes = random.Hex
 
-func makePreimageHex() []byte {
-	b := make([]byte, 32)
-	for i := range b {
-		b[i] = hexBytes[rand.Intn(len(hexBytes))]
-	}
-	return b
+func makePreimageHex() ([]byte, error) {
+	return randBytesFromStr(32, hexBytes)
 }
