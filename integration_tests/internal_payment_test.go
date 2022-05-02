@@ -71,6 +71,7 @@ func (suite *PaymentTestSuite) SetupSuite() {
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
+	suite.echo.GET("/gettxs", controllers.NewGetTXSController(suite.service).GetTXS)
 }
 
 func (suite *PaymentTestSuite) TearDownSuite() {

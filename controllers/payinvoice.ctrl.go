@@ -38,7 +38,18 @@ type PayInvoiceResponseBody struct {
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-// PayInvoice : Pay invoice Controller
+// PayInvoice godoc
+// @Summary      Pay an invoice
+// @Description  Pay a bolt11 invoice
+// @Accept       json
+// @Produce      json
+// @Tags         Payment
+// @Param        PayInvoiceRequest  body      PayInvoiceRequestBody  True  "Invoice to pay"
+// @Success      200                {object}  PayInvoiceResponseBody
+// @Failure      400                {object}  responses.ErrorResponse
+// @Failure      500                {object}  responses.ErrorResponse
+// @Router       /payinvoice [post]
+// @Security     OAuth2Password
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := PayInvoiceRequestBody{}

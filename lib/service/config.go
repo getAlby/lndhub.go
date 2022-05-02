@@ -11,6 +11,7 @@ type Config struct {
 	LNDMacaroonHex        string `envconfig:"LND_MACAROON_HEX" required:"true"`
 	LNDCertHex            string `envconfig:"LND_CERT_HEX"`
 	CustomName            string `envconfig:"CUSTOM_NAME"`
+	Host                  string `envconfig:"HOST" default:"localhost:3000"`
 	Port                  int    `envconfig:"PORT" default:"3000"`
 	DefaultRateLimit      int    `envconfig:"DEFAULT_RATE_LIMIT" default:"10"`
 	StrictRateLimit       int    `envconfig:"STRICT_RATE_LIMIT" default:"10"`

@@ -33,17 +33,26 @@ func (ps *Pubsub) Subscribe(topic int64, ch chan models.Invoice) (subId string, 
 	return subId, nil
 }
 
-func (ps *Pubsub) Unsubscribe(id string, topic int64) error {
+func (ps *Pubsub) Unsubscribe(id string, topic int64) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
+	if ps.subs[topic] == nil {
+		return
+	}
+	if ps.subs[topic][id] == nil {
+		return
+	}
 	close(ps.subs[topic][id])
 	delete(ps.subs[topic], id)
-	return nil
 }
 
 func (ps *Pubsub) Publish(topic int64, msg models.Invoice) {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
+
+	if ps.subs[topic] == nil {
+		return
+	}
 
 	for _, ch := range ps.subs[topic] {
 		ch <- msg

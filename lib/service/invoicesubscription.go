@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -80,7 +81,11 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 			InvoiceID:       invoice.ID,
 			CreditAccountID: creditAccount.ID,
 			DebitAccountID:  debitAccount.ID,
-			Amount:          invoice.Amount,
+			Amount:          rawInvoice.AmtPaidSat,
+		}
+
+		if rawInvoice.AmtPaidSat != invoice.Amount {
+			svc.Logger.Infof("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
 		}
 
 		// Save the transaction entry
@@ -122,32 +127,37 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		return err
 	}
 	for {
-		// receive the next invoice update
-		rawInvoice, err := invoiceSubscriptionStream.Recv()
-		if err != nil {
-			svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
-			sentry.CaptureException(err)
-			// TODO: close the stream somehoe before retrying?
-			// Wait 30 seconds and try to reconnect
-			// TODO: implement some backoff
-			time.Sleep(30 * time.Second)
-			invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
-			continue
-		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("Context was canceled")
+		default:
+			// receive the next invoice update
+			rawInvoice, err := invoiceSubscriptionStream.Recv()
+			if err != nil {
+				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+				sentry.CaptureException(err)
+				// TODO: close the stream somehoe before retrying?
+				// Wait 30 seconds and try to reconnect
+				// TODO: implement some backoff
+				time.Sleep(30 * time.Second)
+				invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
+				continue
+			}
 
-		// Ignore updates for open invoices
-		// We store the invoice details in the AddInvoice call
-		// Processing open invoices here could cause a race condition:
-		// We could get this notification faster than we finish the AddInvoice call
-		if rawInvoice.State == lnrpc.Invoice_OPEN {
-			svc.Logger.Infof("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
-			continue
-		}
+			// Ignore updates for open invoices
+			// We store the invoice details in the AddInvoice call
+			// Processing open invoices here could cause a race condition:
+			// We could get this notification faster than we finish the AddInvoice call
+			if rawInvoice.State == lnrpc.Invoice_OPEN {
+				svc.Logger.Infof("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
+				continue
+			}
 
-		processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
-		if processingError != nil {
-			svc.Logger.Error(processingError)
-			sentry.CaptureException(processingError)
+			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
+			if processingError != nil {
+				svc.Logger.Error(processingError)
+				sentry.CaptureException(processingError)
+			}
 		}
 	}
 }

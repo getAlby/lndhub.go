@@ -42,7 +42,17 @@ type IncomingInvoice struct {
 	IsPaid         bool        `json:"ispaid"`
 }
 
-// GetTXS : Get TXS Controller
+// GetTXS godoc
+// @Summary      Retrieve outgoing payments
+// @Description  Returns a list of outgoing payments for a user
+// @Accept       json
+// @Produce      json
+// @Tags         Account
+// @Success      200  {object}  []OutgoingInvoice
+// @Failure      400  {object}  responses.ErrorResponse
+// @Failure      500  {object}  responses.ErrorResponse
+// @Router       /gettxs [get]
+// @Security     OAuth2Password
 func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
@@ -60,7 +70,7 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 			PaymentPreimage: invoice.Preimage,
 			Value:           invoice.Amount,
 			Type:            common.InvoiceTypePaid,
-			Fee:             0, //TODO charge fees
+			Fee:             invoice.Fee,
 			Timestamp:       invoice.CreatedAt.Unix(),
 			Memo:            invoice.Memo,
 		}
@@ -68,6 +78,17 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 	return c.JSON(http.StatusOK, &response)
 }
 
+// GetUserInvoices godoc
+// @Summary      Retrieve incoming invoices
+// @Description  Returns a list of incoming invoices for a user
+// @Accept       json
+// @Produce      json
+// @Tags         Account
+// @Success      200  {object}  []IncomingInvoice
+// @Failure      400  {object}  responses.ErrorResponse
+// @Failure      500  {object}  responses.ErrorResponse
+// @Router       /getuserinvoices [get]
+// @Security     OAuth2Password
 func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 

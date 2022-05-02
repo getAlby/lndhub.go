@@ -110,6 +110,45 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	assert.Equal(suite.T(), int64(fundingSatAmt), balance.BTC.AvailableBalance)
 
 }
+func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
+	var buf bytes.Buffer
+	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	rec := httptest.NewRecorder()
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
+	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
+	suite.echo.ServeHTTP(rec, req)
+	//lookup balance before
+	balance := &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	initialBalance := balance.BTC.AvailableBalance
+	fundingSatAmt := 0
+	sendSatAmt := 10
+	invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
+	//try to pay invoice with external node
+	// Prepare the LNRPC call
+	sendPaymentRequest := lnrpc.SendRequest{
+		PaymentRequest: invoiceResponse.PayReq,
+		Amt:            int64(sendSatAmt),
+		FeeLimit:       nil,
+	}
+	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+	//check balance again
+	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	suite.echo.ServeHTTP(rec, req)
+	balance = &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	//assert the payment value was added to the user's account
+	assert.Equal(suite.T(), initialBalance+int64(sendSatAmt), balance.BTC.AvailableBalance)
+}
 
 func TestIncomingPaymentTestSuite(t *testing.T) {
 	suite.Run(t, new(IncomingPaymentTestSuite))
