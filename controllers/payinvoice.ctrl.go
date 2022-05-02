@@ -54,12 +54,12 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := PayInvoiceRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
-		c.Logger().Errorf("Failed to load payinvoice request body: %v", err)
+		c.Logger().Errorf("Failed to load payinvoice request body: user_id:%v error: %v", userID, err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	if err := c.Validate(&reqBody); err != nil {
-		c.Logger().Errorf("Invalid payinvoice request body: %v", err)
+		c.Logger().Errorf("Invalid payinvoice request body user_id:%v error: %v", userID, err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -67,7 +67,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
-		c.Logger().Errorf("Invalid payment request: %v", err)
+		c.Logger().Errorf("Invalid payment request user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
@@ -99,14 +99,14 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 
 	if currentBalance < invoice.Amount {
-		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
+		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
 
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: %v", err)
+		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,

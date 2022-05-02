@@ -86,7 +86,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 
 	if currentBalance < invoice.Amount {
-		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
+		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
@@ -100,7 +100,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: %v", err)
+		c.Logger().Errorf("Payment failed: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
