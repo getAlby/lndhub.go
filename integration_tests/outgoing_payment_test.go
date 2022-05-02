@@ -198,7 +198,7 @@ func (suite *PaymentTestSuite) TestZeroAmountInvoice() {
 
 	//create external invoice
 	externalInvoice := lnrpc.Invoice{
-		Memo:  "integration tests: external pay from alice",
+		Memo:  "integration tests: zero amount pay from alice",
 		Value: 0,
 	}
 	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
@@ -209,4 +209,5 @@ func (suite *PaymentTestSuite) TestZeroAmountInvoice() {
 		Amount:  amtToPay,
 	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
+	assert.Equal(suite.T(), amtToPay, payResponse.Amount)
 }
