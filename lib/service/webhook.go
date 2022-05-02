@@ -11,7 +11,7 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 )
 
-func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context) {
+func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context, url string) {
 
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
 	incomingInvoices := make(chan models.Invoice)
@@ -23,13 +23,13 @@ func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case incoming := <-incomingInvoices:
-			svc.postToWebhook(incoming)
+			svc.postToWebhook(incoming, url)
 		case outgoing := <-outgoingInvoices:
-			svc.postToWebhook(outgoing)
+			svc.postToWebhook(outgoing, url)
 		}
 	}
 }
-func (svc *LndhubService) postToWebhook(invoice models.Invoice) {
+func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 
 	payload := new(bytes.Buffer)
 	err := json.NewEncoder(payload).Encode(invoice)

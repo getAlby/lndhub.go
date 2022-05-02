@@ -171,7 +171,7 @@ func main() {
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {
 		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
-		go svc.StartWebhookSubscribtion(webhookCtx)
+		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
 		defer cancelWebhook()
 	}
 

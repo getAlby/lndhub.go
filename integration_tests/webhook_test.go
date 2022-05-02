@@ -72,7 +72,7 @@ func (suite *WebHookTestSuite) SetupSuite() {
 	suite.invoiceUpdateSubCancelFn = cancel
 	go svc.InvoiceUpdateSubscription(ctx)
 
-	go svc.StartWebhookSubscribtion(ctx)
+	go svc.StartWebhookSubscribtion(ctx, svc.Config.WebhookUrl)
 
 	suite.service = svc
 	e := echo.New()
