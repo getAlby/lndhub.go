@@ -84,28 +84,26 @@ If `WEBHOOK_URL` is specified, a http POST request will be dispatched at that lo
 
 ```
 {
-  "id": 690,
-  "type": "outgoing",
-  "user_id": 286,
-  "User": null,
-  "amount": 10,
+  "id": 721,
+  "type": "incoming", //incoming, outgoing
+  "user_id": 299,
+  "amount": 1000,
   "fee": 0,
-  "memo": "memo",
+  "memo": "fill wallet",
   "description_hash": "",
-  "payment_request": "lnbcrt100n1p3xjtw3pp5s56uj7d4lpchz0d25jggq0au5r65skvtp8f5dvm5e3l4c6cxg9aqdqy09eqcqzpgxqrrsssp53pyhm6j2vl4sr7ul8pa4sfvptk96yn2lkeceh8z2etkl8emapkgq9qyyssqgpxy39ktu60gkct8y7ehkemu5c77dffg905cd6sr5cukgjna2nwnfew65zkems5sm5xmdllrkf8ym3dhc2asj7hn27tq7xe0dq5hq5spt2g4c2",
-  "destination_pubkey_hex": "025c1d5d1b4c983cc6350fc2d756fbb59b4dc365e45e87f8e3afe07e24013e8220",
-  "DestinationCustomRecords": null,
-  "r_hash": "8535c979b5f871713daaa490803fbca0f548598b09d346b374cc7f5c6b06417a",
-  "preimage": "fa40fd77183b1bae11fec8a1479f08e210f1711f07a5a6a45b8d46a34cd820b1",
-  "internal": false,
+  "payment_request": "lnbcrt10u1p38p4ehpp5xp07pda02vk40wxd9gyrene8qzheucz7ast435u9jwxejs6f0v5sdqjve5kcmpqwaskcmr9wscqzpgxqyz5vqsp56nyve3v5fw306j74nmewv7t5ey3aer2khjrrwznh4k2vuw44unzq9qyyssqv2wq9hn7a39x8cvz9fvpzul87u4kc4edf0t6jukzvmx8v5swl3jqg8p3sh6czkepczcjkm523q9x8yswsastctnsns3q9d26szu703gpwh7a09",
+  "destination_pubkey_hex": "0376442c750766d5d127512609a5618d9aa82db2d06aae226084da92a3e133acda",
+  "custom_records": {
+    "5482373484": "YWY4MDhlZDUxZjNmY2YxNWMxYWI3MmM3ODVhNWI1MDE="
+  }, //only set when keysend=true
+  "r_hash": "305fe0b7af532d57b8cd2a083ccf2700af9e605eec1758d385938d9943497b29",
+  "preimage": "3735363531303032626332356439376136643461326434336335626434653035",
   "keysend": false,
   "state": "settled",
-  "error_message": "",
-  "add_index": 0,
-  "CreatedAt": "2022-04-27T13:50:43.938597+02:00",
-  "ExpiresAt": "2022-04-27T14:49:37+02:00",
-  "updated_at": "2022-04-27T13:50:44.313549+02:00",
-  "settled_at": "2022-04-27T13:50:44.313539+02:00"
+  "created_at": "2022-05-03T09:18:15.15774+02:00",
+  "expires_at": "2022-05-04T09:18:15.157597+02:00",
+  "updated_at": "2022-05-03T09:18:19.837567+02:00",
+  "settled_at": "2022-05-03T09:18:19+02:00"
 }
 ```
 
