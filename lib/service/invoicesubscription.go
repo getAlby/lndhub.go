@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -102,7 +103,8 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
-	svc.InvoicePubSub.Publish(invoice.UserID, invoice)
+	svc.InvoicePubSub.Publish(strconv.FormatInt(invoice.UserID, 10), invoice)
+	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, invoice)
 
 	return nil
 }

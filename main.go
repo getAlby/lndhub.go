@@ -190,6 +190,13 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
 
+	//Start webhook subscription
+	if svc.Config.WebhookUrl != "" {
+		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
+		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
+		defer cancelWebhook()
+	}
+
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
 	if svc.Config.EnablePrometheus {

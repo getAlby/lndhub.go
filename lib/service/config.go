@@ -18,4 +18,5 @@ type Config struct {
 	BurstRateLimit        int    `envconfig:"BURST_RATE_LIMIT" default:"1"`
 	EnablePrometheus      bool   `envconfig:"ENABLE_PROMETHEUS" default:"false"`
 	PrometheusPort        int    `envconfig:"PROMETHEUS_PORT" default:"9092"`
+	WebhookUrl            string `envconfig:"WEBHOOK_URL"`
 }

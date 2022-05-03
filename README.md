@@ -48,6 +48,7 @@ vim .env # edit your config
 + `BURST_RATE_LIMIT`: (default: 1) Rate limit burst
 + `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
++ `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
 ## Developing
 
 ```shell
@@ -76,6 +77,35 @@ LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does no
 
 Prometheus metrics can be optionally exposed through the `ENABLE_PROMETHEUS` environment variable.
 For an example dashboard, see https://grafana.com/grafana/dashboards/10913.
+
+## Webhooks
+
+If `WEBHOOK_URL` is specified, a http POST request will be dispatched at that location when an incoming payment is settled, or an outgoing payment is completed. Example payload:
+
+```
+{
+  "id": 721,
+  "type": "incoming", //incoming, outgoing
+  "user_id": 299,
+  "amount": 1000,
+  "fee": 0,
+  "memo": "fill wallet",
+  "description_hash": "",
+  "payment_request": "lnbcrt10u1p38p4ehpp5xp07pda02vk40wxd9gyrene8qzheucz7ast435u9jwxejs6f0v5sdqjve5kcmpqwaskcmr9wscqzpgxqyz5vqsp56nyve3v5fw306j74nmewv7t5ey3aer2khjrrwznh4k2vuw44unzq9qyyssqv2wq9hn7a39x8cvz9fvpzul87u4kc4edf0t6jukzvmx8v5swl3jqg8p3sh6czkepczcjkm523q9x8yswsastctnsns3q9d26szu703gpwh7a09",
+  "destination_pubkey_hex": "0376442c750766d5d127512609a5618d9aa82db2d06aae226084da92a3e133acda",
+  "custom_records": {
+    "5482373484": "YWY4MDhlZDUxZjNmY2YxNWMxYWI3MmM3ODVhNWI1MDE="
+  }, //only set when keysend=true
+  "r_hash": "305fe0b7af532d57b8cd2a083ccf2700af9e605eec1758d385938d9943497b29",
+  "preimage": "3735363531303032626332356439376136643461326434336335626434653035",
+  "keysend": false,
+  "state": "settled",
+  "created_at": "2022-05-03T09:18:15.15774+02:00",
+  "expires_at": "2022-05-04T09:18:15.157597+02:00",
+  "updated_at": "2022-05-03T09:18:19.837567+02:00",
+  "settled_at": "2022-05-03T09:18:19+02:00"
+}
+```
 
 ### Ideas
 + Using low level database constraints to prevent data inconsistencies

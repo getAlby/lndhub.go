@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -96,7 +97,8 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
 	}
-	svc.InvoicePubSub.Publish(incomingInvoice.UserID, incomingInvoice)
+	svc.InvoicePubSub.Publish(strconv.FormatInt(incomingInvoice.UserID, 10), incomingInvoice)
+	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, incomingInvoice)
 
 	return sendPaymentResponse, nil
 }
@@ -310,6 +312,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		svc.Logger.Info(amountMsg)
 		sentry.CaptureMessage(amountMsg)
 	}
+	svc.InvoicePubSub.Publish(common.InvoiceTypeOutgoing, *invoice)
 
 	return nil
 }
