@@ -41,7 +41,18 @@ type KeySendResponseBody struct {
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-// KeySend : Key send Controller
+//// PayInvoice godoc
+// @Summary      Make a keysend payment
+// @Description  Pay a node without an invoice using it's public key
+// @Accept       json
+// @Produce      json
+// @Tags         Payment
+// @Param        KeySendRequestBody  body      KeySendRequestBody  True  "Invoice to pay"
+// @Success      200                 {object}  KeySendResponseBody
+// @Failure      400                 {object}  responses.ErrorResponse
+// @Failure      500                 {object}  responses.ErrorResponse
+// @Router       /keysend [post]
+// @Security     OAuth2Password
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := KeySendRequestBody{}
@@ -75,7 +86,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 
 	if currentBalance < invoice.Amount {
-		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
+		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
@@ -89,7 +100,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: %v", err)
+		c.Logger().Errorf("Payment failed: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,

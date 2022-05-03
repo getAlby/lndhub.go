@@ -27,7 +27,20 @@ func NewInvoiceStreamController(svc *service.LndhubService) *InvoiceStreamContro
 	return &InvoiceStreamController{svc: svc}
 }
 
-// Stream invoices streams incoming payments to the client
+// StreamInvoices godoc
+// @Summary      Websocket for incoming payments
+// @Description  Websocket: won't work with Swagger web UI. Returns a stream of settled incoming payments.
+// @Description  A keep-alive message is sent on startup and every 30s.
+// @Accept       json
+// @Produce      json
+// @Tags         Invoice
+// @Param        token               query     string  true   "Auth token, retrieved from /auth endpoint"
+// @Param        since_payment_hash  query     string  false  "Payment hash of earliest invoice. If specified, missing updates starting from this payment will be sent."
+// @Success      200                 {object}  []InvoiceEventWrapper
+// @Failure      400                 {object}  responses.ErrorResponse
+// @Failure      500                 {object}  responses.ErrorResponse
+// @Router       /invoices/stream [get]
+// @Security     OAuth2Password
 func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error {
 	userId, err := tokens.ParseToken(controller.svc.Config.JWTSecret, (c.QueryParam("token")), false)
 	if err != nil {
@@ -41,8 +54,11 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 		return err
 	}
 	//start subscription
-	subId := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
-
+	subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
+	if err != nil {
+		controller.svc.Logger.Error(err)
+		return err
+	}
 	//start with keepalive message
 	err = ws.WriteJSON(&InvoiceEventWrapper{Type: "keepalive"})
 	if err != nil {

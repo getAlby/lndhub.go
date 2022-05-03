@@ -30,7 +30,18 @@ type AddInvoiceResponseBody struct {
 	PayReq         string `json:"pay_req"`
 }
 
-// AddInvoice : Add invoice Controller
+// AddInvoice godoc
+// @Summary      Generate a new invoice
+// @Description  Returns a new bolt11 invoice
+// @Accept       json
+// @Produce      json
+// @Tags         Invoice
+// @Param        invoice  body      AddInvoiceRequestBody  True  "Add Invoice"
+// @Success      200      {object}  AddInvoiceResponseBody
+// @Failure      400      {object}  responses.ErrorResponse
+// @Failure      500      {object}  responses.ErrorResponse
+// @Router       /addinvoice [post]
+// @Security     OAuth2Password
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	return AddInvoice(c, controller.svc, userID)
@@ -53,11 +64,11 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, amount, body.DescriptionHash)
+	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)
 
 	invoice, err := svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
 	if err != nil {
-		c.Logger().Errorf("Error creating invoice: %v", err)
+		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}

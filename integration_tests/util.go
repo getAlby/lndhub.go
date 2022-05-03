@@ -229,12 +229,10 @@ func (suite *TestSuite) createKeySendReqError(amount int64, memo, destination, t
 	return checkErrResponse(suite, rec)
 }
 
-func (suite *TestSuite) createPayInvoiceReq(payReq string, token string) *ExpectedPayInvoiceResponseBody {
+func (suite *TestSuite) createPayInvoiceReq(payReq *ExpectedPayInvoiceRequestBody, token string) *ExpectedPayInvoiceResponseBody {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
-		Invoice: payReq,
-	}))
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(payReq))
 	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
