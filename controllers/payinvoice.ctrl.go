@@ -71,21 +71,17 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	// TODO: zero amount invoices
-	/*
-		_, err = controller.svc.ParseInt(reqBody.Amount)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{
-				"error":   true,
-				"code":    8,
-				"message": "Bad arguments",
-			})
-		}
-	*/
 
 	lnPayReq := &lnd.LNPayReq{
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
+	}
+	if decodedPaymentRequest.NumSatoshis == 0 {
+		amt, err := controller.svc.ParseInt(reqBody.Amount)
+		if err != nil || amt <= 0 {
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+		lnPayReq.PayReq.NumSatoshis = amt
 	}
 
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)

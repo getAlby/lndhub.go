@@ -102,7 +102,9 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	// create invoice
 	invoice = suite.createAddInvoiceReq(500, "integration test internal payment alice", suite.userToken)
 	// pay invoice, this will create outgoing invoice and settle it
-	suite.createPayInvoiceReq(invoice.PayReq, suite.userToken)
+	suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PayReq,
+	}, suite.userToken)
 	// check invoices again
 	req = httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
