@@ -117,6 +117,7 @@ func (controller *HomeController) Home(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+  c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=300, stale-if-error=21600") // cache for 5 minutes or if error for 6 hours max
 	return c.HTMLBlob(http.StatusOK, buf.Bytes())
 }
 
