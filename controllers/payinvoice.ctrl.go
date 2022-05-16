@@ -89,7 +89,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		return err
 	}
 
-	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
+	currentBalance, err := controller.svc.FetchCurrentUserBalance(c)
 	if err != nil {
 		return err
 	}

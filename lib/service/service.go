@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
@@ -80,4 +83,28 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 	default:
 		return 0, fmt.Errorf("conversion to int from %T not supported", v)
 	}
+}
+
+type BalanceResponse struct {
+	BTC struct {
+		AvailableBalance int64
+	}
+}
+
+func (svc *LndhubService) FetchCurrentUserBalance(c echo.Context) (int64, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s://%s/balance", c.Scheme(), svc.Config.Host), nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Authorization", c.Request().Header.Get("Authorization"))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	respBody := &BalanceResponse{}
+	err = json.NewDecoder(resp.Body).Decode(respBody)
+	if err != nil {
+		return 0, err
+	}
+	return respBody.BTC.AvailableBalance, nil
 }
