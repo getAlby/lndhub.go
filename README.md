@@ -107,6 +107,12 @@ If `WEBHOOK_URL` is specified, a http POST request will be dispatched at that lo
 }
 ```
 
+## Keysend
+
+Both incoming and outgoing keysend payments are supported. For outgoing keysend payments, check out the [API documentation](https://ln.getalby.com/swagger/index.html#/Payment/post_keysend).
+
+For incoming keysend payments, we are using a [custom TLV record with type `696969`](https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay), which should contain the hex-encoded `login` of the receiving user's account. Note that TLV records are not stored in the database. Webhook payloads do contain the TLV records, so they can be used to notify an external app of incoming keysend payments with TLV records (eg. a Boostagram reader).
+
 ### Ideas
 + Using low level database constraints to prevent data inconsistencies
 + Follow double-entry bookkeeping ideas (Every transaction is a debit of one account and a credit to another one)
