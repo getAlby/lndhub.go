@@ -15,4 +15,6 @@ const (
 	AccountTypeCurrent  = "current"
 	AccountTypeOutgoing = "outgoing"
 	AccountTypeFees     = "fees"
+
+	UserIdCustomRecordType = 696969 //cfr. https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay
 )
