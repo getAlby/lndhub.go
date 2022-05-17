@@ -25,35 +25,39 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 
 	//Check if it's a keysend payment
 	//If it is, an invoice will be created on-the-fly
-	//else, we look up the invoice
 	if rawInvoice.IsKeysend {
+		//First check if this keysend payment was already processed
+		count, err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state = ?",
+			common.InvoiceTypeIncoming,
+			rHashStr,
+			common.InvoiceStateSettled).Count(ctx)
+		if err != nil {
+			return err
+		}
+		if count != 0 {
+			return fmt.Errorf("Already processed keysend payment %s", rHashStr)
+		}
+
 		//construct the invoice
 		invoice, err = svc.createKeysendInvoice(ctx, rawInvoice)
 		if err != nil {
 			return err
 		}
 		//persist the invoice
-		sqlResult, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
+		_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 		if err != nil {
 			return err
 		}
-		id, err := sqlResult.LastInsertId()
-		if err != nil {
-			return err
-		}
-		invoice.ID = id
-	} else {
-
-		// Search for an incoming invoice with the r_hash that is NOT settled in our DB
-		err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
-			common.InvoiceTypeIncoming,
-			rHashStr,
-			common.InvoiceStateSettled,
-			time.Now()).Limit(1).Scan(ctx)
-		if err != nil {
-			svc.Logger.Infof("Invoice not found. Ignoring. r_hash:%s", rHashStr)
-			return nil
-		}
+	}
+	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
+	err = svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
+		common.InvoiceTypeIncoming,
+		rHashStr,
+		common.InvoiceStateSettled,
+		time.Now()).Limit(1).Scan(ctx)
+	if err != nil {
+		svc.Logger.Infof("Invoice not found. Ignoring. r_hash:%s", rHashStr)
+		return nil
 	}
 
 	// Update the DB entry of the invoice
@@ -138,14 +142,10 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 		return result, fmt.Errorf("Invoice's HTLC array has length 0")
 	}
 	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[common.UserIdCustomRecordType]
-	userLoginBytes := []byte{}
-	_, err = hex.Decode(userLoginBytes, userLoginCustomRecord)
-	if err != nil {
-		return result, err
-	}
 	//Find user. Our convention here is that the TLV
 	//record should contain the user's LNDhub login string
-	user, err := svc.FindUserByLogin(ctx, string(userLoginBytes))
+	//(LND already returns the decoded string so there is no need to hex-decode it)
+	user, err := svc.FindUserByLogin(ctx, string(userLoginCustomRecord))
 	if err != nil {
 		return result, err
 	}
@@ -159,8 +159,8 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 		State:                    common.InvoiceStateInitialized,
 		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
 		Keysend:                  true,
-		RHash:                    string(rawInvoice.RHash),
-		Preimage:                 string(rawInvoice.RPreimage),
+		RHash:                    hex.EncodeToString(rawInvoice.RHash),
+		Preimage:                 hex.EncodeToString(rawInvoice.RPreimage),
 		DestinationCustomRecords: rawInvoice.Htlcs[0].CustomRecords,
 		DestinationPubkeyHex:     svc.IdentityPubkey,
 		AddIndex:                 rawInvoice.AddIndex,
