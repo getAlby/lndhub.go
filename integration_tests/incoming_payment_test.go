@@ -154,7 +154,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
 	//assert the payment value was added to the user's account
 	assert.Equal(suite.T(), initialBalance+int64(sendSatAmt), balance.BTC.AvailableBalance)
 }
-func (suite *IncomingPaymentTestSuite) TestIncomingKeysend() {
+func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	var buf bytes.Buffer
 	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
