@@ -17,7 +17,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *lnrpc.Invoice) (err error) {
+func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *lnrpc.Invoice) error {
 	var invoice models.Invoice
 	rHashStr := hex.EncodeToString(rawInvoice.RHash)
 
@@ -50,7 +50,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		}
 	}
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
-	err = svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
+	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
 		common.InvoiceTypeIncoming,
 		rHashStr,
 		common.InvoiceStateSettled,
@@ -137,11 +137,12 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 
 func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *lnrpc.Invoice) (result models.Invoice, err error) {
 	//Look for the user-identifying TLV record
-	//which are located in the HTLC's. We only look at the first HTLC?
+	//which are located in the HTLC's.
+	//TODO: can the records differe from HTLC to HTLC? Probably not
 	if len(rawInvoice.Htlcs) == 0 {
 		return result, fmt.Errorf("Invoice's HTLC array has length 0")
 	}
-	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[common.UserIdCustomRecordType]
+	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
 	//Find user. Our convention here is that the TLV
 	//record should contain the user's LNDhub login string
 	//(LND already returns the decoded string so there is no need to hex-decode it)
@@ -150,7 +151,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 		return result, err
 	}
 
-	expiry := time.Hour * 24 // not really relevant here
+	expiry := time.Hour * 24 // not really relevant here, the invoice will be updated immediately
 	result = models.Invoice{
 		Type:                     common.InvoiceTypeIncoming,
 		UserID:                   user.ID,
@@ -216,8 +217,8 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 
 			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
 			if processingError != nil {
-				svc.Logger.Error(processingError)
-				sentry.CaptureException(processingError)
+				svc.Logger.Error(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
+				sentry.CaptureException(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 			}
 		}
 	}
