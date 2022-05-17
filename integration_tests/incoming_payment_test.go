@@ -3,9 +3,13 @@ package integration_tests
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,6 +23,7 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -148,6 +153,66 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
 	//assert the payment value was added to the user's account
 	assert.Equal(suite.T(), initialBalance+int64(sendSatAmt), balance.BTC.AvailableBalance)
+}
+func (suite *IncomingPaymentTestSuite) TestIncomingKeysend() {
+	var buf bytes.Buffer
+	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	rec := httptest.NewRecorder()
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
+	suite.echo.ServeHTTP(rec, req)
+	//lookup balance before
+	balance := &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	initialBalance := balance.BTC.AvailableBalance
+	keysendSatAmt := 10
+
+	//make keysend payment
+	pHash := sha256.New()
+	preImage, err := randBytesFromStr(32, random.Hex)
+	assert.NoError(suite.T(), err)
+	pHash.Write(preImage)
+	destBytes, err := hex.DecodeString(suite.service.IdentityPubkey)
+	assert.NoError(suite.T(), err)
+	sendPaymentRequest := lnrpc.SendRequest{
+		Dest:         destBytes,
+		Amt:          int64(keysendSatAmt),
+		PaymentHash:  pHash.Sum(nil),
+		DestFeatures: []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
+		DestCustomRecords: map[uint64][]byte{
+			service.TLV_WALLET_ID:         []byte(suite.userLogin.Login),
+			service.KEYSEND_CUSTOM_RECORD: preImage,
+		},
+		FeeLimit: nil,
+	}
+	_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+	//check balance again
+	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	suite.echo.ServeHTTP(rec, req)
+	balance = &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	//assert the payment value was added to the user's account
+	assert.Equal(suite.T(), initialBalance+int64(keysendSatAmt), balance.BTC.AvailableBalance)
+}
+func randBytesFromStr(length int, from string) ([]byte, error) {
+	b := make([]byte, length)
+	fromLenBigInt := big.NewInt(int64(len(from)))
+	for i := range b {
+		r, err := rand.Int(rand.Reader, fromLenBigInt)
+		if err != nil {
+			return nil, err
+		}
+		b[i] = from[r.Int64()]
+	}
+	return b, nil
 }
 
 func TestIncomingPaymentTestSuite(t *testing.T) {
