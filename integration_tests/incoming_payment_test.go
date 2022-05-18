@@ -213,8 +213,14 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	incomingPayments := &[]ExpectedIncomingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(incomingPayments))
-	//keysend payment should be the last one
-	keySendPayment := (*incomingPayments)[len(*incomingPayments)-1]
+	//find the keysend payment, there should be only 1
+	var keySendPayment ExpectedIncomingInvoice
+	for _, payment := range *incomingPayments {
+		if payment.Keysend {
+			keySendPayment = payment
+			break
+		}
+	}
 	assert.True(suite.T(), keySendPayment.Keysend)
 	login := keySendPayment.CustomRecords[service.TLV_WALLET_ID]
 	assert.Equal(suite.T(), suite.userLogin.Login, string(login))
