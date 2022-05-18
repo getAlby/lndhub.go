@@ -79,16 +79,18 @@ type ExpectedOutgoingInvoice struct {
 }
 
 type ExpectedIncomingInvoice struct {
-	RHash          interface{} `json:"r_hash"`
-	PaymentHash    interface{} `json:"payment_hash"`
-	PaymentRequest string      `json:"payment_request"`
-	Description    string      `json:"description"`
-	PayReq         string      `json:"pay_req"`
-	Timestamp      int64       `json:"timestamp"`
-	Type           string      `json:"type"`
-	ExpireTime     int64       `json:"expire_time"`
-	Amount         int64       `json:"amt"`
-	IsPaid         bool        `json:"ispaid"`
+	RHash          interface{}       `json:"r_hash"`
+	PaymentHash    interface{}       `json:"payment_hash"`
+	PaymentRequest string            `json:"payment_request"`
+	Description    string            `json:"description"`
+	PayReq         string            `json:"pay_req"`
+	Timestamp      int64             `json:"timestamp"`
+	Type           string            `json:"type"`
+	ExpireTime     int64             `json:"expire_time"`
+	Amount         int64             `json:"amt"`
+	IsPaid         bool              `json:"ispaid"`
+	Keysend        bool              `json:"keysend"`
+	CustomRecords  map[uint64][]byte `json:"custom_records"`
 }
 type ExpectedInvoiceEventWrapper struct {
 	Type    string                   `json:"type"`

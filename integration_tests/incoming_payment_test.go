@@ -161,6 +161,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	rec := httptest.NewRecorder()
 	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
+	suite.echo.GET("/getuserinvoices", controllers.NewGetTXSController(suite.service).GetUserInvoices)
 	suite.echo.ServeHTTP(rec, req)
 	//lookup balance before
 	balance := &ExpectedBalanceResponse{}
@@ -201,7 +202,24 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
 	//assert the payment value was added to the user's account
 	assert.Equal(suite.T(), initialBalance+int64(keysendSatAmt), balance.BTC.AvailableBalance)
+
+	//Look up payment to check the custom records
+	// check invoices again
+	req = httptest.NewRequest(http.MethodGet, "/getuserinvoices", nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	rec = httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	// controller := controllers.NewGetTXSController(suite.Service)
+	incomingPayments := &[]ExpectedIncomingInvoice{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(incomingPayments))
+	//keysend payment should be the last one
+	keySendPayment := (*incomingPayments)[len(*incomingPayments)-1]
+	assert.True(suite.T(), keySendPayment.Keysend)
+	login := keySendPayment.CustomRecords[service.TLV_WALLET_ID]
+	assert.Equal(suite.T(), suite.userLogin.Login, string(login))
 }
+
 func randBytesFromStr(length int, from string) ([]byte, error) {
 	b := make([]byte, length)
 	fromLenBigInt := big.NewInt(int64(len(from)))
