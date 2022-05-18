@@ -1,7 +1,7 @@
 {
     "schemes": [
-        "http",
-        "https"
+        "https",
+        "http"
     ],
     "swagger": "2.0",
     "info": {
@@ -812,6 +812,15 @@
                 "amt": {
                     "type": "integer"
                 },
+                "custom_records": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
@@ -819,6 +828,9 @@
                     "type": "integer"
                 },
                 "ispaid": {
+                    "type": "boolean"
+                },
+                "keysend": {
                     "type": "boolean"
                 },
                 "pay_req": {
@@ -904,8 +916,20 @@
         "controllers.OutgoingInvoice": {
             "type": "object",
             "properties": {
+                "custom_records": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "fee": {
                     "type": "integer"
+                },
+                "keysend": {
+                    "type": "boolean"
                 },
                 "memo": {
                     "type": "string"

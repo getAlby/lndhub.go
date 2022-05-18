@@ -816,6 +816,15 @@ const docTemplate = `{
                 "amt": {
                     "type": "integer"
                 },
+                "custom_records": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
@@ -823,6 +832,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "ispaid": {
+                    "type": "boolean"
+                },
+                "keysend": {
                     "type": "boolean"
                 },
                 "pay_req": {
@@ -908,8 +920,20 @@ const docTemplate = `{
         "controllers.OutgoingInvoice": {
             "type": "object",
             "properties": {
+                "custom_records": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "fee": {
                     "type": "integer"
+                },
+                "keysend": {
+                    "type": "boolean"
                 },
                 "memo": {
                     "type": "string"
@@ -1025,7 +1049,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "0.6.1",
 	Host:             "",
 	BasePath:         "/",
-	Schemes:          []string{"http", "https"},
+	Schemes:          []string{"https", "http"},
 	Title:            "LNDhub.go",
 	Description:      "Accounting wrapper for the Lightning Network providing separate accounts for end-users.",
 	InfoInstanceName: "swagger",

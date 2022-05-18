@@ -41,7 +41,7 @@ type KeySendResponseBody struct {
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-//// PayInvoice godoc
+//// KeySend godoc
 // @Summary      Make a keysend payment
 // @Description  Pay a node without an invoice using it's public key
 // @Accept       json
