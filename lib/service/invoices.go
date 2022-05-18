@@ -48,6 +48,14 @@ func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId i
 
 func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
+	//Check if it's a keysend payment
+	//If it is, an invoice will be created on-the-fly
+	if invoice.Keysend {
+		err := svc.HandleInternalKeysendPayment(ctx, invoice)
+		if err != nil {
+			return sendPaymentResponse, err
+		}
+	}
 	// find invoice
 	var incomingInvoice models.Invoice
 	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)

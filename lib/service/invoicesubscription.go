@@ -17,6 +17,33 @@ import (
 	"github.com/uptrace/bun"
 )
 
+func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) error {
+	//Find the payee user
+	user, err := svc.FindUserByLogin(ctx, string(invoice.DestinationCustomRecords[TLV_WALLET_ID]))
+	if err != nil {
+		return err
+	}
+	expiry := time.Hour * 24
+	incomingInvoice := models.Invoice{
+		Type:                     common.InvoiceTypeIncoming,
+		UserID:                   user.ID,
+		Amount:                   invoice.Amount,
+		Internal:                 true,
+		Memo:                     "Keysend payment",
+		State:                    common.InvoiceStateInitialized,
+		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
+		Keysend:                  true,
+		RHash:                    invoice.RHash,
+		Preimage:                 invoice.Preimage,
+		DestinationCustomRecords: invoice.DestinationCustomRecords,
+		DestinationPubkeyHex:     svc.IdentityPubkey,
+		AddIndex:                 invoice.AddIndex,
+	}
+	//persist the incoming invoice
+	_, err = svc.DB.NewInsert().Model(&incomingInvoice).Exec(ctx)
+	return err
+}
+
 func (svc *LndhubService) HandleKeysendPayment(ctx context.Context, rawInvoice *lnrpc.Invoice) error {
 	var invoice models.Invoice
 	rHashStr := hex.EncodeToString(rawInvoice.RHash)
