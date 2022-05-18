@@ -17,6 +17,34 @@ import (
 	"github.com/uptrace/bun"
 )
 
+func (svc *LndhubService) HandleKeysendPayment(ctx context.Context, rawInvoice *lnrpc.Invoice) error {
+	var invoice models.Invoice
+	rHashStr := hex.EncodeToString(rawInvoice.RHash)
+	//First check if this keysend payment was already processed
+	count, err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state = ?",
+		common.InvoiceTypeIncoming,
+		rHashStr,
+		common.InvoiceStateSettled).Count(ctx)
+	if err != nil {
+		return err
+	}
+	if count != 0 {
+		return fmt.Errorf("Already processed keysend payment %s", rHashStr)
+	}
+
+	//construct the invoice
+	invoice, err = svc.createKeysendInvoice(ctx, rawInvoice)
+	if err != nil {
+		return err
+	}
+	//persist the invoice
+	_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *lnrpc.Invoice) error {
 	var invoice models.Invoice
 	rHashStr := hex.EncodeToString(rawInvoice.RHash)
@@ -26,25 +54,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	//Check if it's a keysend payment
 	//If it is, an invoice will be created on-the-fly
 	if rawInvoice.IsKeysend {
-		//First check if this keysend payment was already processed
-		count, err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state = ?",
-			common.InvoiceTypeIncoming,
-			rHashStr,
-			common.InvoiceStateSettled).Count(ctx)
-		if err != nil {
-			return err
-		}
-		if count != 0 {
-			return fmt.Errorf("Already processed keysend payment %s", rHashStr)
-		}
-
-		//construct the invoice
-		invoice, err = svc.createKeysendInvoice(ctx, rawInvoice)
-		if err != nil {
-			return err
-		}
-		//persist the invoice
-		_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
+		err := svc.HandleKeysendPayment(ctx, rawInvoice)
 		if err != nil {
 			return err
 		}
