@@ -95,5 +95,7 @@ func (controller *GetInfoController) GetInfo(c echo.Context) error {
 	}
 	// BlueWallet right now requires a `identity_pubkey` in the response
 	// https://github.com/BlueWallet/BlueWallet/blob/a28a2b96bce0bff6d1a24a951b59dc972369e490/class/wallets/lightning-custodian-wallet.js#L578
+
+  c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=300, stale-if-error=21600") // cache for 5 minutes or if error for 6 hours max
 	return c.JSON(http.StatusOK, info)
 }
