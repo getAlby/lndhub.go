@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
@@ -17,12 +18,18 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) error {
+func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) (result *models.Invoice, err error) {
 	//Find the payee user
 	user, err := svc.FindUserByLogin(ctx, string(invoice.DestinationCustomRecords[TLV_WALLET_ID]))
 	if err != nil {
-		return err
+		return nil, err
 	}
+	preImage, err := makePreimageHex()
+	if err != nil {
+		return nil, err
+	}
+	pHash := sha256.New()
+	pHash.Write(preImage)
 	expiry := time.Hour * 24
 	incomingInvoice := models.Invoice{
 		Type:                     common.InvoiceTypeIncoming,
@@ -33,15 +40,15 @@ func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invo
 		State:                    common.InvoiceStateInitialized,
 		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
 		Keysend:                  true,
-		RHash:                    invoice.RHash,
-		Preimage:                 invoice.Preimage,
+		RHash:                    hex.EncodeToString(pHash.Sum(nil)),
+		Preimage:                 hex.EncodeToString(preImage),
 		DestinationCustomRecords: invoice.DestinationCustomRecords,
 		DestinationPubkeyHex:     svc.IdentityPubkey,
 		AddIndex:                 invoice.AddIndex,
 	}
 	//persist the incoming invoice
 	_, err = svc.DB.NewInsert().Model(&incomingInvoice).Exec(ctx)
-	return err
+	return &incomingInvoice, err
 }
 
 func (svc *LndhubService) HandleKeysendPayment(ctx context.Context, rawInvoice *lnrpc.Invoice) error {

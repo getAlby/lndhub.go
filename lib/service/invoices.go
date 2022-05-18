@@ -46,24 +46,26 @@ func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId i
 	return &invoice, nil
 }
 
-func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
-	sendPaymentResponse := SendPaymentResponse{}
+func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (sendPaymentResponse SendPaymentResponse, err error) {
 	//Check if it's a keysend payment
 	//If it is, an invoice will be created on-the-fly
+	var incomingInvoice models.Invoice
 	if invoice.Keysend {
-		err := svc.HandleInternalKeysendPayment(ctx, invoice)
+		keysendInvoice, err := svc.HandleInternalKeysendPayment(ctx, invoice)
 		if err != nil {
 			return sendPaymentResponse, err
 		}
+		incomingInvoice = *keysendInvoice
+	} else {
+		// find invoice
+		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
+		if err != nil {
+			// invoice not found or already settled
+			// TODO: logging
+			return sendPaymentResponse, err
+		}
 	}
-	// find invoice
-	var incomingInvoice models.Invoice
-	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
-	if err != nil {
-		// invoice not found or already settled
-		// TODO: logging
-		return sendPaymentResponse, err
-	}
+
 	// Get the user's current and incoming account for the transaction entry
 	recipientCreditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, incomingInvoice.UserID)
 	if err != nil {
