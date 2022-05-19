@@ -19,7 +19,7 @@ type Invoice struct {
 	DescriptionHash          string            `json:"description_hash,omitempty" bun:",nullzero"`
 	PaymentRequest           string            `json:"payment_request" bun:",nullzero"`
 	DestinationPubkeyHex     string            `json:"destination_pubkey_hex" bun:",notnull"`
-	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty" bun:"-"`
+	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty"`
 	RHash                    string            `json:"r_hash"`
 	Preimage                 string            `json:"preimage" bun:",nullzero"`
 	Internal                 bool              `json:"-" bun:",nullzero"`

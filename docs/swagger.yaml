@@ -157,11 +157,19 @@ definitions:
     properties:
       amt:
         type: integer
+      custom_records:
+        additionalProperties:
+          items:
+            type: integer
+          type: array
+        type: object
       description:
         type: string
       expire_time:
         type: integer
       ispaid:
+        type: boolean
+      keysend:
         type: boolean
       pay_req:
         type: string
@@ -218,8 +226,16 @@ definitions:
     type: object
   controllers.OutgoingInvoice:
     properties:
+      custom_records:
+        additionalProperties:
+          items:
+            type: integer
+          type: array
+        type: object
       fee:
         type: integer
+      keysend:
+        type: boolean
       memo:
         type: string
       payment_hash: {}
@@ -664,8 +680,8 @@ paths:
       tags:
       - Payment
 schemes:
-- http
 - https
+- http
 securityDefinitions:
   OAuth2Password:
     flow: password
