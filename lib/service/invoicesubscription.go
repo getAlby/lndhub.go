@@ -216,8 +216,9 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.SubscribeInvoicesWrapper, error) {
 	var invoice models.Invoice
 	invoiceSubscriptionOptions := lnrpc.InvoiceSubscription{}
-	// Find the oldest NOT settled invoice with an add_index
-	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
+	// Find the oldest NOT settled AND NOT expired invoice with an add_index
+	//  Note: expired invoices will not be settled anymore, so we don't care about those
+	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL AND invoice.expires_at >= now()").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
 	// IF we found an invoice we use that index to start the subscription
 	if err == nil {
 		invoiceSubscriptionOptions = lnrpc.InvoiceSubscription{AddIndex: invoice.AddIndex - 1} // -1 because we want updates for that invoice already
