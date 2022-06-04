@@ -176,10 +176,14 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 	}, nil
 }
 
-func calcFeeLimit(invoice *models.Invoice) lnrpc.FeeLimit {
+func (svc *LndhubService) calcFeeLimit(invoice *models.Invoice) lnrpc.FeeLimit {
 	limit := int64(10)
 	if invoice.Amount > 1000 {
 		limit = int64(math.Ceil(float64(invoice.Amount)*float64(0.01)) + 1)
+	}
+
+	if limit > svc.Config.MaxFeeLimit {
+		limit = svc.Config.MaxFeeLimit
 	}
 
 	return lnrpc.FeeLimit{

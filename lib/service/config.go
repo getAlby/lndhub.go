@@ -19,4 +19,5 @@ type Config struct {
 	EnablePrometheus      bool   `envconfig:"ENABLE_PROMETHEUS" default:"false"`
 	PrometheusPort        int    `envconfig:"PROMETHEUS_PORT" default:"9092"`
 	WebhookUrl            string `envconfig:"WEBHOOK_URL"`
+	MaxFeeLimit           int64  `envconfig:"MAX_FEE_LIMIT" default:"5000"`
 }
