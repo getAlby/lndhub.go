@@ -2,7 +2,7 @@
    <img alt="LNDHub.go" src="static/img/logo.png" width="400">
 </div>
 
-# Wrapper for Lightning Network Daemon (lnd) ⚡  
+# Wrapper for Lightning Network Daemon (lnd) ⚡
 
 It provides separate accounts with minimum trust for end users.
 Live deployment at [ln.getalby.com](https://ln.getalby.com).
@@ -12,9 +12,9 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 * Using a relational database (PostgreSQL and SQLite)
 * Focussing only on Lightning (no onchain functionality)
 * No runtime dependencies (simple Go executable)
-* Extensible to add more features 
+* Extensible to add more features
 
-### Status: alpha 
+### Status: alpha
 
 ## Known Issues
 
@@ -67,12 +67,13 @@ make
 
 ### Development LND setup
 
-To run your own local lightning network and LND you can use [Lightning Polar](https://lightningpolar.com/) which helps you to spin up local LND instances. 
+To run your own local lightning network and LND you can use [Lightning Polar](https://lightningpolar.com/) which helps you to spin up local LND instances.
 
 Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/lightning-browser-extension/wiki/Test-setup)
 
 
 ## Database
+
 LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does not support the same data consistency checks as PostgreSQL.
 
 ## Prometheus
@@ -116,6 +117,7 @@ Both incoming and outgoing keysend payments are supported. For outgoing keysend 
 For incoming keysend payments, we are using a [custom TLV record with type `696969`](https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay), which should contain the hex-encoded `login` of the receiving user's account. TLV records are stored as json blobs with the invoices and are returned by the `/getuserinvoices` endpoint.
 
 ### Ideas
+
 + Using low level database constraints to prevent data inconsistencies
 + Follow double-entry bookkeeping ideas (Every transaction is a debit of one account and a credit to another one)
 + Support multiple database backends (PostgreSQL for production, SQLite for development and personal/friend setups)
@@ -123,31 +125,30 @@ For incoming keysend payments, we are using a [custom TLV record with type `6969
 ### Data model
 
 ```
-                                                     ┌─────────────┐                            
-                                                     │    User     │                            
-                                                     └─────────────┘                            
-                                                            │                                   
-                                  ┌─────────────────┬───────┴─────────┬─────────────────┐       
-                                  ▼                 ▼                 ▼                 ▼       
-       Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-                          │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
-       Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-       four accounts                                                                            
-                                                                                                
-                           Every Transaction Entry is associated to one debit account and one   
-                                                    credit account                             
-                                                                                                
-                                                 ┌────────────────────────┐                     
-                                                 │Transaction Entry       │                     
-                                                 │                        │                     
-                                                 │+ user_id               │                     
-                   ┌────────────┐                │+ invoice_id            │                     
-                   │  Invoice   │────────────────▶+ debit_account_id      │                     
-                   └────────────┘                │+ credit_account_id     │                     
-                                                 │+ amount                │                     
-                  Invoice holds the              │+ ...                   │                     
-                  lightning related              │                        │                     
-                  data                           └────────────────────────┘                     
-                                                                                                
-```
+                                              ┌─────────────┐
+                                              │    User     │
+                                              └─────────────┘
+                                                     │
+                           ┌─────────────────┬───────┴─────────┬─────────────────┐
+                           ▼                 ▼                 ▼                 ▼
+Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+                   │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
+Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+four accounts
 
+                    Every Transaction Entry is associated to one debit account and one
+                                             credit account
+
+                                          ┌────────────────────────┐
+                                          │Transaction Entry       │
+                                          │                        │
+                                          │+ user_id               │
+            ┌────────────┐                │+ invoice_id            │
+            │  Invoice   │────────────────▶+ debit_account_id      │
+            └────────────┘                │+ credit_account_id     │
+                                          │+ amount                │
+           Invoice holds the              │+ ...                   │
+           lightning related              │                        │
+           data                           └────────────────────────┘
+
+```
