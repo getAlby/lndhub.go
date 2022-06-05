@@ -36,12 +36,13 @@ vim .env # edit your config
 + `JWT_SECRET`: We use [JWT](https://jwt.io/) for access tokens. Configure your secret here
 + `JWT_ACCESS_EXPIRY`: How long the access tokens should be valid (in seconds, default 2 days)
 + `JWT_REFRESH_EXPIRY`: How long the refresh tokens should be valid (in seconds, default 7 days)
-+ `LND_ADDRESS`: LND gRPC address (with port) (e.g. localhost:10009)
-+ `LND_MACAROON_HEX`: LND macaroon (hex)
-+ `LND_CERT_HEX`: LND certificate (hex)
++ `LND_ADDRESS`: LND gRPC address (with port) (e.g. `localhost:10009`)
++ `LND_MACAROON_HEX`: LND macaroon (hex-encoded `admin.macaroon`)
++ `LND_CERT_HEX`: LND certificate (hex-encoded `tls.cert`)
 + `CUSTOM_NAME`: Name used to overwrite the node alias in the getInfo call
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
++ `HOST`: (default: "localhost:3000") Host the app should listen on
 + `PORT`: (default: 3000) Port the app should listen on
 + `DEFAULT_RATE_LIMIT`: (default: 10) Requests per second rate limit
 + `STRICT_RATE_LIMIT`: (default: 10) Requests per burst rate limit (e.g. 1 request each 10 seconds)
@@ -49,6 +50,7 @@ vim .env # edit your config
 + `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
 + `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
+
 ## Developing
 
 ```shell
