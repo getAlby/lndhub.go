@@ -10,6 +10,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
 )
 
@@ -103,7 +104,14 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)
-		sentry.CaptureException(err)
+		if hub := sentryecho.GetHubFromContext(c); hub != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("invoice_id", invoice.ID)
+				scope.SetExtra("destination_pubkey_hex", invoice.DestinationPubkeyHex)
+				scope.SetExtra("payment_request", invoice.PaymentRequest)
+				hub.CaptureException(err)
+			})
+		}
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    10,
