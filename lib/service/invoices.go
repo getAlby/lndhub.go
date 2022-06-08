@@ -81,7 +81,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		InvoiceID:       incomingInvoice.ID,
 		CreditAccountID: recipientCreditAccount.ID,
 		DebitAccountID:  recipientDebitAccount.ID,
-		Amount:          invoice.Amount,
+		Amount:          incomingInvoice.Amount,
 	}
 	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
@@ -93,11 +93,11 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 	preimage, _ := hex.DecodeString(incomingInvoice.Preimage)
 	sendPaymentResponse.PaymentPreimageStr = incomingInvoice.Preimage
 	sendPaymentResponse.PaymentPreimage = preimage
-	sendPaymentResponse.Invoice = invoice
-	paymentHash, _ := hex.DecodeString(invoice.RHash)
-	sendPaymentResponse.PaymentHashStr = invoice.RHash
+	sendPaymentResponse.Invoice = &incomingInvoice
+	paymentHash, _ := hex.DecodeString(incomingInvoice.RHash)
+	sendPaymentResponse.PaymentHashStr = incomingInvoice.RHash
 	sendPaymentResponse.PaymentHash = paymentHash
-	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: invoice.Amount, TotalFees: 0}
+	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: incomingInvoice.Amount, TotalFees: 0}
 
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = common.InvoiceStateSettled
@@ -244,6 +244,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
 	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
+	invoice.RHash = paymentResponse.PaymentHashStr
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
 }
