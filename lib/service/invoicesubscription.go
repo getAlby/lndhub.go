@@ -36,7 +36,7 @@ func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invo
 		UserID:                   user.ID,
 		Amount:                   invoice.Amount,
 		Internal:                 true,
-		Memo:                     "Keysend payment",
+		Memo:                     "",
 		State:                    common.InvoiceStateInitialized,
 		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
 		Keysend:                  true,
@@ -200,7 +200,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 		Type:                     common.InvoiceTypeIncoming,
 		UserID:                   user.ID,
 		Amount:                   rawInvoice.AmtPaidSat,
-		Memo:                     "Keysend payment", //TODO: also extract this from the custom records?
+		Memo:                     "",
 		State:                    common.InvoiceStateInitialized,
 		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
 		Keysend:                  true,
