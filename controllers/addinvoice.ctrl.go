@@ -61,7 +61,7 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 	}
 
 	amount, err := svc.ParseInt(body.Amount)
-	if err != nil {
+	if err != nil || amount < 0 {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)
