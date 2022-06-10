@@ -24,7 +24,7 @@ func NewKeySendController(svc *service.LndhubService) *KeySendController {
 }
 
 type KeySendRequestBody struct {
-	Amount        int64             `json:"amount" validate:"required"`
+	Amount        int64             `json:"amount" validate:"required,gt=0"`
 	Destination   string            `json:"destination" validate:"required"`
 	Memo          string            `json:"memo" validate:"omitempty"`
 	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
