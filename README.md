@@ -16,10 +16,6 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 
 ### Status: alpha
 
-## Known Issues
-
-* Fee reserves are not checked prior to making the payment. This can cause a user's balance to go below 0.
-
 ## Configuration
 
 All required configuration is done with environment variables and a `.env` file can be used.
@@ -50,6 +46,7 @@ vim .env # edit your config
 + `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
 + `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
++ `FEE_RESERVE`: (default: false) Keep fee reserve for each user
 
 ## Developing
 
