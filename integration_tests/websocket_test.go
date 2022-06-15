@@ -18,6 +18,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -29,6 +30,7 @@ type KeepAlive struct {
 type WebSocketTestSuite struct {
 	TestSuite
 	service                  *service.LndhubService
+	mlnd                     *MockLND
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	userToken2               string
@@ -52,11 +54,15 @@ func (h *WsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (suite *WebSocketTestSuite) SetupSuite() {
-
-	svc, err := LndHubTestServiceInit(nil)
+	mlnd, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
+	svc, err := LndHubTestServiceInit(mlnd)
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
+	}
+	suite.mlnd = mlnd
 	users, userTokens, err := createUsers(svc, 2)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
@@ -100,13 +106,9 @@ func (suite *WebSocketTestSuite) TestWebSocket() {
 	assert.Equal(suite.T(), "keepalive", keepAlive.Type)
 
 	// create incoming invoice and fund account
-	//invoice := suite.createAddInvoiceReq(1000, "integration test websocket 1", suite.userToken)
-	//sendPaymentRequest := lnrpc.SendRequest{
-	//	PaymentRequest: invoice.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	//assert.NoError(suite.T(), err)
+	invoice := suite.createAddInvoiceReq(1000, "integration test websocket 1", suite.userToken)
+	err = suite.mlnd.mockPaidInvoice(invoice, 0, false, nil)
+	assert.NoError(suite.T(), err)
 
 	_, msg, err = ws.ReadMessage()
 	assert.NoError(suite.T(), err)
@@ -131,12 +133,8 @@ func (suite *WebSocketTestSuite) TestWebSocketDoubeSubscription() {
 	//read keepalive msg
 	_, _, err = ws2.ReadMessage()
 	assert.NoError(suite.T(), err)
-	//invoice := suite.createAddInvoiceReq(1000, "integration test websocket 2", suite.userToken)
-	//sendPaymentRequest := lnrpc.SendRequest{
-	//	PaymentRequest: invoice.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	invoice := suite.createAddInvoiceReq(1000, "integration test websocket 2", suite.userToken)
+	err = suite.mlnd.mockPaidInvoice(invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
 	_, msg1, err := ws1.ReadMessage()
 	assert.NoError(suite.T(), err)
@@ -153,12 +151,8 @@ func (suite *WebSocketTestSuite) TestWebSocketDoubeSubscription() {
 	assert.Equal(suite.T(), "integration test websocket 2", event2.Invoice.Description)
 	//close 1 subscription, assert that the existing sub still receives their invoices
 	ws1.Close()
-	//invoice = suite.createAddInvoiceReq(1000, "integration test websocket 3", suite.userToken)
-	//sendPaymentRequest = lnrpc.SendRequest{
-	//	PaymentRequest: invoice.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	invoice = suite.createAddInvoiceReq(1000, "integration test websocket 3", suite.userToken)
+	err = suite.mlnd.mockPaidInvoice(invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
 	_, msg3, err := ws2.ReadMessage()
 	assert.NoError(suite.T(), err)
@@ -169,7 +163,6 @@ func (suite *WebSocketTestSuite) TestWebSocketDoubeSubscription() {
 
 }
 func (suite *WebSocketTestSuite) TestWebSocketDoubleUser() {
-
 	//create subs for 2 different users, assert that they each get their own invoice updates
 	user1Ws, _, err := websocket.DefaultDialer.Dial(suite.wsUrl, nil)
 	assert.NoError(suite.T(), err)
@@ -183,21 +176,13 @@ func (suite *WebSocketTestSuite) TestWebSocketDoubleUser() {
 	_, _, err = user2Ws.ReadMessage()
 	assert.NoError(suite.T(), err)
 	// add invoice for user 1
-	//user1Invoice := suite.createAddInvoiceReq(1000, "integration test websocket user 1", suite.userToken)
-	//sendPaymentRequestUser1 := lnrpc.SendRequest{
-	//	PaymentRequest: user1Invoice.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//// add invoice for user 2
-	//user2Invoice := suite.createAddInvoiceReq(1000, "integration test websocket user 2", suite.userToken2)
-	//sendPaymentRequestUser2 := lnrpc.SendRequest{
-	//	PaymentRequest: user2Invoice.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//pay invoices
-	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequestUser1)
-	//assert.NoError(suite.T(), err)
-	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequestUser2)
+	user1Invoice := suite.createAddInvoiceReq(1000, "integration test websocket user 1", suite.userToken)
+	// add invoice for user 2
+	user2Invoice := suite.createAddInvoiceReq(1000, "integration test websocket user 2", suite.userToken2)
+	//mock pay invoices
+	err = suite.mlnd.mockPaidInvoice(user1Invoice, 0, false, nil)
+	assert.NoError(suite.T(), err)
+	err = suite.mlnd.mockPaidInvoice(user2Invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
 	//read user 1 received msg
 	_, user1Msg, err := user1Ws.ReadMessage()
@@ -220,21 +205,13 @@ func (suite *WebSocketTestSuite) TestWebSocketDoubleUser() {
 func (suite *WebSocketTestSuite) TestWebSocketMissingInvoice() {
 	// create incoming invoice and fund account
 	invoice1 := suite.createAddInvoiceReq(1000, "integration test websocket missing invoices", suite.userToken)
-	//sendPaymentRequest := lnrpc.SendRequest{
-	//	PaymentRequest: invoice1.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	//assert.NoError(suite.T(), err)
+	err := suite.mlnd.mockPaidInvoice(invoice1, 0, false, nil)
+	assert.NoError(suite.T(), err)
 
 	//// create 2nd invoice and pay it as well
-	//invoice2 := suite.createAddInvoiceReq(1000, "integration test websocket missing invoices 2nd", suite.userToken)
-	//sendPaymentRequest = lnrpc.SendRequest{
-	//	PaymentRequest: invoice2.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	//assert.NoError(suite.T(), err)
+	invoice2 := suite.createAddInvoiceReq(1000, "integration test websocket missing invoices 2nd", suite.userToken)
+	err = suite.mlnd.mockPaidInvoice(invoice2, 0, false, nil)
+	assert.NoError(suite.T(), err)
 
 	//start listening to websocket after 2nd invoice has been paid
 	//we should get an event for the 2nd invoice if we specify the hash as the query parameter
