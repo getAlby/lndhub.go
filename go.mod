@@ -12,8 +12,8 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo/v4 v4.7.2
 	github.com/labstack/gommon v0.3.1
-	github.com/lightningnetwork/lnd v0.14.1-beta
-	github.com/stretchr/testify v1.7.0
+	github.com/lightningnetwork/lnd v0.15.0-beta.rc6
+	github.com/stretchr/testify v1.7.1
 	github.com/uptrace/bun v1.0.21
 	github.com/uptrace/bun/dialect/pgdialect v1.0.21
 	github.com/uptrace/bun/dialect/sqlitedialect v1.0.21
@@ -29,7 +29,8 @@ require (
 require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/SporkHubr/echo-http-cache v0.0.0-20200706100054-1d7ae9f38029
-	github.com/btcsuite/btcd v0.22.0-beta.0.20211005184431-e3449998be39
+	github.com/btcsuite/btcd v0.23.1
+	github.com/btcsuite/btcd/btcec/v2 v2.2.0
 	github.com/go-openapi/spec v0.20.5 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/gorilla/websocket v1.5.0
@@ -38,7 +39,6 @@ require (
 	github.com/swaggo/echo-swagger v1.3.0
 	github.com/swaggo/swag v1.8.1
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
-	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	golang.org/x/tools v0.1.10 // indirect
 	google.golang.org/genproto v0.0.0-20220114231437-d2e6a121cae0 // indirect

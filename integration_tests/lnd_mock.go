@@ -8,7 +8,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
+	btcec "github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
@@ -31,16 +32,7 @@ func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*
 	if err != nil {
 		return nil, err
 	}
-	x, y := btcec.S256().ScalarBaseMult(privKeyBytes)
-	pubKey := &btcec.PublicKey{
-		Curve: btcec.S256(),
-		X:     x,
-		Y:     y,
-	}
-	privKey := &btcec.PrivateKey{
-		PublicKey: *pubKey.ToECDSA(),
-		D:         new(big.Int).SetBytes(privKeyBytes),
-	}
+	privKey, pubKey := btcec.PrivKeyFromBytes(privKeyBytes)
 	return &MockLND{
 		Sub: &MockSubscribeInvoices{
 			invoiceChan: invoiceChan,
@@ -52,9 +44,16 @@ func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*
 	}, nil
 }
 
+// DoubleHashB calculates hash(hash(b)) and returns the resulting bytes.
+func DoubleHashB(b []byte) []byte {
+	first := sha256.Sum256(b)
+	second := sha256.Sum256(first[:])
+	return second[:]
+}
+
 func (mlnd *MockLND) signMsg(msg []byte) ([]byte, error) {
-	return btcec.SignCompact(btcec.S256(), mlnd.privKey,
-		msg, true)
+	hash := DoubleHashB(msg)
+	return ecdsa.SignCompact(mlnd.privKey, hash, true)
 }
 
 type MockSubscribeInvoices struct {

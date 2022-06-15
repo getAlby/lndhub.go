@@ -17,16 +17,16 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type PaymentTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
+	mlnd                     *MockLND
 	service                  *service.LndhubService
 	aliceLogin               ExpectedCreateUserResponseBody
 	aliceToken               string
@@ -36,7 +36,12 @@ type PaymentTestSuite struct {
 }
 
 func (suite *PaymentTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit(nil)
+	mlnd, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
+	}
+	suite.mlnd = mlnd
+	svc, err := LndHubTestServiceInit(mlnd)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -83,18 +88,13 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	bobSatRequested := 500
 	// currently fee is 0 for internal payments
 	fee := 0
-	//todo fund
 	//fund alice account
-	//invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
-	//sendPaymentRequest := lnrpc.SendRequest{
-	//	PaymentRequest: invoiceResponse.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	//assert.NoError(suite.T(), err)
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
 
-	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	//wait a bit for the payment to be processed
+	time.Sleep(10 * time.Millisecond)
 
 	//create invoice for bob
 	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
