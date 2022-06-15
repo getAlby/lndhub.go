@@ -204,7 +204,7 @@ func (suite *WebSocketTestSuite) TestWebSocketMissingInvoice() {
 	err := suite.mlnd.mockPaidInvoice(invoice1, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
-	//// create 2nd invoice and pay it as well
+	//create 2nd invoice and pay it as well
 	invoice2 := suite.createAddInvoiceReq(1000, "integration test websocket missing invoices 2nd", suite.userToken)
 	err = suite.mlnd.mockPaidInvoice(invoice2, 0, false, nil)
 	assert.NoError(suite.T(), err)

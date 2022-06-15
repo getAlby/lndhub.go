@@ -190,7 +190,7 @@ func (suite *PaymentTestSuite) TestZeroAmountInvoice() {
 	}
 	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
-	////pay external from alice
+	//pay external from alice
 	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
 		Invoice: invoice.PaymentRequest,
 		Amount:  amtToPay,
