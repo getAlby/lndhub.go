@@ -44,16 +44,9 @@ func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*
 	}, nil
 }
 
-// DoubleHashB calculates hash(hash(b)) and returns the resulting bytes.
-func DoubleHashB(b []byte) []byte {
-	first := sha256.Sum256(b)
-	second := sha256.Sum256(first[:])
-	return second[:]
-}
-
 func (mlnd *MockLND) signMsg(msg []byte) ([]byte, error) {
-	hash := DoubleHashB(msg)
-	return ecdsa.SignCompact(mlnd.privKey, hash, true)
+	hash := sha256.Sum256(msg)
+	return ecdsa.SignCompact(mlnd.privKey, hash[:], true)
 }
 
 type MockSubscribeInvoices struct {
@@ -228,7 +221,7 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 		return nil, err
 	}
 	result := &lnrpc.PayReq{
-		Destination: string(inv.Destination.SerializeCompressed()),
+		Destination: hex.EncodeToString(inv.Destination.SerializeCompressed()),
 		PaymentHash: string(inv.PaymentHash[:]),
 		NumSatoshis: int64(*inv.MilliSat) / 1000,
 		Timestamp:   inv.Timestamp.Unix(),
