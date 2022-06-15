@@ -39,7 +39,11 @@ func TestSubscriptionStartTestSuite(t *testing.T) {
 	suite.Run(t, new(SubscriptionStartTestSuite))
 }
 func (suite *SubscriptionStartTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit(nil)
+	mockLND, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
+	}
+	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}

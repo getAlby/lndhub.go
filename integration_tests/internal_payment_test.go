@@ -27,6 +27,7 @@ import (
 type PaymentTestSuite struct {
 	TestSuite
 	mlnd                     *MockLND
+	externalLND              *MockLND
 	service                  *service.LndhubService
 	aliceLogin               ExpectedCreateUserResponseBody
 	aliceToken               string
@@ -41,6 +42,11 @@ func (suite *PaymentTestSuite) SetupSuite() {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
 	suite.mlnd = mlnd
+	externalLND, err := NewMockLND("1234567890abcdefabcd", 0, make(chan (*lnrpc.Invoice)))
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
+	}
+	suite.externalLND = externalLND
 	svc, err := LndHubTestServiceInit(mlnd)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
