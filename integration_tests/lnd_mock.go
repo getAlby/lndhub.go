@@ -2,6 +2,10 @@ package integration_tests
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/hex"
+	"math/big"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -21,6 +25,31 @@ type MockLND struct {
 
 type MockSubscribeInvoices struct {
 	invoiceChan chan (*lnrpc.Invoice)
+}
+
+const privkey = "0123456789abcdef"
+
+func getPubkey() ecdsa.PublicKey {
+	privKeyBytes, _ := hex.DecodeString(privkey)
+	x, y := btcec.S256().ScalarBaseMult(privKeyBytes)
+	return ecdsa.PublicKey{
+		Curve: btcec.S256(),
+		X:     x,
+		Y:     y,
+	}
+}
+
+func signMsg(msg []byte) ([]byte, error) {
+	privKeyBytes, err := hex.DecodeString(privkey)
+	if err != nil {
+		return nil, err
+	}
+	ecdsaPrivKey := &ecdsa.PrivateKey{
+		PublicKey: getPubkey(),
+		D:         new(big.Int).SetBytes(privKeyBytes),
+	}
+	return btcec.SignCompact(btcec.S256(), (*btcec.PrivateKey)(ecdsaPrivKey),
+		msg, true)
 }
 
 func (mockSub *MockSubscribeInvoices) Recv() (*lnrpc.Invoice, error) {
@@ -51,36 +80,74 @@ func (mlnd *MockLND) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest
 }
 
 func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
-	msat := lnwire.MilliSatoshi(req.ValueMsat)
+	pHash := sha256.New()
+	pHash.Write(req.RPreimage)
+	pHash.Sum(nil)
+	msat := lnwire.MilliSatoshi(1000 * req.Value)
 	invoice := &zpay32.Invoice{
-		Net:             &chaincfg.Params{},
-		MilliSat:        &msat,
-		Timestamp:       time.Now(),
-		PaymentHash:     &[32]byte{},
-		PaymentAddr:     &[32]byte{},
-		Destination:     &btcec.PublicKey{},
-		Description:     new(string),
-		DescriptionHash: &[32]byte{},
-		FallbackAddr:    nil,
-	}
-	copy(req.RHash, invoice.PaymentHash[:])
-	copy(req.PaymentAddr, invoice.PaymentAddr[:])
-	copy(req.DescriptionHash, invoice.DescriptionHash[:])
-	pr, err := invoice.Encode(zpay32.MessageSigner{
-		SignCompact: func(msg []byte) ([]byte, error) {
-			return []byte{}, nil
+		Net:         &chaincfg.RegressionNetParams,
+		MilliSat:    &msat,
+		Timestamp:   time.Now(),
+		PaymentHash: &[32]byte{},
+		PaymentAddr: &[32]byte{},
+		Features: &lnwire.FeatureVector{
+			RawFeatureVector: &lnwire.RawFeatureVector{},
 		},
+		FallbackAddr: nil,
+	}
+	copy(invoice.PaymentHash[:], pHash.Sum(nil))
+	copy(invoice.PaymentAddr[:], req.PaymentAddr)
+	if len(req.DescriptionHash) != 0 {
+		invoice.DescriptionHash = &[32]byte{}
+		copy(req.DescriptionHash, invoice.DescriptionHash[:])
+	}
+	if req.Memo != "" {
+		invoice.Description = &req.Memo
+	}
+	pr, err := invoice.Encode(zpay32.MessageSigner{
+		SignCompact: signMsg,
 	})
 	if err != nil {
 		return nil, err
 	}
 	mlnd.addIndexCounter += 1
 	return &lnrpc.AddInvoiceResponse{
-		RHash:          req.RHash,
+		RHash:          invoice.PaymentHash[:],
 		PaymentRequest: pr,
 		AddIndex:       mlnd.addIndexCounter,
-		PaymentAddr:    []byte{},
 	}, nil
+}
+
+func (mlnd *MockLND) mockPaidInvoice(added *ExpectedAddInvoiceResponseBody) error {
+	inv, err := mlnd.DecodeBolt11(context.Background(), added.PayReq)
+	if err != nil {
+		return err
+	}
+	rhash, err := hex.DecodeString(added.RHash)
+	if err != nil {
+		return err
+	}
+	mlnd.Sub.invoiceChan <- &lnrpc.Invoice{
+		Memo:            inv.Description,
+		RPreimage:       []byte("123preimage"),
+		RHash:           rhash,
+		Value:           inv.NumSatoshis,
+		ValueMsat:       inv.NumMsat,
+		Settled:         true,
+		CreationDate:    time.Now().Unix(),
+		SettleDate:      time.Now().Unix(),
+		PaymentRequest:  added.PayReq,
+		DescriptionHash: []byte(inv.DescriptionHash),
+		FallbackAddr:    inv.FallbackAddr,
+		CltvExpiry:      uint64(inv.CltvExpiry),
+		AmtPaid:         inv.NumSatoshis,
+		AmtPaidSat:      inv.NumSatoshis,
+		AmtPaidMsat:     inv.NumMsat,
+		State:           lnrpc.Invoice_SETTLED,
+		Htlcs:           []*lnrpc.InvoiceHTLC{},
+		IsKeysend:       false,
+	}
+	return nil
 }
 
 func (mlnd *MockLND) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (lnd.SubscribeInvoicesWrapper, error) {
@@ -106,7 +173,7 @@ func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 		Testnet:             false,
 		Chains: []*lnrpc.Chain{{
 			Chain:   "BTC",
-			Network: "mainnet",
+			Network: "regtest",
 		}},
 		Uris:     []string{"https://mocky.mcmockface.com"},
 		Features: map[uint32]*lnrpc.Feature{},
@@ -114,23 +181,25 @@ func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 }
 
 func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
-	inv, err := zpay32.Decode(bolt11, &chaincfg.MainNetParams)
+	inv, err := zpay32.Decode(bolt11, &chaincfg.RegressionNetParams)
 	if err != nil {
 		return nil, err
 	}
-	return &lnrpc.PayReq{
-		Destination:     string(inv.Destination.SerializeCompressed()),
-		PaymentHash:     string(inv.PaymentHash[:]),
-		NumSatoshis:     int64(*inv.MilliSat) / 1000,
-		Timestamp:       inv.Timestamp.Unix(),
-		Expiry:          int64(inv.Expiry()),
-		Description:     *inv.Description,
-		DescriptionHash: string(inv.DescriptionHash[:]),
-		FallbackAddr:    inv.FallbackAddr.EncodeAddress(),
-		CltvExpiry:      int64(inv.MinFinalCLTVExpiry()),
-		RouteHints:      []*lnrpc.RouteHint{},
-		PaymentAddr:     []byte{},
-		NumMsat:         int64(*inv.MilliSat),
-		Features:        map[uint32]*lnrpc.Feature{},
-	}, nil
+	result := &lnrpc.PayReq{
+		Destination: string(inv.Destination.SerializeCompressed()),
+		PaymentHash: string(inv.PaymentHash[:]),
+		NumSatoshis: int64(*inv.MilliSat) / 1000,
+		Timestamp:   inv.Timestamp.Unix(),
+		Expiry:      int64(inv.Expiry()),
+		Description: *inv.Description,
+		CltvExpiry:  int64(inv.MinFinalCLTVExpiry()),
+		RouteHints:  []*lnrpc.RouteHint{},
+		PaymentAddr: []byte{},
+		NumMsat:     int64(*inv.MilliSat),
+		Features:    map[uint32]*lnrpc.Feature{},
+	}
+	if inv.DescriptionHash != nil {
+		result.DescriptionHash = string(inv.DescriptionHash[:])
+	}
+	return result, nil
 }

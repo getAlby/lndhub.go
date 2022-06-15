@@ -15,7 +15,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -25,7 +24,6 @@ import (
 
 type CheckPaymentTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
@@ -33,15 +31,6 @@ type CheckPaymentTestSuite struct {
 }
 
 func (suite *CheckPaymentTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
 	svc, err := LndHubTestServiceInit(nil)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
@@ -85,12 +74,11 @@ func (suite *CheckPaymentTestSuite) TestCheckPaymentNotFound() {
 func (suite *CheckPaymentTestSuite) TestCheckPaymentProperIsPaidResponse() {
 	// create incoming invoice and fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test check payments for user", suite.userToken)
-	sendPaymentRequest := lnrpc.SendRequest{
+	//TODO fund
+	_ = lnrpc.SendRequest{
 		PaymentRequest: invoice.PayReq,
 		FeeLimit:       nil,
 	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	assert.NoError(suite.T(), err)
 
 	// wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)

@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,18 +19,15 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type IncomingPaymentTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
@@ -39,15 +35,6 @@ type IncomingPaymentTestSuite struct {
 }
 
 func (suite *IncomingPaymentTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
 	svc, err := LndHubTestServiceInit(nil)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
@@ -92,15 +79,16 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	//assert the user has no balance to start with
 	assert.Equal(suite.T(), int64(0), balance.BTC.AvailableBalance)
 	fundingSatAmt := 10
-	invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
+	//TODO fund
+	//invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
 	//try to pay invoice with external node
 	// Prepare the LNRPC call
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	assert.NoError(suite.T(), err)
+	//sendPaymentRequest := lnrpc.SendRequest{
+	//	PaymentRequest: invoiceResponse.PayReq,
+	//	FeeLimit:       nil,
+	//}
+	//_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	//assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
@@ -129,18 +117,19 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
 	initialBalance := balance.BTC.AvailableBalance
-	fundingSatAmt := 0
+	//fundingSatAmt := 0
 	sendSatAmt := 10
-	invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
+	//todo fund
+	//invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
 	//try to pay invoice with external node
 	// Prepare the LNRPC call
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		Amt:            int64(sendSatAmt),
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	assert.NoError(suite.T(), err)
+	//sendPaymentRequest := lnrpc.SendRequest{
+	//	PaymentRequest: invoiceResponse.PayReq,
+	//	Amt:            int64(sendSatAmt),
+	//	FeeLimit:       nil,
+	//}
+	//_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	//assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
@@ -175,21 +164,20 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	preImage, err := randBytesFromStr(32, random.Hex)
 	assert.NoError(suite.T(), err)
 	pHash.Write(preImage)
-	destBytes, err := hex.DecodeString(suite.service.IdentityPubkey)
-	assert.NoError(suite.T(), err)
-	sendPaymentRequest := lnrpc.SendRequest{
-		Dest:         destBytes,
-		Amt:          int64(keysendSatAmt),
-		PaymentHash:  pHash.Sum(nil),
-		DestFeatures: []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
-		DestCustomRecords: map[uint64][]byte{
-			service.TLV_WALLET_ID:         []byte(suite.userLogin.Login),
-			service.KEYSEND_CUSTOM_RECORD: preImage,
-		},
-		FeeLimit: nil,
-	}
-	_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	assert.NoError(suite.T(), err)
+	//todo fund
+	//jsendPaymentRequest := lnrpc.SendRequest{
+	//j	Dest:         destBytes,
+	//j	Amt:          int64(keysendSatAmt),
+	//j	PaymentHash:  pHash.Sum(nil),
+	//j	DestFeatures: []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
+	//j	DestCustomRecords: map[uint64][]byte{
+	//j		service.TLV_WALLET_ID:         []byte(suite.userLogin.Login),
+	//j		service.KEYSEND_CUSTOM_RECORD: preImage,
+	//j	},
+	//j	FeeLimit: nil,
+	//j}
+	//_, err = suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	//assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)

@@ -35,19 +35,10 @@ type WebHookTestSuite struct {
 }
 
 func (suite *WebHookTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
 	suite.invoiceChan = make(chan models.Invoice)
 	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		invoice := models.Invoice{}
-		err = json.NewDecoder(r.Body).Decode(&invoice)
+		err := json.NewDecoder(r.Body).Decode(&invoice)
 		if err != nil {
 			suite.echo.Logger.Error(err)
 			close(suite.invoiceChan)

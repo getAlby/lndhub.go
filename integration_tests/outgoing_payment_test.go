@@ -15,6 +15,7 @@ import (
 
 func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	aliceFundingSats := 1000
+	//todo
 	externalSatRequested := 500
 	// 1 sat + 1 ppm
 	fee := 1
