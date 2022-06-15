@@ -17,7 +17,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -32,10 +31,7 @@ type GetTxTestSuite struct {
 }
 
 func (suite *GetTxTestSuite) SetupSuite() {
-	mockLND, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
-	if err != nil {
-		log.Fatalf("Error initializing test service: %v", err)
-	}
+	mockLND := newDefaultMockLND()
 	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)

@@ -35,10 +35,7 @@ type IncomingPaymentTestSuite struct {
 }
 
 func (suite *IncomingPaymentTestSuite) SetupSuite() {
-	mockLND, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
-	if err != nil {
-		log.Fatalf("Error initializing test service: %v", err)
-	}
+	mockLND := newDefaultMockLND()
 	suite.mockLND = mockLND
 	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {

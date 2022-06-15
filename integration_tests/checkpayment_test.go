@@ -17,7 +17,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -25,16 +24,19 @@ import (
 type CheckPaymentTestSuite struct {
 	TestSuite
 	service                  *service.LndhubService
+	mlnd                     *MockLND
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *CheckPaymentTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit(nil)
+	mockLND := newDefaultMockLND()
+	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
+	suite.mlnd = mockLND
 	users, userTokens, err := createUsers(svc, 1)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
@@ -74,14 +76,10 @@ func (suite *CheckPaymentTestSuite) TestCheckPaymentNotFound() {
 func (suite *CheckPaymentTestSuite) TestCheckPaymentProperIsPaidResponse() {
 	// create incoming invoice and fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test check payments for user", suite.userToken)
-	//TODO fund
-	_ = lnrpc.SendRequest{
-		PaymentRequest: invoice.PayReq,
-		FeeLimit:       nil,
-	}
-
+	err := suite.mlnd.mockPaidInvoice(invoice, 0, false, nil)
+	assert.NoError(suite.T(), err)
 	// wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	// create invoice
 	invoice = suite.createAddInvoiceReq(500, "integration test check payments for user", suite.userToken)
 	// pay invoice, this will create outgoing invoice and settle it

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"log"
 	"math/big"
 	"time"
 
@@ -252,4 +253,12 @@ func randBytesFromStr(length int, from string) ([]byte, error) {
 		b[i] = from[r.Int64()]
 	}
 	return b, nil
+}
+
+func newDefaultMockLND() *MockLND {
+	mockLND, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
+	}
+	return mockLND
 }

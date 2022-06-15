@@ -12,7 +12,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -24,11 +23,7 @@ type InvoiceTestSuite struct {
 }
 
 func (suite *InvoiceTestSuite) SetupSuite() {
-	mlnd, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
-	if err != nil {
-		log.Fatalf("Error initializing test service: %v", err)
-	}
-	svc, err := LndHubTestServiceInit(mlnd)
+	svc, err := LndHubTestServiceInit(newDefaultMockLND())
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}

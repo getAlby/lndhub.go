@@ -130,7 +130,7 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested)+suite.mlnd.fee, aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-(int64(externalSatRequested)+suite.mlnd.fee), aliceBalance)
 	assert.Equal(suite.T(), int64(-1), aliceBalance)
 
 	// check that no additional transaction entry was created

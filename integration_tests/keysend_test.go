@@ -14,7 +14,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -30,10 +29,8 @@ type KeySendTestSuite struct {
 
 func (suite *KeySendTestSuite) SetupSuite() {
 	fee := int64(1)
-	mlnd, err := NewMockLND("1234567890abcdef", fee, make(chan (*lnrpc.Invoice)))
-	if err != nil {
-		log.Fatalf("Error initializing test service: %v", err)
-	}
+	mlnd := newDefaultMockLND()
+	mlnd.fee = fee
 	suite.mlnd = mlnd
 	svc, err := LndHubTestServiceInit(mlnd)
 	if err != nil {

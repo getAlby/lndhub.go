@@ -32,10 +32,7 @@ type PaymentTestAsyncErrorsSuite struct {
 }
 
 func (suite *PaymentTestAsyncErrorsSuite) SetupSuite() {
-	mlnd, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
-	if err != nil {
-		log.Fatalf("Error initializing test service: %v", err)
-	}
+	mlnd := newDefaultMockLND()
 	externalLND, err := NewMockLND("1234567890abcdefabcd", 0, make(chan (*lnrpc.Invoice)))
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)

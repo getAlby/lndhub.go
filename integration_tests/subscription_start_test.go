@@ -25,10 +25,9 @@ import (
 
 type SubscriptionStartTestSuite struct {
 	TestSuite
-	service                  *service.LndhubService
-	userLogin                ExpectedCreateUserResponseBody
-	userToken                string
-	invoiceUpdateSubCancelFn context.CancelFunc
+	service   *service.LndhubService
+	userLogin ExpectedCreateUserResponseBody
+	userToken string
 }
 
 func (suite *SubscriptionStartTestSuite) TearDownSuite() {
@@ -39,11 +38,7 @@ func TestSubscriptionStartTestSuite(t *testing.T) {
 	suite.Run(t, new(SubscriptionStartTestSuite))
 }
 func (suite *SubscriptionStartTestSuite) SetupSuite() {
-	mockLND, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
-	if err != nil {
-		log.Fatalf("Error initializing test service: %v", err)
-	}
-	svc, err := LndHubTestServiceInit(mockLND)
+	svc, err := LndHubTestServiceInit(newDefaultMockLND())
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
