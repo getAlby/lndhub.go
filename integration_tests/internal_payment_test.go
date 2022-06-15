@@ -135,15 +135,10 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	bobSatRequested := 500
 	// currently fee is 0 for internal payments
 	fee := 0
-	//fund alice account
-	//todo
-	//invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
-	//sendPaymentRequest := lnrpc.SendRequest{
-	//	PaymentRequest: invoiceResponse.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	//assert.NoError(suite.T(), err)
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
+
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
@@ -191,18 +186,12 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested+fee), int64(aliceBalance))
 }
 func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
-	//aliceFundingSats := 1000
+	aliceFundingSats := 1000
 	bobAmt := 100
 	memo := "integration test internal keysend from alice"
-	//todo
-	//fund alice account
-	//invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal keysend alice", suite.aliceToken)
-	//sendPaymentRequest := lnrpc.SendRequest{
-	//	PaymentRequest: invoiceResponse.PayReq,
-	//	FeeLimit:       nil,
-	//}
-	//_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
-	//assert.NoError(suite.T(), err)
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal keysend alice", suite.aliceToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
