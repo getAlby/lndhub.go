@@ -32,12 +32,9 @@ type GetTxTestSuite struct {
 }
 
 func (suite *GetTxTestSuite) SetupSuite() {
-	mockLND := &MockLND{
-		Sub: &MockSubscribeInvoices{
-			invoiceChan: make(chan (*lnrpc.Invoice)),
-		},
-		fee:             0,
-		addIndexCounter: 0,
+	mockLND, err := NewMockLND("1234567890abcdef", 0, make(chan (*lnrpc.Invoice)))
+	if err != nil {
+		log.Fatalf("Error initializing test service: %v", err)
 	}
 	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
@@ -88,7 +85,7 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	assert.Empty(suite.T(), responseBody)
 	// fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test internal payment alice", suite.userToken)
-	err := suite.mockLND.mockPaidInvoice(invoice)
+	err := suite.mockLND.mockPaidInvoice(invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
 	//wait for a short time to allow the payment to be processed asynchronously

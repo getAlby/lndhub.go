@@ -2,7 +2,7 @@ package integration_tests
 
 import (
 	"context"
-	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/zpay32"
@@ -20,36 +21,44 @@ import (
 type MockLND struct {
 	Sub             *MockSubscribeInvoices
 	fee             int64
+	privKey         *btcec.PrivateKey
+	pubKey          *btcec.PublicKey
 	addIndexCounter uint64
 }
 
-type MockSubscribeInvoices struct {
-	invoiceChan chan (*lnrpc.Invoice)
-}
-
-const privkey = "0123456789abcdef"
-
-func getPubkey() ecdsa.PublicKey {
-	privKeyBytes, _ := hex.DecodeString(privkey)
-	x, y := btcec.S256().ScalarBaseMult(privKeyBytes)
-	return ecdsa.PublicKey{
-		Curve: btcec.S256(),
-		X:     x,
-		Y:     y,
-	}
-}
-
-func signMsg(msg []byte) ([]byte, error) {
+func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*MockLND, error) {
 	privKeyBytes, err := hex.DecodeString(privkey)
 	if err != nil {
 		return nil, err
 	}
-	ecdsaPrivKey := &ecdsa.PrivateKey{
-		PublicKey: getPubkey(),
+	x, y := btcec.S256().ScalarBaseMult(privKeyBytes)
+	pubKey := &btcec.PublicKey{
+		Curve: btcec.S256(),
+		X:     x,
+		Y:     y,
+	}
+	privKey := &btcec.PrivateKey{
+		PublicKey: *pubKey.ToECDSA(),
 		D:         new(big.Int).SetBytes(privKeyBytes),
 	}
-	return btcec.SignCompact(btcec.S256(), (*btcec.PrivateKey)(ecdsaPrivKey),
+	return &MockLND{
+		Sub: &MockSubscribeInvoices{
+			invoiceChan: invoiceChan,
+		},
+		fee:             fee,
+		privKey:         privKey,
+		pubKey:          pubKey,
+		addIndexCounter: 0,
+	}, nil
+}
+
+func (mlnd *MockLND) signMsg(msg []byte) ([]byte, error) {
+	return btcec.SignCompact(btcec.S256(), mlnd.privKey,
 		msg, true)
+}
+
+type MockSubscribeInvoices struct {
+	invoiceChan chan (*lnrpc.Invoice)
 }
 
 func (mockSub *MockSubscribeInvoices) Recv() (*lnrpc.Invoice, error) {
@@ -105,7 +114,7 @@ func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 		invoice.Description = &req.Memo
 	}
 	pr, err := invoice.Encode(zpay32.MessageSigner{
-		SignCompact: signMsg,
+		SignCompact: mlnd.signMsg,
 	})
 	if err != nil {
 		return nil, err
@@ -118,35 +127,68 @@ func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 	}, nil
 }
 
-func (mlnd *MockLND) mockPaidInvoice(added *ExpectedAddInvoiceResponseBody) error {
-	inv, err := mlnd.DecodeBolt11(context.Background(), added.PayReq)
-	if err != nil {
-		return err
+func (mlnd *MockLND) mockPaidInvoice(added *ExpectedAddInvoiceResponseBody, amtPaid int64, keysend bool, htlc *lnrpc.InvoiceHTLC) error {
+	var incoming *lnrpc.Invoice
+	if !keysend {
+		rhash, err := hex.DecodeString(added.RHash)
+		if err != nil {
+			return err
+		}
+		inv, err := mlnd.DecodeBolt11(context.Background(), added.PayReq)
+		if err != nil {
+			return err
+		}
+		incoming = &lnrpc.Invoice{
+			Memo:            inv.Description,
+			RPreimage:       []byte("123preimage"),
+			RHash:           rhash,
+			Value:           inv.NumSatoshis,
+			ValueMsat:       inv.NumMsat,
+			Settled:         true,
+			CreationDate:    time.Now().Unix(),
+			SettleDate:      time.Now().Unix(),
+			PaymentRequest:  added.PayReq,
+			DescriptionHash: []byte(inv.DescriptionHash),
+			FallbackAddr:    inv.FallbackAddr,
+			CltvExpiry:      uint64(inv.CltvExpiry),
+			AmtPaid:         inv.NumSatoshis,
+			AmtPaidSat:      inv.NumSatoshis,
+			AmtPaidMsat:     inv.NumMsat,
+			State:           lnrpc.Invoice_SETTLED,
+			Htlcs:           []*lnrpc.InvoiceHTLC{},
+			IsKeysend:       keysend,
+		}
+	} else {
+		preimage, err := makePreimageHex()
+		if err != nil {
+			return err
+		}
+		pHash := sha256.New()
+		pHash.Write(preimage)
+		incoming = &lnrpc.Invoice{
+			Memo:           "",
+			RPreimage:      preimage,
+			RHash:          pHash.Sum(nil),
+			Value:          amtPaid,
+			ValueMsat:      1000 * amtPaid,
+			Settled:        true,
+			CreationDate:   time.Now().Unix(),
+			SettleDate:     time.Now().Unix(),
+			PaymentRequest: "",
+			AmtPaid:        amtPaid,
+			AmtPaidSat:     amtPaid,
+			AmtPaidMsat:    1000 * amtPaid,
+			State:          lnrpc.Invoice_SETTLED,
+			Htlcs:          []*lnrpc.InvoiceHTLC{htlc},
+			IsKeysend:      keysend,
+		}
 	}
-	rhash, err := hex.DecodeString(added.RHash)
-	if err != nil {
-		return err
+
+	if amtPaid != 0 {
+		incoming.AmtPaidSat = amtPaid
+		incoming.AmtPaidMsat = 1000 * amtPaid
 	}
-	mlnd.Sub.invoiceChan <- &lnrpc.Invoice{
-		Memo:            inv.Description,
-		RPreimage:       []byte("123preimage"),
-		RHash:           rhash,
-		Value:           inv.NumSatoshis,
-		ValueMsat:       inv.NumMsat,
-		Settled:         true,
-		CreationDate:    time.Now().Unix(),
-		SettleDate:      time.Now().Unix(),
-		PaymentRequest:  added.PayReq,
-		DescriptionHash: []byte(inv.DescriptionHash),
-		FallbackAddr:    inv.FallbackAddr,
-		CltvExpiry:      uint64(inv.CltvExpiry),
-		AmtPaid:         inv.NumSatoshis,
-		AmtPaidSat:      inv.NumSatoshis,
-		AmtPaidMsat:     inv.NumMsat,
-		State:           lnrpc.Invoice_SETTLED,
-		Htlcs:           []*lnrpc.InvoiceHTLC{},
-		IsKeysend:       false,
-	}
+	mlnd.Sub.invoiceChan <- incoming
 	return nil
 }
 
@@ -155,10 +197,11 @@ func (mlnd *MockLND) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSu
 }
 
 func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
+
 	return &lnrpc.GetInfoResponse{
 		Version:             "v1.0.0",
 		CommitHash:          "abc123",
-		IdentityPubkey:      "123pubkey",
+		IdentityPubkey:      hex.EncodeToString(mlnd.pubKey.SerializeCompressed()),
 		Alias:               "Mocky McMockface",
 		Color:               "",
 		NumPendingChannels:  1,
@@ -202,4 +245,19 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 		result.DescriptionHash = string(inv.DescriptionHash[:])
 	}
 	return result, nil
+}
+func makePreimageHex() ([]byte, error) {
+	return randBytesFromStr(32, random.Hex)
+}
+func randBytesFromStr(length int, from string) ([]byte, error) {
+	b := make([]byte, length)
+	fromLenBigInt := big.NewInt(int64(len(from)))
+	for i := range b {
+		r, err := rand.Int(rand.Reader, fromLenBigInt)
+		if err != nil {
+			return nil, err
+		}
+		b[i] = from[r.Int64()]
+	}
+	return b, nil
 }
