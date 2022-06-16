@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -143,7 +142,11 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 }
 
 func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
-	feeLimit := calcFeeLimit(invoice)
+	feeLimit := lnrpc.FeeLimit{
+		Limit: &lnrpc.FeeLimit_Fixed{
+			Fixed: invoice.CalcFeeLimit(),
+		},
+	}
 
 	if !invoice.Keysend {
 		return &lnrpc.SendRequest{
@@ -176,31 +179,18 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 	}, nil
 }
 
-func calcFeeLimit(invoice *models.Invoice) lnrpc.FeeLimit {
-	limit := int64(10)
-	if invoice.Amount > 1000 {
-		limit = int64(math.Ceil(float64(invoice.Amount)*float64(0.01)) + 1)
-	}
-
-	return lnrpc.FeeLimit{
-		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: limit,
-		},
-	}
-}
-
 func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoice) (*SendPaymentResponse, error) {
 	userId := invoice.UserID
 
 	// Get the user's current and outgoing account for the transaction entry
 	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
 	if err != nil {
-		svc.Logger.Errorf("Could not find current account user_id:%v", invoice.UserID)
+		svc.Logger.Errorf("Could not find current account user_id:%v", userId)
 		return nil, err
 	}
 	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
 	if err != nil {
-		svc.Logger.Errorf("Could not find outgoing account user_id:%v", invoice.UserID)
+		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
 	}
 
@@ -216,7 +206,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// If the user does not have enough balance this call fails
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
 		return nil, err
 	}
 

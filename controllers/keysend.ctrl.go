@@ -85,7 +85,11 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return err
 	}
 
-	if currentBalance < invoice.Amount {
+	minimumBalance := invoice.Amount
+	if controller.svc.Config.FeeReserve {
+		minimumBalance += invoice.CalcFeeLimit()
+	}
+	if currentBalance < minimumBalance {
 		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
