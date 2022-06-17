@@ -183,6 +183,45 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &responseBody)
 }
+
+// GetInvoice godoc
+// @Summary      Get a specific invoice
+// @Description  Retrieve information about a specific invoice by payment hash
+// @Accept       json
+// @Produce      json
+// @Tags         Account
+// @Param        payment_hash  path      string  true  "Payment hash"
+// @Success      200  {object}  Invoice
+// @Failure      400  {object}  responses.ErrorResponse
+// @Failure      500  {object}  responses.ErrorResponse
+// @Router       /v2/invoices/{payment_hash} [get]
+// @Security     OAuth2Password
 func (controller *InvoiceController) GetInvoice(c echo.Context) error {
-	return nil
+	userID := c.Get("UserID").(int64)
+	rHash := c.Param("payment_hash")
+	invoice, err := controller.svc.FindInvoiceByPaymentHash(c.Request().Context(), userID, rHash)
+	// Probably we did not find the invoice
+	if err != nil {
+		c.Logger().Errorf("Invalid checkpayment request user_id:%v payment_hash:%s", userID, rHash)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	responseBody := Invoice{
+		PaymentHash:     invoice.RHash,
+		PaymentRequest:  invoice.PaymentRequest,
+		Description:     invoice.Memo,
+		DescriptionHash: invoice.DescriptionHash,
+		PaymentPreimage: invoice.Preimage,
+		Destination:     invoice.DestinationPubkeyHex,
+		Amount:          invoice.Amount,
+		Fee:             invoice.Fee,
+		Status:          invoice.State,
+		Type:            common.InvoiceTypeUser,
+		ErrorMessage:    invoice.ErrorMessage,
+		SettledAt:       invoice.SettledAt.Time,
+		ExpiresAt:       invoice.ExpiresAt.Time,
+		IsPaid:          invoice.State == common.InvoiceStateSettled,
+		Keysend:         invoice.Keysend,
+		CustomRecords:   invoice.DestinationCustomRecords,
+	}
+	return c.JSON(http.StatusOK, &responseBody)
 }

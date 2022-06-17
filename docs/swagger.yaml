@@ -272,6 +272,37 @@ paths:
       summary: Generate a new invoice
       tags:
       - Invoice
+  /v2/invoices/{payment_hash}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve information about a specific invoice by payment hash
+      parameters:
+      - description: Payment hash
+        in: path
+        name: payment_hash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.Invoice'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Get a specific invoice
+      tags:
+      - Account
   /v2/invoices/incoming:
     get:
       consumes:
