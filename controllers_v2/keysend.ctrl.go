@@ -29,12 +29,11 @@ type KeySendRequestBody struct {
 }
 
 type KeySendResponseBody struct {
-	Amount          int64  `json:"amount,omitempty"`
-	Fee             int64  `json:"fee,omitempty"`
+	Amount          int64  `json:"amount"`
+	Fee             int64  `json:"fee"`
 	Description     string `json:"description,omitempty"`
 	DescriptionHash string `json:"description_hash,omitempty"`
 	Destination     string `json:"destination,omitempty"`
-	PaymentError    string `json:"payment_error,omitempty"`
 	PaymentPreimage string `json:"payment_preimage,omitempty"`
 	PaymentHash     string `json:"payment_hash,omitempty"`
 }
@@ -112,12 +111,10 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 
 	responseBody := &KeySendResponseBody{
-		Amount:          sendPaymentResponse.Invoice.Amount,
-		Fee:             sendPaymentResponse.Invoice.Fee,
-		Description:     sendPaymentResponse.Invoice.Memo,
-		DescriptionHash: sendPaymentResponse.Invoice.DescriptionHash,
-		Destination:     sendPaymentResponse.Invoice.DestinationPubkeyHex,
-		PaymentError:    sendPaymentResponse.PaymentError,
+		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
+		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
+		Description:     reqBody.Memo,
+		Destination:     reqBody.Destination,
 		PaymentPreimage: sendPaymentResponse.PaymentPreimageStr,
 		PaymentHash:     sendPaymentResponse.PaymentHashStr,
 	}

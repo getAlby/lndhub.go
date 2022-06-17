@@ -35,7 +35,7 @@ var BadAuthError = ErrorResponse{
 var NotEnoughBalanceError = ErrorResponse{
 	Error:   true,
 	Code:    2,
-	Message: "not enough balance. Make sure you have at least 1%% reserved for potential fees",
+	Message: "not enough balance. Make sure you have at least 1% reserved for potential fees",
 }
 
 func HTTPErrorHandler(err error, c echo.Context) {

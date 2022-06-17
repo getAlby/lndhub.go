@@ -24,7 +24,7 @@ type Invoice struct {
 	PaymentHash     string            `json:"payment_hash"`
 	PaymentRequest  string            `json:"payment_request"`
 	Description     string            `json:"description"`
-	DescriptionHash string            `json:"description_hash"`
+	DescriptionHash string            `json:"description_hash,omitempty"`
 	PaymentPreimage string            `json:"payment_preimage,omitempty"`
 	Destination     string            `json:"destination"`
 	Amount          int64             `json:"amount"`
@@ -36,7 +36,7 @@ type Invoice struct {
 	ExpiresAt       time.Time         `json:"expires_at"`
 	IsPaid          bool              `json:"is_paid"`
 	Keysend         bool              `json:"keysend"`
-	CustomRecords   map[uint64][]byte `json:"custom_records"`
+	CustomRecords   map[uint64][]byte `json:"custom_records,omitempty"`
 }
 
 // GetOutgoingInvoices godoc
@@ -108,7 +108,6 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 			PaymentRequest:  invoice.PaymentRequest,
 			Description:     invoice.Memo,
 			DescriptionHash: invoice.DescriptionHash,
-			PaymentPreimage: invoice.Preimage,
 			Destination:     invoice.DestinationPubkeyHex,
 			Amount:          invoice.Amount,
 			Fee:             invoice.Fee,
@@ -126,7 +125,7 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 }
 
 type AddInvoiceRequestBody struct {
-	Amount          int64  `json:"amount" validate:"required,gt=0"`
+	Amount          int64  `json:"amount" validate:"required,gte=0"`
 	Description     string `json:"description"`
 	DescriptionHash string `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 }
@@ -163,13 +162,9 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	amount, err := controller.svc.ParseInt(body.Amount)
-	if err != nil || amount < 0 {
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-	}
-	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, amount, body.DescriptionHash)
+	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Description, body.DescriptionHash)
+	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
@@ -215,7 +210,7 @@ func (controller *InvoiceController) GetInvoice(c echo.Context) error {
 		Amount:          invoice.Amount,
 		Fee:             invoice.Fee,
 		Status:          invoice.State,
-		Type:            common.InvoiceTypeUser,
+		Type:            invoice.Type,
 		ErrorMessage:    invoice.ErrorMessage,
 		SettledAt:       invoice.SettledAt.Time,
 		ExpiresAt:       invoice.ExpiresAt.Time,

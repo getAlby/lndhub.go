@@ -28,11 +28,10 @@ type PayInvoiceRequestBody struct {
 type PayInvoiceResponseBody struct {
 	PaymentRequest  string `json:"payment_request,omitempty"`
 	Amount          int64  `json:"amount,omitempty"`
-	Fee             int64  `json:"fee,omitempty"`
+	Fee             int64  `json:"fee"`
 	Description     string `json:"description,omitempty"`
 	DescriptionHash string `json:"description_hash,omitempty"`
 	Destination     string `json:"destination,omitempty"`
-	PaymentError    string `json:"payment_error,omitempty"`
 	PaymentPreimage string `json:"payment_preimage,omitempty"`
 	PaymentHash     string `json:"payment_hash,omitempty"`
 }
@@ -120,12 +119,12 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		})
 	}
 	responseBody := &PayInvoiceResponseBody{
-		Amount:          sendPaymentResponse.Invoice.Amount,
-		Fee:             sendPaymentResponse.Invoice.Fee,
-		Description:     sendPaymentResponse.Invoice.Memo,
-		DescriptionHash: sendPaymentResponse.Invoice.DescriptionHash,
-		Destination:     sendPaymentResponse.Invoice.DestinationPubkeyHex,
-		PaymentError:    sendPaymentResponse.PaymentError,
+		PaymentRequest:  paymentRequest,
+		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
+		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
+		Description:     invoice.Memo,
+		DescriptionHash: invoice.DescriptionHash,
+		Destination:     invoice.DestinationPubkeyHex,
 		PaymentPreimage: sendPaymentResponse.PaymentPreimageStr,
 		PaymentHash:     sendPaymentResponse.PaymentHashStr,
 	}
