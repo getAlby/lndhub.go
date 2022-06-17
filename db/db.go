@@ -2,13 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
-	"github.com/uptrace/bun/driver/sqliteshim"
 	"github.com/uptrace/bun/extra/bundebug"
 )
 
@@ -19,11 +18,7 @@ func Open(dsn string) (*bun.DB, error) {
 		dbConn := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
 		db = bun.NewDB(dbConn, pgdialect.New())
 	default:
-		dbConn, err := sql.Open(sqliteshim.ShimName, dsn)
-		if err != nil {
-			return nil, err
-		}
-		db = bun.NewDB(dbConn, sqlitedialect.New())
+		return nil, fmt.Errorf("Invalid database connection string %s, only postgres is supported", dsn)
 	}
 
 	db.AddQueryHook(bundebug.NewQueryHook(

@@ -7,7 +7,6 @@ Goal of this project is to build a simple accounting system with a [LNDHub](http
 Some design goals:
 
 * No runtime dependencies (all compiled into a single, simple deployable executable)
-* Use of an ORM ([bun](https://bun.uptrace.dev/)?)to support deployments with SQLite and PostgreSQL (default) as databases
 * Focus on offchain payments (no onchain transactions supported)
 * Plan for multiple node backends ([LND](https://github.com/lightningnetwork/lnd/) gRPC interface is the first implementation) (also through Tor)
 * Admin panel for better Ops
