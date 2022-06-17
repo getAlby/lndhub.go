@@ -28,6 +28,7 @@ definitions:
   v2controllers.AddInvoiceRequestBody:
     properties:
       amount:
+        minimum: 0
         type: integer
       description:
         type: string
@@ -135,8 +136,6 @@ definitions:
         type: string
       fee:
         type: integer
-      payment_error:
-        type: string
       payment_hash:
         type: string
       payment_preimage:
@@ -164,8 +163,6 @@ definitions:
         type: string
       fee:
         type: integer
-      payment_error:
-        type: string
       payment_hash:
         type: string
       payment_preimage:
@@ -302,7 +299,7 @@ paths:
       - OAuth2Password: []
       summary: Get a specific invoice
       tags:
-      - Account
+      - Invoice
   /v2/invoices/incoming:
     get:
       consumes:
@@ -329,7 +326,7 @@ paths:
       - OAuth2Password: []
       summary: Retrieve incoming invoices
       tags:
-      - Account
+      - Invoice
   /v2/invoices/outgoing:
     get:
       consumes:
@@ -356,7 +353,7 @@ paths:
       - OAuth2Password: []
       summary: Retrieve outgoing payments
       tags:
-      - Account
+      - Invoice
   /v2/payments/bolt11:
     post:
       consumes:

@@ -171,7 +171,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Account"
+                    "Invoice"
                 ],
                 "summary": "Retrieve incoming invoices",
                 "responses": {
@@ -214,7 +214,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Account"
+                    "Invoice"
                 ],
                 "summary": "Retrieve outgoing payments",
                 "responses": {
@@ -257,7 +257,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Account"
+                    "Invoice"
                 ],
                 "summary": "Get a specific invoice",
                 "parameters": [
@@ -486,7 +486,8 @@
             ],
             "properties": {
                 "amount": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "description": {
                     "type": "string"
@@ -647,9 +648,6 @@
                 "fee": {
                     "type": "integer"
                 },
-                "payment_error": {
-                    "type": "string"
-                },
                 "payment_hash": {
                     "type": "string"
                 },
@@ -690,9 +688,6 @@
                 },
                 "fee": {
                     "type": "integer"
-                },
-                "payment_error": {
-                    "type": "string"
                 },
                 "payment_hash": {
                     "type": "string"

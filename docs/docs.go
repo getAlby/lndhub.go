@@ -175,7 +175,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Account"
+                    "Invoice"
                 ],
                 "summary": "Retrieve incoming invoices",
                 "responses": {
@@ -218,7 +218,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Account"
+                    "Invoice"
                 ],
                 "summary": "Retrieve outgoing payments",
                 "responses": {
@@ -261,7 +261,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Account"
+                    "Invoice"
                 ],
                 "summary": "Get a specific invoice",
                 "parameters": [
@@ -490,7 +490,8 @@ const docTemplate = `{
             ],
             "properties": {
                 "amount": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "description": {
                     "type": "string"
@@ -651,9 +652,6 @@ const docTemplate = `{
                 "fee": {
                     "type": "integer"
                 },
-                "payment_error": {
-                    "type": "string"
-                },
                 "payment_hash": {
                     "type": "string"
                 },
@@ -694,9 +692,6 @@ const docTemplate = `{
                 },
                 "fee": {
                     "type": "integer"
-                },
-                "payment_error": {
-                    "type": "string"
                 },
                 "payment_hash": {
                     "type": "string"

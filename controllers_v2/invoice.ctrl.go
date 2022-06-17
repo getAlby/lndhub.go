@@ -44,7 +44,7 @@ type Invoice struct {
 // @Description  Returns a list of outgoing payments for a user
 // @Accept       json
 // @Produce      json
-// @Tags         Account
+// @Tags         Invoice
 // @Success      200  {object}  []Invoice
 // @Failure      400  {object}  responses.ErrorResponse
 // @Failure      500  {object}  responses.ErrorResponse
@@ -87,7 +87,7 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 // @Description  Returns a list of incoming invoices for a user
 // @Accept       json
 // @Produce      json
-// @Tags         Account
+// @Tags         Invoice
 // @Success      200  {object}  []Invoice
 // @Failure      400  {object}  responses.ErrorResponse
 // @Failure      500  {object}  responses.ErrorResponse
@@ -184,7 +184,7 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 // @Description  Retrieve information about a specific invoice by payment hash
 // @Accept       json
 // @Produce      json
-// @Tags         Account
+// @Tags         Invoice
 // @Param        payment_hash  path      string  true  "Payment hash"
 // @Success      200  {object}  Invoice
 // @Failure      400  {object}  responses.ErrorResponse
