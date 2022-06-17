@@ -1,11 +1,9 @@
 package v2controllers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -31,14 +29,14 @@ type KeySendRequestBody struct {
 }
 
 type KeySendResponseBody struct {
-	RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
-	Amount             int64                 `json:"num_satoshis,omitempty"`
-	Description        string                `json:"description,omitempty"`
-	Destination        string                `json:"destination,omitempty"`
-	DescriptionHashStr string                `json:"description_hash,omitempty"`
-	PaymentError       string                `json:"payment_error,omitempty"`
-	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
-	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
+	Amount          int64  `json:"amount,omitempty"`
+	Fee             int64  `json:"fee,omitempty"`
+	Description     string `json:"description,omitempty"`
+	DescriptionHash string `json:"description_hash,omitempty"`
+	Destination     string `json:"destination,omitempty"`
+	PaymentError    string `json:"payment_error,omitempty"`
+	PaymentPreimage string `json:"payment_preimage,omitempty"`
+	PaymentHash     string `json:"payment_hash,omitempty"`
 }
 
 //// KeySend godoc
@@ -51,7 +49,7 @@ type KeySendResponseBody struct {
 // @Success      200                 {object}  KeySendResponseBody
 // @Failure      400                 {object}  responses.ErrorResponse
 // @Failure      500                 {object}  responses.ErrorResponse
-// @Router       /keysend [post]
+// @Router       /v2/payments/keysend [post]
 // @Security     OAuth2Password
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
@@ -109,19 +107,20 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    10,
-			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
+			"message": err.Error(),
 		})
 	}
 
-	responseBody := &KeySendResponseBody{}
-	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
-	responseBody.Amount = invoice.Amount
-	responseBody.Destination = invoice.DestinationPubkeyHex
-	responseBody.Description = invoice.Memo
-	responseBody.DescriptionHashStr = invoice.DescriptionHash
-	responseBody.PaymentError = sendPaymentResponse.PaymentError
-	responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
-	responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
+	responseBody := &KeySendResponseBody{
+		Amount:          sendPaymentResponse.Invoice.Amount,
+		Fee:             sendPaymentResponse.Invoice.Fee,
+		Description:     sendPaymentResponse.Invoice.Memo,
+		DescriptionHash: sendPaymentResponse.Invoice.DescriptionHash,
+		Destination:     sendPaymentResponse.Invoice.DestinationPubkeyHex,
+		PaymentError:    sendPaymentResponse.PaymentError,
+		PaymentPreimage: sendPaymentResponse.PaymentPreimageStr,
+		PaymentHash:     sendPaymentResponse.PaymentHashStr,
+	}
 
 	return c.JSON(http.StatusOK, responseBody)
 }

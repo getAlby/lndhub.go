@@ -17,9 +17,9 @@ func NewBalanceController(svc *service.LndhubService) *BalanceController {
 }
 
 type BalanceResponse struct {
-	BTC struct {
-		AvailableBalance int64
-	}
+	Balance  int64  `json:"balance"`
+	Currency string `json:"currency"`
+	Unit     string `json:"unit"`
 }
 
 // Balance godoc
@@ -31,7 +31,7 @@ type BalanceResponse struct {
 // @Success      200  {object}  BalanceResponse
 // @Failure      400  {object}  responses.ErrorResponse
 // @Failure      500  {object}  responses.ErrorResponse
-// @Router       /balance [get]
+// @Router       /v2/balance [get]
 // @Security     OAuth2Password
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
@@ -40,8 +40,8 @@ func (controller *BalanceController) Balance(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, &BalanceResponse{
-		BTC: struct{ AvailableBalance int64 }{
-			AvailableBalance: balance,
-		},
+		Balance:  balance,
+		Currency: "BTC",
+		Unit:     "sat",
 	})
 }

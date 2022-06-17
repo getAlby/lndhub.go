@@ -21,18 +21,6 @@ func NewCheckPaymentController(svc *service.LndhubService) *CheckPaymentControll
 	return &CheckPaymentController{svc: svc}
 }
 
-// CheckPayment godoc
-// @Summary      Check if an invoice is paid
-// @Description  Checks if an invoice is paid, can be incoming our outgoing
-// @Accept       json
-// @Produce      json
-// @Tags         Invoice
-// @Param        payment_hash  path      string  true  "Payment hash"
-// @Success      200           {object}  CheckPaymentResponseBody
-// @Failure      400           {object}  responses.ErrorResponse
-// @Failure      500           {object}  responses.ErrorResponse
-// @Router       /checkpayment/{payment_hash} [get]
-// @Security     OAuth2Password
 func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	rHash := c.Param("payment_hash")

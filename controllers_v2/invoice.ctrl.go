@@ -2,9 +2,9 @@ package v2controllers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/getAlby/lndhub.go/common"
-	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getsentry/sentry-go"
@@ -20,44 +20,35 @@ func NewInvoiceController(svc *service.LndhubService) *InvoiceController {
 	return &InvoiceController{svc: svc}
 }
 
-type OutgoingInvoice struct {
-	RHash           interface{}       `json:"r_hash,omitempty"`
-	PaymentHash     interface{}       `json:"payment_hash"`
-	PaymentPreimage string            `json:"payment_preimage"`
-	Value           int64             `json:"value"`
-	Type            string            `json:"type"`
+type Invoice struct {
+	PaymentHash     string            `json:"payment_hash"`
+	PaymentRequest  string            `json:"payment_request"`
+	Description     string            `json:"description"`
+	DescriptionHash string            `json:"description_hash"`
+	PaymentPreimage string            `json:"payment_preimage,omitempty"`
+	Destination     string            `json:"destination"`
+	Amount          int64             `json:"amount"`
 	Fee             int64             `json:"fee"`
-	Timestamp       int64             `json:"timestamp"`
-	Memo            string            `json:"memo"`
+	Status          string            `json:"status"`
+	Type            string            `json:"type"`
+	ErrorMessage    string            `json:"error_message,omitempty"`
+	SettledAt       time.Time         `json:"settled_at"`
+	ExpiresAt       time.Time         `json:"expires_at"`
+	IsPaid          bool              `json:"is_paid"`
 	Keysend         bool              `json:"keysend"`
 	CustomRecords   map[uint64][]byte `json:"custom_records"`
 }
 
-type IncomingInvoice struct {
-	RHash          interface{}       `json:"r_hash,omitempty"`
-	PaymentHash    interface{}       `json:"payment_hash"`
-	PaymentRequest string            `json:"payment_request"`
-	Description    string            `json:"description"`
-	PayReq         string            `json:"pay_req"`
-	Timestamp      int64             `json:"timestamp"`
-	Type           string            `json:"type"`
-	ExpireTime     int64             `json:"expire_time"`
-	Amount         int64             `json:"amt"`
-	IsPaid         bool              `json:"ispaid"`
-	Keysend        bool              `json:"keysend"`
-	CustomRecords  map[uint64][]byte `json:"custom_records"`
-}
-
-// GetTXS godoc
+// GetOutgoingInvoices godoc
 // @Summary      Retrieve outgoing payments
 // @Description  Returns a list of outgoing payments for a user
 // @Accept       json
 // @Produce      json
 // @Tags         Account
-// @Success      200  {object}  []OutgoingInvoice
+// @Success      200  {object}  []Invoice
 // @Failure      400  {object}  responses.ErrorResponse
 // @Failure      500  {object}  responses.ErrorResponse
-// @Router       /gettxs [get]
+// @Router       /v2/invoices/outgoing [get]
 // @Security     OAuth2Password
 func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
@@ -67,18 +58,23 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 		return err
 	}
 
-	response := make([]OutgoingInvoice, len(invoices))
+	response := make([]Invoice, len(invoices))
 	for i, invoice := range invoices {
-		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
-		response[i] = OutgoingInvoice{
-			RHash:           rhash,
-			PaymentHash:     rhash,
+		response[i] = Invoice{
+			PaymentHash:     invoice.RHash,
+			PaymentRequest:  invoice.PaymentRequest,
+			Description:     invoice.Memo,
+			DescriptionHash: invoice.DescriptionHash,
 			PaymentPreimage: invoice.Preimage,
-			Value:           invoice.Amount,
-			Type:            common.InvoiceTypePaid,
+			Destination:     invoice.DestinationPubkeyHex,
+			Amount:          invoice.Amount,
 			Fee:             invoice.Fee,
-			Timestamp:       invoice.CreatedAt.Unix(),
-			Memo:            invoice.Memo,
+			Status:          invoice.State,
+			Type:            common.InvoiceTypePaid,
+			ErrorMessage:    invoice.ErrorMessage,
+			SettledAt:       invoice.SettledAt.Time,
+			ExpiresAt:       invoice.ExpiresAt.Time,
+			IsPaid:          invoice.State == common.InvoiceStateSettled,
 			Keysend:         invoice.Keysend,
 			CustomRecords:   invoice.DestinationCustomRecords,
 		}
@@ -86,16 +82,16 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 	return c.JSON(http.StatusOK, &response)
 }
 
-// GetUserInvoices godoc
+// GetIncomingInvoices godoc
 // @Summary      Retrieve incoming invoices
 // @Description  Returns a list of incoming invoices for a user
 // @Accept       json
 // @Produce      json
 // @Tags         Account
-// @Success      200  {object}  []IncomingInvoice
+// @Success      200  {object}  []Invoice
 // @Failure      400  {object}  responses.ErrorResponse
 // @Failure      500  {object}  responses.ErrorResponse
-// @Router       /getuserinvoices [get]
+// @Router       /v2/invoices/incoming [get]
 // @Security     OAuth2Password
 func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
@@ -105,37 +101,40 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 		return err
 	}
 
-	response := make([]IncomingInvoice, len(invoices))
+	response := make([]Invoice, len(invoices))
 	for i, invoice := range invoices {
-		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
-		response[i] = IncomingInvoice{
-			RHash:          rhash,
-			PaymentHash:    invoice.RHash,
-			PaymentRequest: invoice.PaymentRequest,
-			Description:    invoice.Memo,
-			PayReq:         invoice.PaymentRequest,
-			Timestamp:      invoice.CreatedAt.Unix(),
-			Type:           common.InvoiceTypeUser,
-			ExpireTime:     3600 * 24,
-			Amount:         invoice.Amount,
-			IsPaid:         invoice.State == common.InvoiceStateSettled,
-			Keysend:        invoice.Keysend,
-			CustomRecords:  invoice.DestinationCustomRecords,
+		response[i] = Invoice{
+			PaymentHash:     invoice.RHash,
+			PaymentRequest:  invoice.PaymentRequest,
+			Description:     invoice.Memo,
+			DescriptionHash: invoice.DescriptionHash,
+			PaymentPreimage: invoice.Preimage,
+			Destination:     invoice.DestinationPubkeyHex,
+			Amount:          invoice.Amount,
+			Fee:             invoice.Fee,
+			Status:          invoice.State,
+			Type:            common.InvoiceTypeUser,
+			ErrorMessage:    invoice.ErrorMessage,
+			SettledAt:       invoice.SettledAt.Time,
+			ExpiresAt:       invoice.ExpiresAt.Time,
+			IsPaid:          invoice.State == common.InvoiceStateSettled,
+			Keysend:         invoice.Keysend,
+			CustomRecords:   invoice.DestinationCustomRecords,
 		}
 	}
 	return c.JSON(http.StatusOK, &response)
 }
 
 type AddInvoiceRequestBody struct {
-	Amount          interface{} `json:"amt"` // amount in Satoshi
-	Memo            string      `json:"memo"`
-	DescriptionHash string      `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
+	Amount          int64  `json:"amount" validate:"required,gt=0"`
+	Description     string `json:"description"`
+	DescriptionHash string `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 }
 
 type AddInvoiceResponseBody struct {
-	RHash          string `json:"r_hash"`
-	PaymentRequest string `json:"payment_request"`
-	PayReq         string `json:"pay_req"`
+	PaymentHash    string    `json:"payment_hash"`
+	PaymentRequest string    `json:"payment_request"`
+	ExpiresAt      time.Time `json:"expires_at"`
 }
 
 // AddInvoice godoc
@@ -148,7 +147,7 @@ type AddInvoiceResponseBody struct {
 // @Success      200      {object}  AddInvoiceResponseBody
 // @Failure      400      {object}  responses.ErrorResponse
 // @Failure      500      {object}  responses.ErrorResponse
-// @Router       /addinvoice [post]
+// @Router       /v2/invoices [post]
 // @Security     OAuth2Password
 func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
@@ -168,18 +167,19 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	if err != nil || amount < 0 {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)
+	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, amount, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
+	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Description, body.DescriptionHash)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	responseBody := AddInvoiceResponseBody{}
-	responseBody.RHash = invoice.RHash
-	responseBody.PaymentRequest = invoice.PaymentRequest
-	responseBody.PayReq = invoice.PaymentRequest
+	responseBody := AddInvoiceResponseBody{
+		PaymentHash:    invoice.RHash,
+		PaymentRequest: invoice.PaymentRequest,
+		ExpiresAt:      invoice.ExpiresAt.Time,
+	}
 
 	return c.JSON(http.StatusOK, &responseBody)
 }

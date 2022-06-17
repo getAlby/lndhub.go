@@ -28,17 +28,6 @@ type CreateUserRequestBody struct {
 	AccountType string `json:"accounttype"`
 }
 
-// CreateUser godoc
-// @Summary      Create an account
-// @Description  Create a new account with a login and password
-// @Accept       json
-// @Produce      json
-// @Tags         Account
-// @Param        account  body      CreateUserRequestBody  false  "Create User"
-// @Success      200      {object}  CreateUserResponseBody
-// @Failure      400      {object}  responses.ErrorResponse
-// @Failure      500      {object}  responses.ErrorResponse
-// @Router       /create [post]
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
 
 	var body CreateUserRequestBody

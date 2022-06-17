@@ -41,18 +41,6 @@ type KeySendResponseBody struct {
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-//// KeySend godoc
-// @Summary      Make a keysend payment
-// @Description  Pay a node without an invoice using it's public key
-// @Accept       json
-// @Produce      json
-// @Tags         Payment
-// @Param        KeySendRequestBody  body      KeySendRequestBody  True  "Invoice to pay"
-// @Success      200                 {object}  KeySendResponseBody
-// @Failure      400                 {object}  responses.ErrorResponse
-// @Failure      500                 {object}  responses.ErrorResponse
-// @Router       /keysend [post]
-// @Security     OAuth2Password
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := KeySendRequestBody{}
