@@ -73,6 +73,13 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
 
+	if controller.svc.Config.MaxSendAmount > 0 {
+		if lnPayReq.PayReq.NumSatoshis > controller.svc.Config.MaxSendAmount {
+			c.Logger().Errorf("Max send amount exceeded for user_id:%v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+	}
+
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
 		return err
