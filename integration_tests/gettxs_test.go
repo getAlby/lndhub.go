@@ -15,10 +15,8 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -26,23 +24,15 @@ import (
 type GetTxTestSuite struct {
 	TestSuite
 	Service                  *service.LndhubService
-	fundingClient            *lnd.LNDWrapper
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
+	mockLND                  *MockLND
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *GetTxTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
-	svc, err := LndHubTestServiceInit(nil)
+	mockLND := newDefaultMockLND()
+	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -56,6 +46,7 @@ func (suite *GetTxTestSuite) SetupSuite() {
 	suite.invoiceUpdateSubCancelFn = cancel
 	go svc.InvoiceUpdateSubscription(ctx)
 	suite.Service = svc
+	suite.mockLND = mockLND
 	e := echo.New()
 
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
@@ -88,17 +79,14 @@ func (suite *GetTxTestSuite) TestGetOutgoingInvoices() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 	assert.Empty(suite.T(), responseBody)
-	// create incoming invoice and fund account
+	// fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test internal payment alice", suite.userToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoice.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mockLND.mockPaidInvoice(invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
-	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	//wait for a short time to allow the payment to be processed asynchronously
+	time.Sleep(10 * time.Millisecond)
+
 	// create invoice
 	invoice = suite.createAddInvoiceReq(500, "integration test internal payment alice", suite.userToken)
 	// pay invoice, this will create outgoing invoice and settle it

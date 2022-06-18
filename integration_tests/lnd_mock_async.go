@@ -12,17 +12,12 @@ import (
 const SendPaymentMockError = "mocked send payment error"
 
 type LNDMockWrapper struct {
-	*lnd.LNDWrapper
+	lnd.LightningClientWrapper
 }
 
-func NewLNDMockWrapper(lndOptions lnd.LNDoptions) (result *LNDMockWrapper, err error) {
-	lnd, err := lnd.NewLNDclient(lndOptions)
-	if err != nil {
-		return nil, err
-	}
-
+func NewLNDMockWrapper(lnd lnd.LightningClientWrapper) (result *LNDMockWrapper, err error) {
 	return &LNDMockWrapper{
-		LNDWrapper: lnd,
+		lnd,
 	}, nil
 }
 
@@ -35,17 +30,12 @@ func (wrapper *LNDMockWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.S
 var errorMessageChannel = make(chan string, 1)
 
 type LNDMockWrapperAsync struct {
-	*lnd.LNDWrapper
+	lnd.LightningClientWrapper
 }
 
-func NewLNDMockWrapperAsync(lndOptions lnd.LNDoptions) (result *LNDMockWrapperAsync, err error) {
-	lnd, err := lnd.NewLNDclient(lndOptions)
-	if err != nil {
-		return nil, err
-	}
-
+func NewLNDMockWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMockWrapperAsync, err error) {
 	return &LNDMockWrapperAsync{
-		LNDWrapper: lnd,
+		lnd,
 	}, nil
 }
 
