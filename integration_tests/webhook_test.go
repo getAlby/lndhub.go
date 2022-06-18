@@ -15,18 +15,16 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type WebHookTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
+	mlnd                     *MockLND
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	webHookServer            *httptest.Server
@@ -35,19 +33,10 @@ type WebHookTestSuite struct {
 }
 
 func (suite *WebHookTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
 	suite.invoiceChan = make(chan models.Invoice)
 	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		invoice := models.Invoice{}
-		err = json.NewDecoder(r.Body).Decode(&invoice)
+		err := json.NewDecoder(r.Body).Decode(&invoice)
 		if err != nil {
 			suite.echo.Logger.Error(err)
 			close(suite.invoiceChan)
@@ -56,7 +45,9 @@ func (suite *WebHookTestSuite) SetupSuite() {
 		suite.invoiceChan <- invoice
 	}))
 	suite.webHookServer = webhookServer
-	svc, err := LndHubTestServiceInit(nil)
+	mlnd := newDefaultMockLND()
+	svc, err := LndHubTestServiceInit(mlnd)
+	suite.mlnd = mlnd
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -88,11 +79,7 @@ func (suite *WebHookTestSuite) SetupSuite() {
 func (suite *WebHookTestSuite) TestWebHook() {
 	// create incoming invoice and fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test webhook", suite.userToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoice.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mlnd.mockPaidInvoice(invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
 	invoiceFromWebhook := <-suite.invoiceChan
 	assert.Equal(suite.T(), "integration test webhook", invoiceFromWebhook.Memo)

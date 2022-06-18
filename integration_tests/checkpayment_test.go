@@ -15,37 +15,28 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type CheckPaymentTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
+	mlnd                     *MockLND
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *CheckPaymentTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
-	svc, err := LndHubTestServiceInit(nil)
+	mockLND := newDefaultMockLND()
+	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
+	suite.mlnd = mockLND
 	users, userTokens, err := createUsers(svc, 1)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
@@ -85,15 +76,10 @@ func (suite *CheckPaymentTestSuite) TestCheckPaymentNotFound() {
 func (suite *CheckPaymentTestSuite) TestCheckPaymentProperIsPaidResponse() {
 	// create incoming invoice and fund account
 	invoice := suite.createAddInvoiceReq(1000, "integration test check payments for user", suite.userToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoice.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mlnd.mockPaidInvoice(invoice, 0, false, nil)
 	assert.NoError(suite.T(), err)
-
 	// wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	// create invoice
 	invoice = suite.createAddInvoiceReq(500, "integration test check payments for user", suite.userToken)
 	// pay invoice, this will create outgoing invoice and settle it

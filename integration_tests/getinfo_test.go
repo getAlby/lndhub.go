@@ -28,7 +28,7 @@ type GetInfoTestSuite struct {
 }
 
 func (suite *GetInfoTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit(nil)
+	svc, err := LndHubTestServiceInit(newDefaultMockLND())
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -60,7 +60,7 @@ func (suite *GetInfoTestSuite) TestGetInfoWithDefaultAlias() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(getInfoResponse))
 	assert.NotNil(suite.T(), getInfoResponse)
-	assert.Equal(suite.T(), "alby-simnet-lnd1", getInfoResponse.Alias)
+	assert.Equal(suite.T(), "Mocky McMockface", getInfoResponse.Alias)
 }
 
 func (suite *GetInfoTestSuite) TestGetInfoWithGivenAlias() {

@@ -17,25 +17,21 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	aliceFundingSats := 1000
 	externalSatRequested := 500
 	// 1 sat + 1 ppm
-	fee := 1
+	suite.mlnd.fee = 1
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	//create external invoice
 	externalInvoice := lnrpc.Invoice{
 		Memo:  "integration tests: external pay from alice",
 		Value: int64(externalSatRequested),
 	}
-	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//pay external from alice
 	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
@@ -49,7 +45,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+fee), aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+int(suite.mlnd.fee)), aliceBalance)
 
 	// check that no additional transaction entry was created
 	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
@@ -81,7 +77,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	assert.Equal(suite.T(), int64(0), transactonEntries[1].ParentID)
 	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactonEntries[1].InvoiceID)
 
-	assert.Equal(suite.T(), int64(fee), transactonEntries[2].Amount)
+	assert.Equal(suite.T(), int64(suite.mlnd.fee), transactonEntries[2].Amount)
 	assert.Equal(suite.T(), feeAccount.ID, transactonEntries[2].CreditAccountID)
 	assert.Equal(suite.T(), currentAccount.ID, transactonEntries[2].DebitAccountID)
 	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactonEntries[2].InvoiceID)
@@ -98,7 +94,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	responseBody := &[]ExpectedOutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.Equal(suite.T(), int64(fee), (*responseBody)[0].Fee)
+	assert.Equal(suite.T(), int64(suite.mlnd.fee), (*responseBody)[0].Fee)
 }
 
 func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
@@ -106,25 +102,20 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 	aliceFundingSats := 1000
 	externalSatRequested := 1000
 	// 1 sat + 1 ppm
-	fee := 1
+	suite.mlnd.fee = 1
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
-	//create external invoice
 	externalInvoice := lnrpc.Invoice{
 		Memo:  "integration tests: external pay from alice",
 		Value: int64(externalSatRequested),
 	}
-	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//pay external from alice
 	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
@@ -139,7 +130,7 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+fee), aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-(int64(externalSatRequested)+suite.mlnd.fee), aliceBalance)
 	assert.Equal(suite.T(), int64(-1), aliceBalance)
 
 	// check that no additional transaction entry was created
@@ -172,7 +163,7 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 	assert.Equal(suite.T(), int64(0), transactonEntries[1].ParentID)
 	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactonEntries[1].InvoiceID)
 
-	assert.Equal(suite.T(), int64(fee), transactonEntries[2].Amount)
+	assert.Equal(suite.T(), int64(suite.mlnd.fee), transactonEntries[2].Amount)
 	assert.Equal(suite.T(), feeAccount.ID, transactonEntries[2].CreditAccountID)
 	assert.Equal(suite.T(), currentAccount.ID, transactonEntries[2].DebitAccountID)
 	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactonEntries[2].InvoiceID)
@@ -186,22 +177,18 @@ func (suite *PaymentTestSuite) TestZeroAmountInvoice() {
 	amtToPay := 1000
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test zero amount payment alice", suite.aliceToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	//create external invoice
 	externalInvoice := lnrpc.Invoice{
 		Memo:  "integration tests: zero amount pay from alice",
 		Value: 0,
 	}
-	invoice, err := suite.fundingClient.AddInvoice(context.Background(), &externalInvoice)
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//pay external from alice
 	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
