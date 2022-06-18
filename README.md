@@ -9,7 +9,7 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 
 ### [LndHub](https://github.com/BlueWallet/LndHub) compatible API implemented in Go using relational database backends
 
-* Using a relational database (PostgreSQL and SQLite)
+* Using a relational database (PostgreSQL)
 * Focussing only on Lightning (no onchain functionality)
 * No runtime dependencies (simple Go executable)
 * Extensible to add more features
@@ -28,7 +28,7 @@ vim .env # edit your config
 
 ### Available configuration
 
-+ `DATABASE_URI`: The URI for the database. If you want to use SQLite use for example: `file:data.db`
++ `DATABASE_URI`: The URI for the database. (eg. `postgresql://user:password@localhost:5432/lndhub?sslmode=disable`)
 + `JWT_SECRET`: We use [JWT](https://jwt.io/) for access tokens. Configure your secret here
 + `JWT_ACCESS_EXPIRY`: How long the access tokens should be valid (in seconds, default 2 days)
 + `JWT_REFRESH_EXPIRY`: How long the refresh tokens should be valid (in seconds, default 7 days)
@@ -71,7 +71,7 @@ Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/
 
 ## Database
 
-LndHub.go supports PostgreSQL and SQLite as database backend. But SQLite does not support the same data consistency checks as PostgreSQL.
+LndHub.go requires a PostgreSQL database backend.
 
 ## Prometheus
 
@@ -117,7 +117,6 @@ For incoming keysend payments, we are using a [custom TLV record with type `6969
 
 + Using low level database constraints to prevent data inconsistencies
 + Follow double-entry bookkeeping ideas (Every transaction is a debit of one account and a credit to another one)
-+ Support multiple database backends (PostgreSQL for production, SQLite for development and personal/friend setups)
 
 ### Data model
 

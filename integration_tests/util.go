@@ -44,9 +44,6 @@ const (
 )
 
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
-	// change this if you want to run tests using sqlite
-	// dbUri := "file:data_test.db"
-	// make sure the datbase is empty every time you run the test suite
 	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
 		DatabaseUri:           dbUri,
