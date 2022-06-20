@@ -1,11 +1,9 @@
-package controllers
+package v2controllers
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -24,21 +22,32 @@ func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
 }
 
 type PayInvoiceRequestBody struct {
-	Invoice string      `json:"invoice" validate:"required"`
-	Amount  interface{} `json:"amount" validate:"omitempty"`
+	Invoice string `json:"invoice" validate:"required"`
+	Amount  int64  `json:"amount" validate:"omitempty,gte=0"`
 }
 type PayInvoiceResponseBody struct {
-	RHash              *lib.JavaScriptBuffer `json:"payment_hash,omitempty"`
-	PaymentRequest     string                `json:"payment_request,omitempty"`
-	PayReq             string                `json:"pay_req,omitempty"`
-	Amount             int64                 `json:"num_satoshis,omitempty"`
-	Description        string                `json:"description,omitempty"`
-	DescriptionHashStr string                `json:"description_hash,omitempty"`
-	PaymentError       string                `json:"payment_error,omitempty"`
-	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
-	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
+	PaymentRequest  string `json:"payment_request,omitempty"`
+	Amount          int64  `json:"amount,omitempty"`
+	Fee             int64  `json:"fee"`
+	Description     string `json:"description,omitempty"`
+	DescriptionHash string `json:"description_hash,omitempty"`
+	Destination     string `json:"destination,omitempty"`
+	PaymentPreimage string `json:"payment_preimage,omitempty"`
+	PaymentHash     string `json:"payment_hash,omitempty"`
 }
 
+// PayInvoice godoc
+// @Summary      Pay an invoice
+// @Description  Pay a bolt11 invoice
+// @Accept       json
+// @Produce      json
+// @Tags         Payment
+// @Param        PayInvoiceRequest  body      PayInvoiceRequestBody  True  "Invoice to pay"
+// @Success      200                {object}  PayInvoiceResponseBody
+// @Failure      400                {object}  responses.ErrorResponse
+// @Failure      500                {object}  responses.ErrorResponse
+// @Router       /v2/payments/bolt11 [post]
+// @Security     OAuth2Password
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := PayInvoiceRequestBody{}
@@ -103,22 +112,22 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 				hub.CaptureException(err)
 			})
 		}
-		return c.JSON(http.StatusBadRequest, echo.Map{
+		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":   true,
 			"code":    10,
-			"message": fmt.Sprintf("Payment failed. Does the receiver have enough inbound capacity? (%v)", err),
+			"message": err.Error(),
 		})
 	}
-	responseBody := &PayInvoiceResponseBody{}
-	responseBody.RHash = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentHash}
-	responseBody.PaymentRequest = paymentRequest
-	responseBody.PayReq = paymentRequest
-	responseBody.Amount = invoice.Amount
-	responseBody.Description = invoice.Memo
-	responseBody.DescriptionHashStr = invoice.DescriptionHash
-	responseBody.PaymentError = sendPaymentResponse.PaymentError
-	responseBody.PaymentPreimage = &lib.JavaScriptBuffer{Data: sendPaymentResponse.PaymentPreimage}
-	responseBody.PaymentRoute = sendPaymentResponse.PaymentRoute
+	responseBody := &PayInvoiceResponseBody{
+		PaymentRequest:  paymentRequest,
+		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
+		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
+		Description:     invoice.Memo,
+		DescriptionHash: invoice.DescriptionHash,
+		Destination:     invoice.DestinationPubkeyHex,
+		PaymentPreimage: sendPaymentResponse.PaymentPreimageStr,
+		PaymentHash:     sendPaymentResponse.PaymentHashStr,
+	}
 
 	return c.JSON(http.StatusOK, responseBody)
 }

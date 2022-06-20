@@ -1,4 +1,4 @@
-package controllers
+package v2controllers
 
 import (
 	"net/http"
@@ -18,16 +18,25 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 }
 
 type CreateUserResponseBody struct {
-	Login    string `json:"login"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 type CreateUserRequestBody struct {
-	Login       string `json:"login"`
-	Password    string `json:"password"`
-	PartnerID   string `json:"partnerid"`
-	AccountType string `json:"accounttype"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
+// CreateUser godoc
+// @Summary      Create an account
+// @Description  Create a new account with a username and password
+// @Accept       json
+// @Produce      json
+// @Tags         Account
+// @Param        account  body      CreateUserRequestBody  false  "Create User"
+// @Success      200      {object}  CreateUserResponseBody
+// @Failure      400      {object}  responses.ErrorResponse
+// @Failure      500      {object}  responses.ErrorResponse
+// @Router       /v2/users [post]
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
 
 	var body CreateUserRequestBody
@@ -36,14 +45,14 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 		c.Logger().Errorf("Failed to load create user request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	user, err := controller.svc.CreateUser(c.Request().Context(), body.Login, body.Password)
+	user, err := controller.svc.CreateUser(c.Request().Context(), body.Username, body.Password)
 	if err != nil {
 		c.Logger().Errorf("Failed to create user: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	var ResponseBody CreateUserResponseBody
-	ResponseBody.Login = user.Login
+	ResponseBody.Username = user.Login
 	ResponseBody.Password = user.Password
 
 	return c.JSON(http.StatusOK, &ResponseBody)

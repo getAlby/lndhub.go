@@ -73,17 +73,6 @@ func NewGetInfoController(svc *service.LndhubService) *GetInfoController {
 	return &GetInfoController{svc: svc}
 }
 
-// GetInfo godoc
-// @Summary      Get info about the Lightning node
-// @Description  Returns info about the backend node powering this LNDhub instance
-// @Accept       json
-// @Produce      json
-// @Tags         Info
-// @Success      200  {object}  GetInfoResponse
-// @Failure      400  {object}  responses.ErrorResponse
-// @Failure      500  {object}  responses.ErrorResponse
-// @Router       /getinfo [get]
-// @Security     OAuth2Password
 func (controller *GetInfoController) GetInfo(c echo.Context) error {
 
 	info, err := controller.svc.GetInfo(c.Request().Context())
@@ -96,6 +85,6 @@ func (controller *GetInfoController) GetInfo(c echo.Context) error {
 	// BlueWallet right now requires a `identity_pubkey` in the response
 	// https://github.com/BlueWallet/BlueWallet/blob/a28a2b96bce0bff6d1a24a951b59dc972369e490/class/wallets/lightning-custodian-wallet.js#L578
 
-  c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=300, stale-if-error=21600") // cache for 5 minutes or if error for 6 hours max
+	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=300, stale-if-error=21600") // cache for 5 minutes or if error for 6 hours max
 	return c.JSON(http.StatusOK, info)
 }
