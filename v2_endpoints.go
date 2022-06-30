@@ -15,6 +15,7 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 	e.GET("/lnurlp/:user", v2controllers.NewLnurlController(svc).Lnurlp, strictRateLimitMiddleware)
 	invoiceCtrl := v2controllers.NewInvoiceController(svc)
 	keysendCtrl := v2controllers.NewKeySendController(svc)
+	securedWithStrictRateLimit.GET("/v2/invoice/:user_login", invoiceCtrl.Invoice)
 	secured.POST("/v2/invoices", invoiceCtrl.AddInvoice)
 	secured.GET("/v2/invoices/incoming", invoiceCtrl.GetIncomingInvoices)
 	secured.GET("/v2/invoices/outgoing", invoiceCtrl.GetOutgoingInvoices)
