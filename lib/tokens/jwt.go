@@ -53,6 +53,7 @@ func GenerateAccessToken(secret []byte, expiryInSeconds int, u *models.User) (st
 		ID:        u.ID,
 		IsRefresh: false,
 		StandardClaims: jwt.StandardClaims{
+			Subject: u.Login,
 			// one week expiration
 			ExpiresAt: time.Now().Add(time.Second * time.Duration(expiryInSeconds)).Unix(),
 		},
