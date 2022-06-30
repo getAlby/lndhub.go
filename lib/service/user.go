@@ -31,7 +31,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 		}
 		password = string(randPasswordBytes)
 	}
-
+	user.Nickname = user.Login
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
@@ -76,6 +76,16 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	var user models.User
 
 	err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Limit(1).Scan(ctx)
+	if err != nil {
+		return &user, err
+	}
+	return &user, nil
+}
+
+func (svc *LndhubService) FindUserByLoginOrNickname(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+
+	err := svc.DB.NewSelect().Model(&user).Where("nickname = ? OR login = ?", username, username).Limit(1).Scan(ctx)
 	if err != nil {
 		return &user, err
 	}

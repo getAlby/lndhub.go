@@ -1,0 +1,1 @@
+alter table users ADD COLUMN nickname character varying NOT NULL UNIQUE;

@@ -14,6 +14,7 @@ type User struct {
 	Email     sql.NullString `bun:",unique"`
 	Login     string         `bun:",unique,notnull"`
 	Password  string         `bun:",notnull"`
+	Nickname  string         `bun:",unique,notnull"`
 	CreatedAt time.Time      `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt bun.NullTime
 	Invoices  []*Invoice `bun:"rel:has-many,join:id=user_id"`
