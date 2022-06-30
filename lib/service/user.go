@@ -42,7 +42,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 			}
 		}
 	}
-
+	user.Nickname = user.Login
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
@@ -115,6 +115,16 @@ func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
 		limit = int64(math.Ceil(float64(amount)*float64(0.01)) + 1)
 	}
 	return limit
+}
+
+func (svc *LndhubService) FindUserByLoginOrNickname(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+
+	err := svc.DB.NewSelect().Model(&user).Where("nickname = ? OR login = ?", username, username).Limit(1).Scan(ctx)
+	if err != nil {
+		return &user, err
+	}
+	return &user, nil
 }
 
 func (svc *LndhubService) CurrentUserBalance(ctx context.Context, userId int64) (int64, error) {
