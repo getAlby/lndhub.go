@@ -47,6 +47,7 @@ vim .env # edit your config
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
 + `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
 + `FEE_RESERVE`: (default: false) Keep fee reserve for each user
++ `ALLOW_ACCOUNT_CREATION`: (default: true) Enable creation of new accounts
 
 ## Developing
 

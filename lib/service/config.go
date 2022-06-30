@@ -20,4 +20,5 @@ type Config struct {
 	PrometheusPort        int    `envconfig:"PROMETHEUS_PORT" default:"9092"`
 	WebhookUrl            string `envconfig:"WEBHOOK_URL"`
 	FeeReserve            bool   `envconfig:"FEE_RESERVE" default:"false"`
+	AllowAccountCreation  bool   `envconfig:"ALLOW_ACCOUNT_CREATION" default:"true"`
 }
