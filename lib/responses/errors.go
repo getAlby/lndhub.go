@@ -15,6 +15,21 @@ type ErrorResponse struct {
 	HttpStatusCode int    `json:"-"`
 }
 
+type ErrorResponseLnurl struct {
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
+var LnurlpBadArgumentsError = ErrorResponseLnurl{
+	Status: "ERROR",
+	Reason: "Bad arguments",
+}
+
+var LnurlpBadAuthError = ErrorResponseLnurl{
+	Status: "ERROR",
+	Reason: "Bad auth",
+}
+
 var GeneralServerError = ErrorResponse{
 	Error:          true,
 	Code:           6,

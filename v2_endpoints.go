@@ -12,6 +12,7 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 	if svc.Config.AllowAccountCreation {
 		e.POST("/v2/users", v2controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware, adminMw)
 	}
+	e.GET("/lnurlp/:user", v2controllers.NewLnurlController(svc).Lnurlp, strictRateLimitMiddleware)
 	invoiceCtrl := v2controllers.NewInvoiceController(svc)
 	keysendCtrl := v2controllers.NewKeySendController(svc)
 	secured.POST("/v2/invoices", invoiceCtrl.AddInvoice)
