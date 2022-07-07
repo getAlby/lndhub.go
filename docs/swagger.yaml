@@ -57,16 +57,16 @@ definitions:
     type: object
   v2controllers.CreateUserRequestBody:
     properties:
-      password:
+      login:
         type: string
-      username:
+      password:
         type: string
     type: object
   v2controllers.CreateUserResponseBody:
     properties:
-      password:
+      login:
         type: string
-      username:
+      password:
         type: string
     type: object
   v2controllers.Invoice:
@@ -422,7 +422,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new account with a username and password
+      description: Create a new account with a login and password
       parameters:
       - description: Create User
         in: body

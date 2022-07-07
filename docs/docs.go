@@ -399,7 +399,7 @@ const docTemplate = `{
         },
         "/v2/users": {
             "post": {
-                "description": "Create a new account with a username and password",
+                "description": "Create a new account with a login and password",
                 "consumes": [
                     "application/json"
                 ],
@@ -532,10 +532,10 @@ const docTemplate = `{
         "v2controllers.CreateUserRequestBody": {
             "type": "object",
             "properties": {
-                "password": {
+                "login": {
                     "type": "string"
                 },
-                "username": {
+                "password": {
                     "type": "string"
                 }
             }
@@ -543,10 +543,10 @@ const docTemplate = `{
         "v2controllers.CreateUserResponseBody": {
             "type": "object",
             "properties": {
-                "password": {
+                "login": {
                     "type": "string"
                 },
-                "username": {
+                "password": {
                     "type": "string"
                 }
             }
