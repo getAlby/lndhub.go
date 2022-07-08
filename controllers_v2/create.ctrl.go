@@ -20,6 +20,7 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 type CreateUserResponseBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+	ID       int64  `json:"id"`
 }
 type CreateUserRequestBody struct {
 	Login    string `json:"login"`
@@ -54,6 +55,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	var ResponseBody CreateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Password = user.Password
+	ResponseBody.ID = user.ID
 
 	return c.JSON(http.StatusOK, &ResponseBody)
 }
