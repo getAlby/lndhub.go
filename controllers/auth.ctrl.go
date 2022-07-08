@@ -58,10 +58,10 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		username := params.Get("username")
+		login := params.Get("login")
 		password := params.Get("password")
-		if username != "" && password != "" {
-			body.Login = username
+		if login != "" && password != "" {
+			body.Login = login
 			body.Password = password
 		}
 	}
