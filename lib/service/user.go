@@ -14,7 +14,7 @@ import (
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
 
-func (svc *LndhubService) CreateUser(ctx context.Context, login string, password string) (user *models.User, err error) {
+func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickname string) (user *models.User, err error) {
 
 	user = &models.User{}
 
@@ -42,7 +42,11 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 			}
 		}
 	}
-	user.Nickname = user.Login
+	user.Nickname = nickname
+	if nickname == "" {
+		user.Nickname = user.Login
+	}
+
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
@@ -51,9 +55,10 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
 	err = svc.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
+		if _, err := tx.NewInsert().Model(user).On("CONFLICT (login) DO UPDATE").Set("password = EXCLUDED.password, nickname = EXCLUDED.nickname").Exec(ctx); err != nil {
 			return err
 		}
+
 		accountTypes := []string{
 			common.AccountTypeIncoming,
 			common.AccountTypeCurrent,

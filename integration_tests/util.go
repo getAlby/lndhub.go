@@ -131,7 +131,7 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []Expect
 	logins = []ExpectedCreateUserResponseBody{}
 	tokens = []string{}
 	for i := 0; i < usersToCreate; i++ {
-		user, err := svc.CreateUser(context.Background(), "", "")
+		user, err := svc.CreateUser(context.Background(), "", "", "")
 		if err != nil {
 			return nil, nil, err
 		}

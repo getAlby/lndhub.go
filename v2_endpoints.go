@@ -10,7 +10,7 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 	// TODO: v2 auth endpoint: generalized oauth token generation
 	// e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	if svc.Config.AllowAccountCreation {
-		e.POST("/v2/users", v2controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware, adminMw)
+		e.POST("/v2/create", v2controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware)
 	}
 	e.GET("/lnurlp/:user", v2controllers.NewLnurlController(svc).Lnurlp, strictRateLimitMiddleware)
 	invoiceCtrl := v2controllers.NewInvoiceController(svc)

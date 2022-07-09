@@ -218,6 +218,11 @@ func (controller *InvoiceController) Invoice(c echo.Context) error {
 		}
 	}
 
+	if controller.svc.Config.MaxReceiveAmount > 0 && amt_msat/1000 > controller.svc.Config.MaxReceiveAmount {
+		c.Logger().Errorf("Max receive amount exceeded for user_id:%v (amount:%v)", user.ID, amt_msat/1000)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
+
 	descriptionHash := lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
 	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s", user.ID, amt_msat/1000, descriptionHash)
 
