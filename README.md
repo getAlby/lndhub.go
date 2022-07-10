@@ -52,6 +52,22 @@ vim .env # edit your config
 + `MAX_SEND_AMOUNT`: (default: 0 = no limit) Set maximum amount of an invoice that can be paid
 + `MAX_ACCOUNT_BALANCE`: (default: 0 = no limit) Set maximum balance for each account
 
+### Macaroon
+
+There are two ways how to obtain hex-encoded macaroon needed for `LND_MACAROON_HEX`.
+
+Either you hex-encode the `admin.macaroon`:
+
+```
+xxd -p -c 1000 ~/.lnd/data/chain/bitcoin/mainnet/admin.macaroon
+```
+
+Or you bake a new macaroon with the following permissions and use that instead:
+
+```
+lncli bakemacaroon info:read invoices:read invoices:write offchain:read offchain:write
+```
+
 ## Developing
 
 ```shell
