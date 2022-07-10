@@ -181,7 +181,7 @@ info:
     name: GNU GPL
     url: https://www.gnu.org/licenses/gpl-3.0.en.html
   title: LNDhub.go
-  version: 0.6.1
+  version: 0.9.0
 paths:
   /auth:
     post:

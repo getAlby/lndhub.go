@@ -43,7 +43,7 @@ var indexHtml string
 var staticContent embed.FS
 
 // @title        LNDhub.go
-// @version      0.6.1
+// @version      0.9.0
 // @description  Accounting wrapper for the Lightning Network providing separate accounts for end-users.
 
 // @contact.name   Alby
