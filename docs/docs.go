@@ -16,7 +16,7 @@ const docTemplate = `{
             "email": "hello@getalby.com"
         },
         "license": {
-            "name": "GNU GPL",
+            "name": "GNU GPLv3",
             "url": "https://www.gnu.org/licenses/gpl-3.0.en.html"
         },
         "version": "{{.Version}}"
