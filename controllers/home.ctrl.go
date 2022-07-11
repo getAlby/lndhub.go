@@ -40,6 +40,7 @@ type HomepageContent struct {
 	BlockHeight        int
 	Uris               []string
 	Channels           []Channel
+	Branding           service.BrandingConfig
 }
 
 type Channel struct {
@@ -111,6 +112,7 @@ func (controller *HomeController) Home(c echo.Context) error {
 		BlockHeight:        int(info.BlockHeight),
 		Channels:           channelSlice,
 		Uris:               info.Uris,
+		Branding:           controller.svc.Config.Branding,
 	}
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, content)
