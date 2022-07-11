@@ -85,14 +85,14 @@ func (controller *HomeController) Home(c echo.Context) error {
 		return err
 	}
 	// See original code: https://github.com/BlueWallet/LndHub/blob/master/controllers/website.js#L32
-	maxChanCapicity := -1
+	maxChanCapacity := -1
 	for _, ch := range channels.Channels {
-		maxChanCapicity = Max(maxChanCapicity, int(ch.Capacity))
+		maxChanCapacity = Max(maxChanCapacity, int(ch.Capacity))
 	}
 	channelSlice := []Channel{}
 	for _, ch := range channels.Channels {
 
-		magic := maxChanCapicity / 100
+		magic := maxChanCapacity / 100
 		channelSlice = append(channelSlice, Channel{
 			Name:         pubkeyToName[ch.RemotePubkey],
 			RemotePubkey: ch.RemotePubkey,
