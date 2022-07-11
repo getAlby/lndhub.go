@@ -49,11 +49,11 @@ func (suite *CreateUserV2TestSuite) TestCreate() {
 	e := echo.New()
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	req := httptest.NewRequest(http.MethodPost, "/create", bytes.NewReader([]byte{}))
+	req := httptest.NewRequest(http.MethodPost, "/v2/create", bytes.NewReader([]byte{}))
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	controller := v2controllers.NewCreateUserController(suite.Service)
-	responseBody := ExpectedCreateUser{}
+	responseBody := ExpectedCreateUserRequestBody{}
 	if assert.NoError(suite.T(), controller.CreateUser(c)) {
 		assert.Equal(suite.T(), http.StatusOK, rec.Code)
 		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
@@ -71,7 +71,7 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongWithProvidedLoginAndPassword(
 	const testLogin = "12D3KooWNmjM4sMbSkDEA6ShvjTgkrJHjMya46fhZ9PjKZ4KVZYq"
 	const testPassword = "wrong signature"
 	const testNickname = "test nickname"
-	json.NewEncoder(&buf).Encode(&ExpectedCreateUser{
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
 		Login:    testLogin,
 		Password: testPassword,
 		Nickname: testNickname,
@@ -88,6 +88,15 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongWithProvidedLoginAndPassword(
 	}
 }
 
+func (suite *CreateUserV2TestSuite) TestCreateWithProvidedLoginAndPassword() {
+	assert.NoError(suite.T(), nil)
+	/*
+		// TODO: uncomment once the test is ready
+		user, err := suite.Service.FindUserByLoginOrNickname(context.Background(), testNickname)
+		assert.NoError(suite.T(), err)
+		assert.Equal(suite.T(), user.Login, testLogin)
+	*/
+}
 func TestCreateUserV2TestSuite(t *testing.T) {
 	suite.Run(t, new(CreateUserV2TestSuite))
 }

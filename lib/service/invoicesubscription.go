@@ -190,7 +190,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 	//which are located in the HTLC's.
 	//TODO: can the records differe from HTLC to HTLC? Probably not
 	if len(rawInvoice.Htlcs) == 0 {
-		return result, fmt.Errorf("Invoice's HTLC array has length 0")
+		return result, fmt.Errorf("invoice's HTLC array has length 0")
 	}
 	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
 	//Find user. Our convention here is that the TLV

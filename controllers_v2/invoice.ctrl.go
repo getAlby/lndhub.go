@@ -1,9 +1,10 @@
 package v2controllers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -192,29 +193,26 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 // @Accept       json
 // @Produce      json
 // @Param        user_login path string true "User login or nickname"
+// @Param        amount path string true "amount in millisatoshis at the invoice"
 // @Tags         Invoice
 // @Success      200  {object}  InvoiceResponseBody
 // @Failure      400  {object}  responses.LnurlErrorResponse
 // @Failure      500  {object}  responses.LnurlErrorResponse
-// @Router       /v2/invoice/{user_login} [get]
+// @Router       /v2/invoice/{user} [get]
 // @Security     OAuth2Password
 func (controller *InvoiceController) Invoice(c echo.Context) error {
 	// The user param could be userID (login) or a nickname (lnaddress)
-	user, err := controller.svc.FindUserByLoginOrNickname(c.Request().Context(), c.Param("user_login"))
+	user, err := controller.svc.FindUserByLoginOrNickname(c.Request().Context(), c.Param("user"))
 	if err != nil {
-		c.Logger().Errorf("Failed to find user by login or nickname: user %v error %v", c.Param("user_login"), err)
+		c.Logger().Errorf("Failed to find user by login or nickname: user %v error %v", c.Param("user"), err)
 		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 	}
-
 	var amt_msat int64 = -1
-	for _, s := range c.ParamNames() {
-		if strings.ToLower(s) == "amount" {
-			amt_msat, err = strconv.ParseInt(c.QueryParam(s), 10, 64)
-			if err != nil {
-				c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam(s), err)
-				return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-			}
-			break
+	if c.QueryParams().Has("amount") {
+		amt_msat, err = strconv.ParseInt(c.QueryParam("amount"), 10, 64)
+		if err != nil {
+			c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam("amount"), err)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 	}
 
@@ -224,9 +222,11 @@ func (controller *InvoiceController) Invoice(c echo.Context) error {
 	}
 
 	descriptionHash := lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
-	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s", user.ID, amt_msat/1000, descriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, "", descriptionHash)
+	descriptionhash_hex := sha256.Sum256([]byte(descriptionHash))
+	descriptionhash_string := hex.EncodeToString(descriptionhash_hex[:])
+	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s", user.ID, amt_msat/1000, descriptionhash_string)
+	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, "", descriptionhash_string)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", user.ID, err)
 		sentry.CaptureException(err)
