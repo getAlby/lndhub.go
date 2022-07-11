@@ -3,11 +3,17 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"regexp"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/uptrace/bun"
+)
+
+var (
+	validNickname = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickname string) (user *models.User, err error) {
@@ -34,6 +40,8 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 	user.Nickname = nickname
 	if nickname == "" {
 		user.Nickname = user.Login
+	} else if !validNickname.MatchString(nickname) {
+		return nil, fmt.Errorf("wrong nickname format")
 	}
 
 	// we only store the hashed password but return the initial plain text password in the HTTP response
@@ -44,7 +52,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
 	err = svc.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(user).On("CONFLICT (login) DO UPDATE").Set("password = EXCLUDED.password, nickname = EXCLUDED.nickname").Exec(ctx); err != nil {
+		if _, err := tx.NewInsert().Model(user).On("CONFLICT (login, password) DO UPDATE").Set("nickname = EXCLUDED.nickname").Exec(ctx); err != nil {
 			return err
 		}
 
