@@ -101,7 +101,7 @@ func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 	copy(invoice.PaymentAddr[:], req.PaymentAddr)
 	if len(req.DescriptionHash) != 0 {
 		invoice.DescriptionHash = &[32]byte{}
-		copy(req.DescriptionHash, invoice.DescriptionHash[:])
+		copy(invoice.DescriptionHash[:], req.DescriptionHash)
 	}
 	if req.Memo != "" {
 		invoice.Description = &req.Memo
@@ -227,7 +227,6 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 		NumSatoshis: int64(*inv.MilliSat) / 1000,
 		Timestamp:   inv.Timestamp.Unix(),
 		Expiry:      int64(inv.Expiry()),
-		Description: *inv.Description,
 		CltvExpiry:  int64(inv.MinFinalCLTVExpiry()),
 		RouteHints:  []*lnrpc.RouteHint{},
 		PaymentAddr: []byte{},
@@ -235,7 +234,9 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 		Features:    map[uint32]*lnrpc.Feature{},
 	}
 	if inv.DescriptionHash != nil {
-		result.DescriptionHash = string(inv.DescriptionHash[:])
+		result.DescriptionHash = hex.EncodeToString(inv.DescriptionHash[:])
+	} else if inv.Description != nil { // according to spec if DescriptionHash is present not description should be present
+		result.Description = *inv.Description
 	}
 	return result, nil
 }

@@ -184,7 +184,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 	//which are located in the HTLC's.
 	//TODO: can the records differe from HTLC to HTLC? Probably not
 	if len(rawInvoice.Htlcs) == 0 {
-		return result, fmt.Errorf("Invoice's HTLC array has length 0")
+		return result, fmt.Errorf("invoice's HTLC array has length 0")
 	}
 	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
 	//Find user. Our convention here is that the TLV
@@ -236,14 +236,14 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Context was canceled")
+			return fmt.Errorf("context was canceled")
 		default:
 			// receive the next invoice update
 			rawInvoice, err := invoiceSubscriptionStream.Recv()
 			if err != nil {
 				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
 				sentry.CaptureException(err)
-				// TODO: close the stream somehoe before retrying?
+				// TODO: close the stream somehow before retrying?
 				// Wait 30 seconds and try to reconnect
 				// TODO: implement some backoff
 				time.Sleep(30 * time.Second)
@@ -262,8 +262,8 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 
 			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
 			if processingError != nil {
-				svc.Logger.Error(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
-				sentry.CaptureException(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
+				svc.Logger.Error(fmt.Errorf("error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
+				sentry.CaptureException(fmt.Errorf("error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 			}
 		}
 	}

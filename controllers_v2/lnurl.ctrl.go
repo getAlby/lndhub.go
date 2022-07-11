@@ -3,7 +3,6 @@ package v2controllers
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -11,9 +10,8 @@ import (
 )
 
 const (
-	MIN_SENDABLE_SATS = 1
-	MAX_SENDABLE_SATS = 10000000
-	PREFIX_MSG        = "Sats for "
+	MIN_RECEIVABLE = 1
+	PREFIX_MSG     = "Sats for "
 )
 
 // LnurlController : Add lnurl controller struct
@@ -39,6 +37,7 @@ type LnurlpResponseBody struct {
 // @Accept       json
 // @Produce      json
 // @Param        user path string true "User login or nickname"
+// @Param        amt path string true "amount in satoshis to request invoice"
 // @Tags         Lnurl
 // @Success      200  {object}  LnurlpResponseBody
 // @Failure      400  {object}  responses.LnurlErrorResponse
@@ -54,19 +53,20 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 	}
 
 	responseBody := &LnurlpResponseBody{}
-	responseBody.MinSendable = MIN_SENDABLE_SATS
-	responseBody.MaxSendable = MAX_SENDABLE_SATS
-	for _, s := range c.ParamNames() {
-		if strings.ToLower(s) == "amt" {
-			amt, err := strconv.ParseInt(c.QueryParam(s), 10, 64)
-			if err != nil {
-				c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam(s), err)
-				return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
-			}
-			responseBody.MinSendable = uint64(amt)
-			responseBody.MaxSendable = responseBody.MinSendable
-			break
+	responseBody.MinSendable = MIN_RECEIVABLE
+	responseBody.MaxSendable = uint64(controller.svc.Config.MaxReceiveAmount)
+	if c.QueryParams().Has("amt") {
+		amt, err := strconv.ParseInt(c.QueryParam("amt"), 10, 64)
+		if err != nil {
+			c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam(c.QueryParam("amt")), err)
+			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 		}
+		if amt > controller.svc.Config.MaxReceiveAmount || amt < MIN_RECEIVABLE {
+			c.Logger().Errorf("amt provided (%d) not in range [%d-%d]. %v", amt, MIN_RECEIVABLE, controller.svc.Config.MaxReceiveAmount)
+			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+		}
+		responseBody.MinSendable = uint64(amt)
+		responseBody.MaxSendable = responseBody.MinSendable
 	}
 	responseBody.Callback = "https://" + controller.svc.Config.LnurlAPIPrefix + "." + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
 	responseBody.Metadata = lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
