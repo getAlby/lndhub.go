@@ -19,7 +19,7 @@ func NewAddInvoiceController(svc *service.LndhubService) *AddInvoiceController {
 }
 
 type AddInvoiceRequestBody struct {
-	Amount          interface{} `json:"amt"` // amount in Satoshi
+	Amount          interface{} `json:"amt"` // amount in Satoshis
 	Memo            string      `json:"memo"`
 	DescriptionHash string      `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 }

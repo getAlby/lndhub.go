@@ -244,7 +244,7 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 	}
 	if inv.DescriptionHash != nil {
 		result.DescriptionHash = hex.EncodeToString(inv.DescriptionHash[:])
-	} else if inv.Description != nil { // according to spec if DescriptionHash is present not description should be present
+	} else if inv.Description != nil { // according to spec if DescriptionHash is present description must not be present
 		result.Description = *inv.Description
 	}
 	return result, nil
