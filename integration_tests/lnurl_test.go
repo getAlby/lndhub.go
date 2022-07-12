@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -51,6 +52,15 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	suite.userLogin = users[0]
 	suite.echo.GET("/v2/lnurlp/:user", v2controllers.NewLnurlController(suite.service).Lnurlp)
 	suite.echo.GET("/v2/invoice/:user", v2controllers.NewInvoiceController(suite.service).Invoice)
+}
+
+func (suite *LnurlTestSuite) TearDownSuite() {
+	err := clearTable(suite.service, "users")
+	if err != nil {
+		fmt.Printf("Tear down suite error %v\n", err.Error())
+		return
+	}
+	fmt.Println("Tear down suite success")
 }
 
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
