@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -36,7 +36,8 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
 				return "", "", fmt.Errorf("bad auth")
 			}
-			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+
+			if user.Password != security.HashPassword(password) {
 				return "", "", fmt.Errorf("bad auth")
 			}
 		}

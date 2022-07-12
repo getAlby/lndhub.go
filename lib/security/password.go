@@ -1,13 +1,14 @@
 package security
 
 import (
-	"golang.org/x/crypto/bcrypt"
+	"crypto/sha256"
+	"encoding/hex"
 )
 
 // HashPassword : Hash Password
 func HashPassword(password string) string {
-	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	password = string(bytes)
+	bytes := sha256.Sum256([]byte(password))
+	password = hex.EncodeToString(bytes[:])
 
 	return password
 }
