@@ -63,11 +63,12 @@ type InvoiceResponseBody struct {
 }
 
 type ExpectedLnurlpResponseBody struct {
-	Callback    string `json:"callback"`
-	MaxSendable uint64 `json:"maxSendable"`
-	MinSendable uint64 `json:"minSendable"`
-	Metadata    string `json:"metadata"`
-	Tag         string `json:"tag"`
+	Callback       string `json:"callback"`
+	MaxSendable    uint64 `json:"maxSendable"`
+	MinSendable    uint64 `json:"minSendable"`
+	Metadata       string `json:"metadata"`
+	CommentAllowed uint   `json:"commentAllowed"`
+	Tag            string `json:"tag"`
 }
 
 type ExpectedCheckPaymentResponseBody struct {

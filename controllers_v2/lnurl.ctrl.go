@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	MIN_RECEIVABLE = 1
-	PREFIX_MSG     = "Sats for "
+	MIN_RECEIVABLE      = 1
+	PREFIX_MSG          = "Sats for "
+	LNURLP_COMMENT_SIZE = 127
+	LNURLP_TAG          = "payRequest"
 )
 
 // LnurlController : Add lnurl controller struct
@@ -24,11 +26,12 @@ func NewLnurlController(svc *service.LndhubService) *LnurlController {
 }
 
 type LnurlpResponseBody struct {
-	Callback    string `json:"callback"`
-	MaxSendable uint64 `json:"maxSendable"`
-	MinSendable uint64 `json:"minSendable"`
-	Metadata    string `json:"metadata"`
-	Tag         string `json:"tag"`
+	Callback       string `json:"callback"`
+	MaxSendable    uint64 `json:"maxSendable"`
+	MinSendable    uint64 `json:"minSendable"`
+	Metadata       string `json:"metadata"`
+	CommentAllowed uint   `json:"commentAllowed"`
+	Tag            string `json:"tag"`
 }
 
 // Lnurlp godoc
@@ -70,8 +73,8 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 	}
 	responseBody.Callback = "https://" + controller.svc.Config.LnurlAPIPrefix + "." + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
 	responseBody.Metadata = lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
-
-	responseBody.Tag = "payRequest"
+	responseBody.CommentAllowed = LNURLP_COMMENT_SIZE
+	responseBody.Tag = LNURLP_TAG
 	return c.JSON(http.StatusOK, &responseBody)
 }
 
