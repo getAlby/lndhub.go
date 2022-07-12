@@ -56,7 +56,6 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		MaxSendAmount:         100000,
 		LnurlAPIPrefix:        "testnet",
 		LnurlDomain:           "mintter.com",
-		SignedMessagePrefix:   "sign in into mintter lndhub: ",
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
