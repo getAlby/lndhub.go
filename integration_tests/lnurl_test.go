@@ -24,10 +24,9 @@ import (
 
 type LnurlTestSuite struct {
 	TestSuite
-	service                  *service.LndhubService
-	mlnd                     *MockLND
-	userLogin                ExpectedCreateUserResponseBody
-	invoiceUpdateSubCancelFn context.CancelFunc
+	service   *service.LndhubService
+	mlnd      *MockLND
+	userLogin ExpectedCreateUserResponseBody
 }
 
 func (suite *LnurlTestSuite) SetupSuite() {
@@ -36,17 +35,13 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
+	suite.service = svc
 	suite.mlnd = mockLND
 	users, _, err := createUsers(svc, 1)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
 	}
-	// Subscribe to LND invoice updates in the background
-	// store cancel func to be called in tear down suite
-	ctx, cancel := context.WithCancel(context.Background())
-	suite.invoiceUpdateSubCancelFn = cancel
-	go svc.InvoiceUpdateSubscription(ctx)
-	suite.service = svc
+
 	e := echo.New()
 
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
@@ -121,9 +116,6 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	decodedPayreq, err := suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
 	assert.NoError(suite.T(), err)
 	assert.EqualValues(suite.T(), amt_msats, decodedPayreq.NumMsat)
-}
-func (suite *LnurlTestSuite) TearDownSuite() {
-	suite.invoiceUpdateSubCancelFn()
 }
 
 func TestLnurlSuite(t *testing.T) {
