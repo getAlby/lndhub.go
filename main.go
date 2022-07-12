@@ -20,6 +20,7 @@ import (
 	"github.com/getAlby/lndhub.go/docs"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
+	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -188,9 +189,8 @@ func main() {
 	regularRateLimitMiddleware := createRateLimitMiddleware(c.DefaultRateLimit, c.BurstRateLimit)
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
-
 	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware)
-	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, regularRateLimitMiddleware)
+	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, regularRateLimitMiddleware, security.SignatureMiddleware())
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host

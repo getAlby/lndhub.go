@@ -84,50 +84,6 @@ func (suite *CreateUserTestSuite) TestAdminCreate() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 }
 
-func (suite *CreateUserTestSuite) TestCreateAndChangePassWithProvidedLoginAndPassword() {
-	e := echo.New()
-	e.HTTPErrorHandler = responses.HTTPErrorHandler
-	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	var buf bytes.Buffer
-	const testLogin = "test login"
-	const oldPassword = "old password"
-	const newPassword = "new password"
-	json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
-		Login:    testLogin,
-		Password: oldPassword,
-	})
-	req := httptest.NewRequest(http.MethodPost, "/create", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	controller := controllers.NewCreateUserController(suite.Service)
-	responseBody := ExpectedCreateUserResponseBody{}
-	if assert.NoError(suite.T(), controller.CreateUser(c)) {
-		assert.Equal(suite.T(), http.StatusOK, rec.Code)
-		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-		assert.Equal(suite.T(), testLogin, responseBody.Login)
-		assert.Equal(suite.T(), oldPassword, responseBody.Password)
-		fmt.Printf("Successfully created user with login %s\n", responseBody.Login)
-	}
-
-	json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
-		Login:    testLogin,
-		Password: newPassword,
-	})
-	req = httptest.NewRequest(http.MethodPost, "/create", &buf)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec)
-	responseBody = ExpectedCreateUserResponseBody{}
-	if assert.NoError(suite.T(), controller.CreateUser(c)) {
-		assert.Equal(suite.T(), http.StatusOK, rec.Code)
-		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-		assert.Equal(suite.T(), testLogin, responseBody.Login)
-		assert.Equal(suite.T(), newPassword, responseBody.Password)
-		fmt.Printf("Successfully changed password from %s to %s\n", oldPassword, newPassword)
-	}
-}
-
 func TestCreateUserTestSuite(t *testing.T) {
 	suite.Run(t, new(CreateUserTestSuite))
 }
