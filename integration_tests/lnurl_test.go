@@ -66,14 +66,14 @@ func (suite *LnurlTestSuite) TearDownSuite() {
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 
 	// call the lnurl endpoint
-	const payreq_type = "payRequest"
 	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Nickname, nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(lnurlResponse))
-	assert.Equal(suite.T(), lnurlResponse.Tag, payreq_type)
+	assert.EqualValues(suite.T(), lnurlResponse.Tag, v2controllers.LNURLP_TAG)
+	assert.EqualValues(suite.T(), lnurlResponse.CommentAllowed, v2controllers.LNURLP_COMMENT_SIZE)
 	assert.EqualValues(suite.T(), lnurlResponse.MinSendable, 1)
 	assert.EqualValues(suite.T(), lnurlResponse.MaxSendable, suite.service.Config.MaxReceiveAmount)
 	urlStart := strings.Index(lnurlResponse.Callback, "/v2/invoice")

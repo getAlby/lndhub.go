@@ -97,6 +97,7 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	assert.EqualValues(suite.T(), responseBody.Password, hex.EncodeToString(messageSigned))
 	user, err = suite.Service.FindUserByLoginOrNickname(context.Background(), newNickname)
 	assert.NoError(suite.T(), err)
+	assert.EqualValues(suite.T(), user.Nickname, newNickname)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
