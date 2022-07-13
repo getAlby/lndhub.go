@@ -43,14 +43,14 @@ var indexHtml string
 var staticContent embed.FS
 
 // @title        LNDhub.go
-// @version      0.6.1
+// @version      0.9.0
 // @description  Accounting wrapper for the Lightning Network providing separate accounts for end-users.
 
 // @contact.name   Alby
 // @contact.url    https://getalby.com
 // @contact.email  hello@getalby.com
 
-// @license.name  GNU GPL
+// @license.name  GNU GPLv3
 // @license.url   https://www.gnu.org/licenses/gpl-3.0.en.html
 
 // @BasePath  /

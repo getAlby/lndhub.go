@@ -16,7 +16,7 @@ const docTemplate = `{
             "email": "hello@getalby.com"
         },
         "license": {
-            "name": "GNU GPL",
+            "name": "GNU GPLv3",
             "url": "https://www.gnu.org/licenses/gpl-3.0.en.html"
         },
         "version": "{{.Version}}"
@@ -716,7 +716,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.6.1",
+	Version:          "0.9.0",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{"https", "http"},

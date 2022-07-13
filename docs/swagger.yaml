@@ -178,10 +178,10 @@ info:
   description: Accounting wrapper for the Lightning Network providing separate accounts
     for end-users.
   license:
-    name: GNU GPL
+    name: GNU GPLv3
     url: https://www.gnu.org/licenses/gpl-3.0.en.html
   title: LNDhub.go
-  version: 0.6.1
+  version: 0.9.0
 paths:
   /auth:
     post:
