@@ -39,21 +39,16 @@ func SignatureMiddleware() echo.MiddlewareFunc {
 }
 
 func check_skip(c echo.Context) bool {
-	password, err := readFromBody(&c.Request().Body, "password")
+	login, err := readFromBody(&c.Request().Body, "login")
 	if err != nil {
 		c.Logger().Debugf("could not read body %v", err)
-		return true
+		return false // so it fails downstream
 	}
-	if password.(string) == "" {
-		c.Logger().Debugf("blank password")
-		return true
-	}
+	var actualLogin = login.(string)
 
-	v, ok := c.Request().Header[echo.HeaderAuthorization]
-	if !ok || len(v) != 1 || !strings.Contains(strings.ToLower(v[0]),
-		strings.ToLower(middleware.DefaultKeyAuthConfig.AuthScheme)) ||
-		len(v[0]) <= len(middleware.DefaultKeyAuthConfig.AuthScheme+"  ") {
-		c.Logger().Debugf("Wrong or absent signature auth format")
+	_, err = cid.Parse(actualLogin)
+	if err != nil {
+		c.Logger().Debugf("login %s not a cid", actualLogin)
 		return true
 	}
 
@@ -61,7 +56,17 @@ func check_skip(c echo.Context) bool {
 }
 
 func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
+	// check proper headers
+	v, ok := c.Request().Header[echo.HeaderAuthorization]
+	if !ok || len(v) != 1 || !strings.Contains(strings.ToLower(v[0]),
+		strings.ToLower(middleware.DefaultKeyAuthConfig.AuthScheme)) ||
+		len(v[0]) <= len(middleware.DefaultKeyAuthConfig.AuthScheme+"  ") {
+		err := fmt.Errorf("wrong or absent signature auth format")
+		c.Logger().Debugf(err.Error())
+		return false, err
+	}
 
+	// check proper body
 	pass, err := readFromBody(&c.Request().Body, "password")
 	if err != nil {
 		c.Logger().Debugf("could not read body %v", err)
@@ -76,6 +81,7 @@ func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
 	}
 	var actualLogin = login.(string)
 
+	// check pubkey leads to login
 	pub, err := hex.DecodeString(pubKeyStr)
 	if err != nil {
 		return false, fmt.Errorf("could not decode provided public key [%s] %v", pubKeyStr, err)
@@ -84,22 +90,6 @@ func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
 	pubKey, err := crypto.UnmarshalEd25519PublicKey(pub)
 	if err != nil {
 		c.Logger().Debugf("Unable to unmarshal pubkey %v", err)
-		return false, err
-	}
-
-	signature, err := hex.DecodeString(password)
-	if err != nil {
-		c.Logger().Debugf("Unable to unmarshal signature [%s]: %v", password, err)
-		return false, err
-	}
-	sig_ok, err := pubKey.Verify([]byte(LOGIN_MESSAGE), signature)
-	if err != nil {
-		c.Logger().Debugf("Unable to verify signature")
-		return false, err
-	}
-	if !sig_ok {
-		err = fmt.Errorf("signature and pubKey don't match")
-		c.Logger().Debugf(err.Error())
 		return false, err
 	}
 
@@ -121,6 +111,24 @@ func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
 		c.Logger().Debugf(err.Error())
 		return false, err
 	}
+
+	// check signature is valid
+	signature, err := hex.DecodeString(password)
+	if err != nil {
+		c.Logger().Debugf("Unable to unmarshal signature [%s]: %v", password, err)
+		return false, err
+	}
+	sig_ok, err := pubKey.Verify([]byte(LOGIN_MESSAGE), signature)
+	if err != nil {
+		c.Logger().Debugf("Unable to verify signature")
+		return false, err
+	}
+	if !sig_ok {
+		err = fmt.Errorf("signature and pubKey don't match")
+		c.Logger().Debugf(err.Error())
+		return false, err
+	}
+
 	return true, nil
 }
 

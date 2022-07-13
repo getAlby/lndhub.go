@@ -3,7 +3,6 @@ package integration_tests
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"math/rand"
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -26,6 +27,10 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+)
+
+var (
+	PRIV_KEY = []byte{8, 1, 18, 64, 250, 126, 64, 211, 185, 52, 213, 138, 129, 240, 49, 215, 8, 0, 143, 232, 142, 33, 34, 171, 16, 219, 41, 128, 102, 115, 188, 59, 39, 71, 124, 184, 234, 207, 90, 7, 190, 245, 13, 28, 12, 234, 139, 238, 38, 154, 82, 54, 239, 185, 155, 12, 144, 51, 65, 143, 172, 48, 165, 199, 34, 254, 25, 96}
 )
 
 type CreateUserV2TestSuite struct {
@@ -62,8 +67,7 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 
 	var buf bytes.Buffer
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	privKey := []byte{8, 1, 18, 64, 250, 126, 64, 211, 185, 52, 213, 138, 129, 240, 49, 215, 8, 0, 143, 232, 142, 33, 34, 171, 16, 219, 41, 128, 102, 115, 188, 59, 39, 71, 124, 184, 234, 207, 90, 7, 190, 245, 13, 28, 12, 234, 139, 238, 38, 154, 82, 54, 239, 185, 155, 12, 144, 51, 65, 143, 172, 48, 165, 199, 34, 254, 25, 96}
-	priv, err := crypto.UnmarshalPrivateKey(privKey)
+	priv, err := crypto.UnmarshalPrivateKey(PRIV_KEY)
 	assert.NoError(suite.T(), err)
 	pub := priv.GetPublic().(*crypto.Ed25519PublicKey)
 	pubBytes, _ := pub.Raw()
@@ -73,8 +77,8 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	assert.NoError(suite.T(), err)
 	mh, err := multihash.Cast([]byte(pid))
 	assert.NoError(suite.T(), err)
-
 	testLogin := cid.NewCidV1(security.MHASH_CODEC, mh).String()
+
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
 		Login:    testLogin,
 		Password: hex.EncodeToString(messageSigned),
@@ -102,6 +106,7 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	}))
 	req2 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
 	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req2.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req2)
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
@@ -119,21 +124,38 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongLogin() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 
 	var buf bytes.Buffer
-	pubKey, privKey, err := ed25519.GenerateKey(nil)
-	assert.NoError(suite.T(), err)
-	messageSigned := ed25519.Sign(privKey, []byte(security.LOGIN_MESSAGE))
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	const testLogin = "testLogin"
+	priv, err := crypto.UnmarshalPrivateKey(PRIV_KEY)
+	assert.NoError(suite.T(), err)
+	pub := priv.GetPublic().(*crypto.Ed25519PublicKey)
+	pubBytes, _ := pub.Raw()
+	messageSigned, err := priv.Sign([]byte(security.LOGIN_MESSAGE))
+	assert.NoError(suite.T(), err)
+	pid, err := peer.IDFromPublicKey(pub)
+	assert.NoError(suite.T(), err)
+	mh, err := multihash.Cast([]byte(pid))
+	assert.NoError(suite.T(), err)
+	testLogin := cid.NewCidV1(security.MHASH_CODEC, mh).String() + "a"
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
 		Login:    testLogin,
 		Password: hex.EncodeToString(messageSigned),
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubKey)))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	responseBody := ExpectedCreateUserRequestBody{}
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
+	assert.EqualValues(suite.T(), responseBody.Login, testLogin)
+	assert.EqualValues(suite.T(), responseBody.Nickname, testLogin)
+	assert.EqualValues(suite.T(), responseBody.Password, hex.EncodeToString(messageSigned))
+	user, err := suite.Service.FindUserByLoginOrNickname(context.Background(), testLogin)
+	assert.NoError(suite.T(), err)
+	assert.EqualValues(suite.T(), user.Nickname, testLogin)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
@@ -141,20 +163,28 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 
 	var buf bytes.Buffer
-	pubKey, _, err := ed25519.GenerateKey(nil)
-	assert.NoError(suite.T(), err)
-	_, privKey, err := ed25519.GenerateKey(nil)
-	assert.NoError(suite.T(), err)
-	messageSigned := ed25519.Sign(privKey, []byte(security.LOGIN_MESSAGE))
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	const testLogin = "testLogin"
+	priv, err := crypto.UnmarshalPrivateKey(PRIV_KEY)
+	assert.NoError(suite.T(), err)
+	pub := priv.GetPublic().(*crypto.Ed25519PublicKey)
+	pubBytes, _ := pub.Raw()
+	messageSigned := make([]byte, 64)
+	rand.Read(messageSigned)
+	assert.NoError(suite.T(), err)
+	pid, err := peer.IDFromPublicKey(pub)
+	assert.NoError(suite.T(), err)
+	mh, err := multihash.Cast([]byte(pid))
+	assert.NoError(suite.T(), err)
+	testLogin := cid.NewCidV1(security.MHASH_CODEC, mh).String()
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
 		Login:    testLogin,
 		Password: hex.EncodeToString(messageSigned),
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubKey)))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
