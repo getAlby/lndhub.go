@@ -720,7 +720,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{"https", "http"},
-	Title:            "LNDhub.go",
+	Title:            "LndHub.go",
 	Description:      "Accounting wrapper for the Lightning Network providing separate accounts for end-users.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

@@ -1,8 +1,8 @@
 # Rebuilding LndHub
 
-Goal of this project is to build a simple accounting system with a [LNDHub](https://github.com/BlueWallet/LndHub) compatible API that focusses on simplicity, maintainability and ease of deployment.
+Goal of this project is to build a simple accounting system with a [LndHub](https://github.com/BlueWallet/LndHub) compatible API that focusses on simplicity, maintainability and ease of deployment.
 
-[LNDHub](https://github.com/BlueWallet/LndHub) is a simple accounting system for LND. It allows users to send and receive lightning payments. Through the API people can access funds through a shared lightning node. (see overview.png diagram)
+[LndHub](https://github.com/BlueWallet/LndHub) is a simple accounting system for LND. It allows users to send and receive lightning payments. Through the API people can access funds through a shared lightning node. (see overview.png diagram)
 
 Some design goals:
 
@@ -17,7 +17,7 @@ Some design goals:
 
 ### API endpoints
 
-See [LNDHub API](https://github.com/BlueWallet/LndHub/blob/master/controllers/api.js) for enpoints and request/response signatures.
+See [LndHub API](https://github.com/BlueWallet/LndHub/blob/master/controllers/api.js) for enpoints and request/response signatures.
 
 #### /create
 Create a new user account
@@ -59,4 +59,4 @@ Node information
 
 ### Links
 
-* [LNDHub](https://github.com/BlueWallet/LndHub) - Current nodejs implementation
+* [LndHub](https://github.com/BlueWallet/LndHub) - Current nodejs implementation
