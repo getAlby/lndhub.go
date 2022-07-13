@@ -10,14 +10,17 @@ import (
 	"net/http"
 	"strings"
 
-	"crypto/ed25519"
-
+	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multihash"
 )
 
 const (
 	LOGIN_MESSAGE = "sign in into mintter lndhub"
+	MHASH_CODEC   = 1091161161
 )
 
 func SignatureMiddleware() echo.MiddlewareFunc {
@@ -66,22 +69,59 @@ func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
 	}
 	var password = pass.(string)
 
+	login, err := readFromBody(&c.Request().Body, "login")
+	if err != nil {
+		c.Logger().Debugf("could not read body %v", err)
+		return false, err
+	}
+	var actualLogin = login.(string)
+
 	pub, err := hex.DecodeString(pubKeyStr)
 	if err != nil {
 		return false, fmt.Errorf("could not decode provided public key [%s] %v", pubKeyStr, err)
 	}
-	pubKey := ed25519.PublicKey(pub)
-	if len(pubKey) != ed25519.PublicKeySize {
-		return false, fmt.Errorf("provided pubkey %s must be of length %d", pubKey, ed25519.PublicKeySize)
+
+	pubKey, err := crypto.UnmarshalEd25519PublicKey(pub)
+	if err != nil {
+		c.Logger().Debugf("Unable to unmarshal pubkey %v", err)
+		return false, err
 	}
+
 	signature, err := hex.DecodeString(password)
 	if err != nil {
 		c.Logger().Debugf("Unable to unmarshal signature [%s]: %v", password, err)
 		return false, err
 	}
+	sig_ok, err := pubKey.Verify([]byte(LOGIN_MESSAGE), signature)
+	if err != nil {
+		c.Logger().Debugf("Unable to verify signature")
+		return false, err
+	}
+	if !sig_ok {
+		err = fmt.Errorf("signature and pubKey don't match")
+		c.Logger().Debugf(err.Error())
+		return false, err
+	}
 
-	sig_ok := ed25519.Verify(pub, []byte(LOGIN_MESSAGE), signature)
-	return sig_ok, nil
+	pid, err := peer.IDFromPublicKey(pubKey)
+	if err != nil {
+		c.Logger().Debugf("Unable to get ID from pubkey")
+		return false, err
+	}
+	mh, err := multihash.Cast([]byte(pid))
+	if err != nil {
+		c.Logger().Debugf("Unable to multihash ID")
+		return false, err
+	}
+
+	expectedLogin := cid.NewCidV1(MHASH_CODEC, mh)
+
+	if actualLogin != expectedLogin.String() {
+		err = fmt.Errorf("expected login %s bug got login %s", expectedLogin.String(), actualLogin)
+		c.Logger().Debugf(err.Error())
+		return false, err
+	}
+	return true, nil
 }
 
 func readFromBody(r *io.ReadCloser, key string) (interface{}, error) {

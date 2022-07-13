@@ -12,6 +12,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/crypto"
+
 	v2controllers "github.com/getAlby/lndhub.go/controllers_v2"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -19,6 +22,8 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -56,18 +61,27 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 
 	var buf bytes.Buffer
-	pubKey, privKey, err := ed25519.GenerateKey(nil)
-	assert.NoError(suite.T(), err)
-	messageSigned := ed25519.Sign(privKey, []byte(security.LOGIN_MESSAGE))
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	const testLogin = "12D3KooWNmjM4sMbSkDEA6ShvjTgkrJHjMya46fhZ9PjKZ4KVZYq"
+	privKey := []byte{8, 1, 18, 64, 250, 126, 64, 211, 185, 52, 213, 138, 129, 240, 49, 215, 8, 0, 143, 232, 142, 33, 34, 171, 16, 219, 41, 128, 102, 115, 188, 59, 39, 71, 124, 184, 234, 207, 90, 7, 190, 245, 13, 28, 12, 234, 139, 238, 38, 154, 82, 54, 239, 185, 155, 12, 144, 51, 65, 143, 172, 48, 165, 199, 34, 254, 25, 96}
+	priv, err := crypto.UnmarshalPrivateKey(privKey)
+	assert.NoError(suite.T(), err)
+	pub := priv.GetPublic().(*crypto.Ed25519PublicKey)
+	pubBytes, _ := pub.Raw()
+	messageSigned, err := priv.Sign([]byte(security.LOGIN_MESSAGE))
+	assert.NoError(suite.T(), err)
+	pid, err := peer.IDFromPublicKey(pub)
+	assert.NoError(suite.T(), err)
+	mh, err := multihash.Cast([]byte(pid))
+	assert.NoError(suite.T(), err)
+
+	testLogin := cid.NewCidV1(security.MHASH_CODEC, mh).String()
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
 		Login:    testLogin,
 		Password: hex.EncodeToString(messageSigned),
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubKey)))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	responseBody := ExpectedCreateUserRequestBody{}
@@ -100,6 +114,28 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	assert.EqualValues(suite.T(), user.Nickname, newNickname)
 }
 
+func (suite *CreateUserV2TestSuite) TestCreateWrongLogin() {
+	e := echo.New()
+	e.HTTPErrorHandler = responses.HTTPErrorHandler
+
+	var buf bytes.Buffer
+	pubKey, privKey, err := ed25519.GenerateKey(nil)
+	assert.NoError(suite.T(), err)
+	messageSigned := ed25519.Sign(privKey, []byte(security.LOGIN_MESSAGE))
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+	const testLogin = "testLogin"
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
+		Login:    testLogin,
+		Password: hex.EncodeToString(messageSigned),
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubKey)))
+	rec := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
+}
+
 func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
 	e := echo.New()
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
@@ -111,7 +147,7 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
 	assert.NoError(suite.T(), err)
 	messageSigned := ed25519.Sign(privKey, []byte(security.LOGIN_MESSAGE))
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	const testLogin = "12D3KooWNmjM4sMbSkDEA6ShvjTgkrJHjMya46fhZ9PjKZ4KVZYq"
+	const testLogin = "testLogin"
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
 		Login:    testLogin,
 		Password: hex.EncodeToString(messageSigned),
@@ -169,15 +205,6 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongNickname() {
 	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
 }
 
-func (suite *CreateUserV2TestSuite) TestCreateWithProvidedLoginAndPassword() {
-	assert.NoError(suite.T(), nil)
-	/*
-		// TODO: uncomment once the test is ready
-		user, err := suite.Service.FindUserByLoginOrNickname(context.Background(), testNickname)
-		assert.NoError(suite.T(), err)
-		assert.Equal(suite.T(), user.Login, testLogin)
-	*/
-}
 func TestCreateUserV2TestSuite(t *testing.T) {
 	suite.Run(t, new(CreateUserV2TestSuite))
 }
