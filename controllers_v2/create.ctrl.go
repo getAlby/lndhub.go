@@ -30,7 +30,7 @@ type CreateUserRequestBody struct {
 
 // CreateUser godoc
 // @Summary      Create an account
-// @Description  Create a new account with a login and password login must be accountID and password signature("log in into mintter lndhub: <accountID>)")
+// @Description  Create a new account with a login and password login must be unique and password signature(<login_message>)
 // @Accept       json
 // @Produce      json
 // @Tags         Account
@@ -47,7 +47,6 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 		c.Logger().Errorf("Failed to load create user request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
 	user, err := controller.svc.CreateUser(c.Request().Context(), body.Login, body.Password, body.Nickname)
 	if err != nil {
 		c.Logger().Errorf("Failed to create user: %v", err)

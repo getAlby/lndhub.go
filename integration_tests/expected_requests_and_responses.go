@@ -84,6 +84,12 @@ type ExpectedCreateUserRequestBody struct {
 	Nickname    string `json:"nickname"`
 }
 
+type ExpectedCreateUser struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
+}
+
 type ExpectedOutgoingInvoice struct {
 	RHash           interface{} `json:"r_hash"`
 	PaymentHash     interface{} `json:"payment_hash"`
