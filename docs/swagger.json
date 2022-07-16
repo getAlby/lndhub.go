@@ -6,7 +6,7 @@
     "swagger": "2.0",
     "info": {
         "description": "Accounting wrapper for the Lightning Network providing separate accounts for end-users.",
-        "title": "LNDhub.go",
+        "title": "LndHub.go",
         "contact": {
             "name": "Alby",
             "url": "https://getalby.com",

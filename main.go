@@ -42,7 +42,7 @@ var indexHtml string
 //go:embed static/*
 var staticContent embed.FS
 
-// @title        LNDhub.go
+// @title        LndHub.go
 // @version      0.9.0
 // @description  Accounting wrapper for the Lightning Network providing separate accounts for end-users.
 

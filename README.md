@@ -1,8 +1,8 @@
-<div align="center">
-   <img alt="LNDHub.go" src="static/img/logo.png" width="400">
-</div>
+# LndHub.go
 
-# Wrapper for Lightning Network Daemon (lnd) ⚡
+![LndHub.go](static/img/logo.png)
+
+Wrapper for Lightning Network Daemon (lnd) ⚡
 
 It provides separate accounts with minimum trust for end users.
 Live deployment at [ln.getalby.com](https://ln.getalby.com).

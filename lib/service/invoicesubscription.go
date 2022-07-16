@@ -188,7 +188,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 	}
 	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
 	//Find user. Our convention here is that the TLV
-	//record should contain the user's LNDhub login string
+	//record should contain the user's login string
 	//(LND already returns the decoded string so there is no need to hex-decode it)
 	user, err := svc.FindUserByLogin(ctx, string(userLoginCustomRecord))
 	if err != nil {
