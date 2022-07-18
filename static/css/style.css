@@ -107,7 +107,6 @@ body {
 	top: 24px;
 	right: 24px;
 }
-
 #progressbar {
 	appearance: none;
 	margin: 0;
@@ -186,6 +185,9 @@ footer a {
  	body {
  		 padding-right: 300px;
  	}
+	.logo {
+		width: 200px;
+	}
 	.sidebar {
 		position: fixed;
 		top: 0;
@@ -249,5 +251,3 @@ footer a {
 	}
 
 }
-
-

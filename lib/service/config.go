@@ -1,5 +1,10 @@
 package service
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Config struct {
 	DatabaseUri           string `envconfig:"DATABASE_URI" required:"true"`
 	SentryDSN             string `envconfig:"SENTRY_DSN"`
@@ -24,4 +29,32 @@ type Config struct {
 	MaxReceiveAmount      int64  `envconfig:"MAX_RECEIVE_AMOUNT" default:"0"`
 	MaxSendAmount         int64  `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance     int64  `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
+	Branding              BrandingConfig
+}
+
+type BrandingConfig struct {
+	Title   string        `envconfig:"BRANDING_TITLE" default:"LndHub.go - Alby Lightning"`
+	Desc    string        `envconfig:"BRANDING_DESC" default:"Alby server for the Lightning Network"`
+	Url     string        `envconfig:"BRANDING_URL" default:"https://ln.getalby.com"`
+	Logo    string        `envconfig:"BRANDING_LOGO" default:"/static/img/alby.svg"`
+	Favicon string        `envconfig:"BRANDING_FAVICON" default:"/static/img/favicon.png"`
+	Footer  FooterLinkMap `envconfig:"BRANDING_FOOTER" default:"about=https://getalby.com;community=https://t.me/getAlby"`
+}
+
+// envconfig map decoder uses colon (:) as the default separator
+// we have to override the decoder so we can use colon for the protocol prefix (e.g. "https:")
+
+type FooterLinkMap map[string]string
+
+func (flm *FooterLinkMap) Decode(value string) error {
+	m := map[string]string{}
+	for _, pair := range strings.Split(value, ";") {
+		kvpair := strings.Split(pair, "=")
+		if len(kvpair) != 2 {
+			return fmt.Errorf("invalid map item: %q", pair)
+		}
+		m[kvpair[0]] = kvpair[1]
+	}
+	*flm = m
+	return nil
 }
