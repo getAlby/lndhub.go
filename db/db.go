@@ -14,11 +14,11 @@ import (
 func Open(dsn string) (*bun.DB, error) {
 	var db *bun.DB
 	switch {
-	case strings.HasPrefix(dsn, "postgres"):
+	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "unix://"):
 		dbConn := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
 		db = bun.NewDB(dbConn, pgdialect.New())
 	default:
-		return nil, fmt.Errorf("Invalid database connection string %s, only postgres is supported", dsn)
+		return nil, fmt.Errorf("Invalid database connection string %s, only (postgres|postgresql|unix):// is supported", dsn)
 	}
 
 	db.AddQueryHook(bundebug.NewQueryHook(
