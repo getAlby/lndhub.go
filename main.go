@@ -161,7 +161,8 @@ func main() {
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	ctx, cancelBackGroundProcess := context.WithCancel(context.Background())
+	go svc.InvoiceUpdateSubscription(ctx)
 
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {
@@ -205,6 +206,7 @@ func main() {
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
+	cancelBackGroundProcess()
 	if echoPrometheus != nil {
 		if err := echoPrometheus.Shutdown(ctx); err != nil {
 			e.Logger.Fatal(err)
