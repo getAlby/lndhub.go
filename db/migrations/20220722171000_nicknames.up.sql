@@ -1,4 +1,4 @@
-alter table users ADD COLUMN nickname character varying NOT NULL;
+alter table users ADD COLUMN nickname character varying;
 
 --bun:split
 
