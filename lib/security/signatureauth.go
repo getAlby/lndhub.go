@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	LOGIN_MESSAGE = "sign in into mintter lndhub"
+	LOGIN_MESSAGE = "sign in into lndhub"
 	MHASH_CODEC   = 1091161161
 )
 
