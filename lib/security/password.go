@@ -1,14 +1,20 @@
 package security
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 )
 
+const (
+	PASS_SALT = "spicy salt for lndhub jLrtux4m-9FtCzNi"
+)
+
 // HashPassword : Hash Password
 func HashPassword(password string) string {
-	bytes := sha256.Sum256([]byte(password))
-	password = hex.EncodeToString(bytes[:])
+	h := hmac.New(sha256.New, []byte(PASS_SALT))
+	h.Write([]byte(password))
+	password = hex.EncodeToString(h.Sum(nil))
 
 	return password
 }
