@@ -123,9 +123,11 @@ func main() {
 
 	// Init new LND client
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     c.LNDAddress,
-		MacaroonHex: c.LNDMacaroonHex,
-		CertHex:     c.LNDCertHex,
+		Address:      c.LNDAddress,
+		MacaroonFile: c.LNDMacaroonFile,
+		MacaroonHex:  c.LNDMacaroonHex,
+		CertFile:     c.LNDCertFile,
+		CertHex:      c.LNDCertHex,
 	})
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
