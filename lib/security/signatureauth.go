@@ -61,23 +61,19 @@ func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
 	if !ok || len(v) != 1 || !strings.Contains(strings.ToLower(v[0]),
 		strings.ToLower(middleware.DefaultKeyAuthConfig.AuthScheme)) ||
 		len(v[0]) <= len(middleware.DefaultKeyAuthConfig.AuthScheme+"  ") {
-		err := fmt.Errorf("wrong or absent signature auth format")
-		c.Logger().Debugf(err.Error())
-		return false, err
+		return false, fmt.Errorf("wrong or absent signature auth format")
 	}
 
 	// check proper body
 	pass, err := readFromBody(&c.Request().Body, "password")
 	if err != nil {
-		c.Logger().Debugf("could not read body %v", err)
-		return false, err
+		return false, fmt.Errorf("could not read body %v", err)
 	}
 	var password = pass.(string)
 
 	login, err := readFromBody(&c.Request().Body, "login")
 	if err != nil {
-		c.Logger().Debugf("could not read body %v", err)
-		return false, err
+		return false, fmt.Errorf("could not read body %v", err)
 	}
 	var actualLogin = login.(string)
 
@@ -89,44 +85,36 @@ func validate_signature(pubKeyStr string, c echo.Context) (bool, error) {
 
 	pubKey, err := crypto.UnmarshalEd25519PublicKey(pub)
 	if err != nil {
-		c.Logger().Debugf("Unable to unmarshal pubkey %v", err)
-		return false, err
+		return false, fmt.Errorf("Unable to unmarshal pubkey %v", err)
 	}
 
 	pid, err := peer.IDFromPublicKey(pubKey)
 	if err != nil {
-		c.Logger().Debugf("Unable to get ID from pubkey")
-		return false, err
+		return false, fmt.Errorf("Unable to get ID from pubkey")
 	}
 	mh, err := multihash.Cast([]byte(pid))
 	if err != nil {
-		c.Logger().Debugf("Unable to multihash ID")
-		return false, err
+		return false, fmt.Errorf("Unable to multihash ID")
 	}
 
 	expectedLogin := cid.NewCidV1(MHASH_CODEC, mh)
 
 	if actualLogin != expectedLogin.String() {
 		err = fmt.Errorf("expected login %s bug got login %s", expectedLogin.String(), actualLogin)
-		c.Logger().Debugf(err.Error())
 		return false, err
 	}
 
 	// check signature is valid
 	signature, err := hex.DecodeString(password)
 	if err != nil {
-		c.Logger().Debugf("Unable to unmarshal signature [%s]: %v", password, err)
-		return false, err
+		return false, fmt.Errorf("Unable to unmarshal signature [%s]: %v", password, err)
 	}
 	sig_ok, err := pubKey.Verify([]byte(LOGIN_MESSAGE), signature)
 	if err != nil {
-		c.Logger().Debugf("Unable to verify signature")
-		return false, err
+		return false, fmt.Errorf("Unable to verify signature")
 	}
 	if !sig_ok {
-		err = fmt.Errorf("signature and pubKey don't match")
-		c.Logger().Debugf(err.Error())
-		return false, err
+		return false, fmt.Errorf("signature and pubKey don't match")
 	}
 
 	return true, nil
