@@ -55,7 +55,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		MaxReceiveAmount:      1000000,
 		MaxSendAmount:         100000,
 		LnurlAPIPrefix:        "testnet",
-		LnurlDomain:           "domain.com",
+		LnurlDomain:           "example.com",
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
