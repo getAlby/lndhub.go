@@ -80,8 +80,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	assert.Greater(suite.T(), urlStart, 0)
 
 	// call callback
-	const amt_msats = 1546000
-	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:]+"?amount="+strconv.FormatInt(int64(amt_msats), 10), nil)
+	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:], nil)
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
 	invoiceResponse := &InvoiceResponseBody{}
@@ -90,7 +89,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
 	decodedPayreq, err := suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
 	assert.NoError(suite.T(), err)
-	assert.EqualValues(suite.T(), amt_msats, decodedPayreq.NumMsat)
+	assert.EqualValues(suite.T(), 0, decodedPayreq.NumMsat)
 	assert.NoError(suite.T(), err)
 	descriptionHash := sha256.Sum256([]byte(lnurlResponse.Metadata))
 	expectedPH := hex.EncodeToString(descriptionHash[:])
@@ -115,8 +114,8 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	assert.Greater(suite.T(), urlStart, 0)
 
 	// call callback
-	const amt_msats = 1546000
-	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:]+"?amount="+strconv.FormatInt(int64(amt_msats), 10), nil)
+	const amt_msats = amt_sats * 1000
+	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:], nil)
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
 	invoiceResponse := &InvoiceResponseBody{}

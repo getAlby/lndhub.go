@@ -58,6 +58,7 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 	responseBody := &LnurlpResponseBody{}
 	responseBody.MinSendable = MIN_RECEIVABLE
 	responseBody.MaxSendable = uint64(controller.svc.Config.MaxReceiveAmount)
+	responseBody.Callback = "https://" + controller.svc.Config.LnurlAPIPrefix + "." + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
 	if c.QueryParams().Has("amt") {
 		amt, err := strconv.ParseInt(c.QueryParam("amt"), 10, 64)
 		if err != nil {
@@ -70,8 +71,9 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 		}
 		responseBody.MinSendable = uint64(amt)
 		responseBody.MaxSendable = responseBody.MinSendable
+		responseBody.Callback = responseBody.Callback + "?amount=" + strconv.FormatInt(amt*1000, 10)
 	}
-	responseBody.Callback = "https://" + controller.svc.Config.LnurlAPIPrefix + "." + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
+
 	responseBody.Metadata = lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
 	responseBody.CommentAllowed = LNURLP_COMMENT_SIZE
 	responseBody.Tag = LNURLP_TAG
