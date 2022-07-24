@@ -59,9 +59,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		LNDMacaroonHex:          mockLNDMacaroonHex,
 		MaxReceiveAmount:        1000000,
 		MaxSendAmount:           100000,
-		LnurlAPIPrefix:          "testnet",
-		LnurlDomain:             "mintter.com",
-		SignedMessagePrefix:     "sign in into mintter lndhub: ",
+		LnurlDomain:             "testnet.example.com",
 	}
 
 	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
