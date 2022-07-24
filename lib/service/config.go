@@ -33,7 +33,6 @@ type Config struct {
 	MaxAccountBalance     int64  `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
 	LnurlDomain           string `envconfig:"LNURL_DOMAIN" default:"example.com"`
 	LnurlAPIPrefix        string `envconfig:"LNURL_API_PREFIX" default:"ln"`
-	SignedMessagePrefix   string `envconfig:"SIGNED_MESSAGE_PREFIX" default:"sign in into lndhub"`
 	Branding              BrandingConfig
 }
 
