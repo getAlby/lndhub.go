@@ -215,6 +215,110 @@ func (suite *CreateUserV2TestSuite) TestCreateWithNoSignature() {
 	assert.EqualValues(suite.T(), responseBody.Password, testPassword)
 }
 
+func (suite *CreateUserV2TestSuite) TestCreateTakenUserNickname() {
+	e := echo.New()
+	e.HTTPErrorHandler = responses.HTTPErrorHandler
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+	var buf bytes.Buffer
+	const takenLogin = "takenLogin"
+	const takenPassword = "takenPass"
+	const takenNickname = "takenNickname"
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    takenLogin,
+		Password: takenPassword,
+		Nickname: takenNickname,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	responseBody := ExpectedCreateUserRequestBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
+	assert.EqualValues(suite.T(), responseBody.Login, takenLogin)
+	assert.EqualValues(suite.T(), responseBody.Nickname, takenNickname)
+	assert.EqualValues(suite.T(), responseBody.Password, takenPassword)
+
+	const newNickname = "newNickname"
+	const newPassword = "newPassword"
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    takenNickname,
+		Password: newPassword,
+		Nickname: newNickname,
+	})
+	req2 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec2 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec2, req2)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec2.Code)
+
+	const newLogin = "newLogin"
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    newLogin,
+		Password: newPassword,
+		Nickname: takenLogin,
+	})
+	req3 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec3 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec3, req3)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec3.Code)
+
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    takenLogin,
+		Password: newPassword,
+		Nickname: newNickname,
+	})
+	req4 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req4.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec4 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec4, req4)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec4.Code)
+
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    newLogin,
+		Password: newPassword,
+		Nickname: takenNickname,
+	})
+	req5 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req5.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec5 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec5, req5)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec5.Code)
+
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    takenLogin,
+		Password: takenPassword,
+		Nickname: takenLogin,
+	})
+	req6 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req6.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec6 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec6, req6)
+	assert.Equal(suite.T(), http.StatusOK, rec6.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec6.Body).Decode(&responseBody))
+	assert.EqualValues(suite.T(), responseBody.Login, takenLogin)
+	assert.EqualValues(suite.T(), responseBody.Nickname, takenLogin)
+	assert.EqualValues(suite.T(), responseBody.Password, takenPassword)
+	_, err := suite.Service.FindUserByNickname(context.Background(), takenNickname)
+	assert.Error(suite.T(), err)
+
+	json.NewEncoder(&buf).Encode(&ExpectedCreateUserResponseBody{
+		Login:    takenLogin,
+		Password: takenPassword,
+		Nickname: takenLogin,
+	})
+	req7 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req7.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec7 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec7, req7)
+	assert.Equal(suite.T(), http.StatusOK, rec7.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec7.Body).Decode(&responseBody))
+	assert.EqualValues(suite.T(), responseBody.Login, takenLogin)
+	assert.EqualValues(suite.T(), responseBody.Nickname, takenLogin)
+	assert.EqualValues(suite.T(), responseBody.Password, takenPassword)
+}
+
 func (suite *CreateUserV2TestSuite) TestCreateWrongNickname() {
 	e := echo.New()
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
