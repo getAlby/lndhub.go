@@ -54,8 +54,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		LNDMacaroonHex:        mockLNDMacaroonHex,
 		MaxReceiveAmount:      1000000,
 		MaxSendAmount:         100000,
-		LnurlAPIPrefix:        "testnet",
-		LnurlDomain:           "example.com",
+		LnurlDomain:           "testnet.example.com",
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {

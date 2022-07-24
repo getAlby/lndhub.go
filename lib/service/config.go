@@ -31,8 +31,8 @@ type Config struct {
 	MaxReceiveAmount      int64  `envconfig:"MAX_RECEIVE_AMOUNT" default:"0"`
 	MaxSendAmount         int64  `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance     int64  `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
-	LnurlDomain           string `envconfig:"LNURL_DOMAIN" default:"example.com"`
-	LnurlAPIPrefix        string `envconfig:"LNURL_API_PREFIX" default:"ln"`
+	LnurlDomain           string `envconfig:"LNURL_DOMAIN" default:"ln.example.com"`
+	SignedMessagePrefix   string `envconfig:"SIGNED_MESSAGE_PREFIX" default:"sign in into lndhub"`
 	Branding              BrandingConfig
 }
 

@@ -58,7 +58,7 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 	responseBody := &LnurlpResponseBody{}
 	responseBody.MinSendable = MIN_RECEIVABLE
 	responseBody.MaxSendable = uint64(controller.svc.Config.MaxReceiveAmount)
-	responseBody.Callback = "https://" + controller.svc.Config.LnurlAPIPrefix + "." + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
+	responseBody.Callback = "https://" + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
 	if c.QueryParams().Has("amt") {
 		amt, err := strconv.ParseInt(c.QueryParam("amt"), 10, 64)
 		if err != nil {
