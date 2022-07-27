@@ -41,6 +41,23 @@ var BadArgumentsError = ErrorResponse{
 	Message: "Bad arguments",
 }
 
+var LoginTakenError = ErrorResponse{
+	Error:   true,
+	Code:    9,
+	Message: "Login already taken",
+}
+
+var NicknameTakenError = ErrorResponse{
+	Error:   true,
+	Code:    10,
+	Message: "Nickname already taken",
+}
+
+var NicknameFormatError = ErrorResponse{
+	Error:   true,
+	Code:    11,
+	Message: "Wrong nickname format",
+}
 var BadAuthError = ErrorResponse{
 	Error:   true,
 	Code:    1,
