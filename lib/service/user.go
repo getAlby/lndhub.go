@@ -9,6 +9,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/uptrace/bun"
@@ -36,7 +37,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 	// login must me unique across nickname column as well
 	existingUser, err := svc.FindUserByNickname(ctx, user.Login)
 	if err == nil && existingUser.Login != user.Login {
-		return nil, fmt.Errorf("login already taken")
+		return nil, fmt.Errorf(responses.LoginTakenError.Message)
 	}
 
 	if password == "" {
@@ -57,13 +58,13 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 	if nickname == "" {
 		user.Nickname = user.Login
 	} else if !validNickname.MatchString(nickname) {
-		return nil, fmt.Errorf("wrong nickname format")
+		return nil, fmt.Errorf(responses.NicknameFormatError.Message)
 	}
 
 	// Nickname must me unique across login column as well
 	existingUser, err = svc.FindUserByLogin(ctx, user.Nickname)
 	if err == nil && existingUser.Login != user.Login {
-		return nil, fmt.Errorf("nickname already taken")
+		return nil, fmt.Errorf(responses.NicknameTakenError.Message)
 	}
 
 	// we only store the hashed password but return the initial plain text password in the HTTP response

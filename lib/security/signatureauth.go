@@ -29,8 +29,8 @@ func SignatureMiddleware() echo.MiddlewareFunc {
 		c.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
 			"error":   true,
-			"code":    1,
-			"message": "bad auth",
+			"code":    -1,
+			"message": "bad signature authentication: " + err.Error(),
 		})
 	}
 	config.Validator = validate_signature
