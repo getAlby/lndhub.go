@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -11,6 +12,13 @@ import (
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, login string, password string) (user *models.User, err error) {
+
+	if !svc.Config.AllowCustomLogin && login != "" {
+		return nil, errors.New("custom login is not allowed")
+	}
+	if !svc.Config.AllowCustomPassword && password != "" {
+		return nil, errors.New("custom password is not allowed")
+	}
 
 	user = &models.User{}
 

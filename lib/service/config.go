@@ -26,6 +26,8 @@ type Config struct {
 	WebhookUrl            string `envconfig:"WEBHOOK_URL"`
 	FeeReserve            bool   `envconfig:"FEE_RESERVE" default:"false"`
 	AllowAccountCreation  bool   `envconfig:"ALLOW_ACCOUNT_CREATION" default:"true"`
+	AllowCustomLogin      bool   `envconfig:"ALLOW_CUSTOM_LOGIN" default:"true"`
+	AllowCustomPassword   bool   `envconfig:"ALLOW_CUSTOM_PASSWORD" default:"true"`
 	MaxReceiveAmount      int64  `envconfig:"MAX_RECEIVE_AMOUNT" default:"0"`
 	MaxSendAmount         int64  `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance     int64  `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
