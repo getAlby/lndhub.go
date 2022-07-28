@@ -59,7 +59,7 @@ func (suite *CreateUserTestSuite) TestCreate() {
 		assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
 		assert.NotEmpty(suite.T(), responseBody.Login)
 		assert.NotEmpty(suite.T(), responseBody.Password)
-		fmt.Printf("Sucessfully created user with login %s\n", responseBody.Login)
+		fmt.Printf("Successfully created user with login %s\n", responseBody.Login)
 	}
 }
 

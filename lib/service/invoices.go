@@ -380,6 +380,10 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	// Call LND
 	lnInvoiceResult, err := svc.LndClient.AddInvoice(ctx, &lnInvoice)
 	if err != nil {
+		_, err = svc.DB.NewDelete().Model(&invoice).Where("ID = ?", invoice.ID).Exec(ctx)
+		if err != nil {
+			svc.Logger.Errorf("Could not remove premature invoice ID %v we have an invoice that LND does not have!! Remove it manually", invoice.ID)
+		}
 		return nil, err
 	}
 

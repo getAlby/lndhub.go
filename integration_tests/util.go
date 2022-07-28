@@ -52,6 +52,9 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		JWTRefreshTokenExpiry: 3600,
 		LNDAddress:            mockLNDAddress,
 		LNDMacaroonHex:        mockLNDMacaroonHex,
+		MaxReceiveAmount:      1000000,
+		MaxSendAmount:         100000,
+		LnurlDomain:           "testnet.example.com",
 	}
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
@@ -108,13 +111,14 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []Expect
 	logins = []ExpectedCreateUserResponseBody{}
 	tokens = []string{}
 	for i := 0; i < usersToCreate; i++ {
-		user, err := svc.CreateUser(context.Background(), "", "")
+		user, err := svc.CreateUser(context.Background(), "", "", "")
 		if err != nil {
 			return nil, nil, err
 		}
 		var login ExpectedCreateUserResponseBody
 		login.Login = user.Login
 		login.Password = user.Password
+		login.Nickname = user.Nickname
 		logins = append(logins, login)
 		token, _, err := svc.GenerateToken(context.Background(), login.Login, login.Password, "")
 		if err != nil {

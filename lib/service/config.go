@@ -13,7 +13,9 @@ type Config struct {
 	JWTRefreshTokenExpiry int    `envconfig:"JWT_REFRESH_EXPIRY" default:"604800"` // in seconds, default 7 days
 	JWTAccessTokenExpiry  int    `envconfig:"JWT_ACCESS_EXPIRY" default:"172800"`  // in seconds, default 2 days
 	LNDAddress            string `envconfig:"LND_ADDRESS" required:"true"`
-	LNDMacaroonHex        string `envconfig:"LND_MACAROON_HEX" required:"true"`
+	LNDMacaroonFile       string `envconfig:"LND_MACAROON_FILE"`
+	LNDCertFile           string `envconfig:"LND_CERT_FILE"`
+	LNDMacaroonHex        string `envconfig:"LND_MACAROON_HEX"`
 	LNDCertHex            string `envconfig:"LND_CERT_HEX"`
 	CustomName            string `envconfig:"CUSTOM_NAME"`
 	Host                  string `envconfig:"HOST" default:"localhost:3000"`
@@ -29,6 +31,7 @@ type Config struct {
 	MaxReceiveAmount      int64  `envconfig:"MAX_RECEIVE_AMOUNT" default:"0"`
 	MaxSendAmount         int64  `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance     int64  `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
+	LnurlDomain           string `envconfig:"LNURL_DOMAIN" default:"ln.example.com"`
 	Branding              BrandingConfig
 }
 

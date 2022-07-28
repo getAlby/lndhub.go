@@ -18,6 +18,7 @@ import (
 	"github.com/getAlby/lndhub.go/docs"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
+	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -123,9 +124,11 @@ func main() {
 
 	// Init new LND client
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     c.LNDAddress,
-		MacaroonHex: c.LNDMacaroonHex,
-		CertHex:     c.LNDCertHex,
+		Address:      c.LNDAddress,
+		MacaroonFile: c.LNDMacaroonFile,
+		MacaroonHex:  c.LNDMacaroonHex,
+		CertFile:     c.LNDCertFile,
+		CertHex:      c.LNDCertHex,
 	})
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
@@ -146,11 +149,11 @@ func main() {
 	}
 
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
+	regularRateLimitMiddleware := createRateLimitMiddleware(c.DefaultRateLimit, c.BurstRateLimit)
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
-
 	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware)
-	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware)
+	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, regularRateLimitMiddleware, security.SignatureMiddleware())
 
 	//invoice streaming
 	//Authentication should be done through the query param because this is a websocket
@@ -191,7 +194,7 @@ func main() {
 	// Start server
 	go func() {
 		if err := e.Start(fmt.Sprintf(":%v", c.Port)); err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatal("shutting down the server")
+			e.Logger.Fatal("shutting down the server. ", err.Error())
 		}
 	}()
 

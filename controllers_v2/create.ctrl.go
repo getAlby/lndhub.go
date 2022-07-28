@@ -2,6 +2,7 @@ package v2controllers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -20,16 +21,17 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 type CreateUserResponseBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
-	ID       int64  `json:"id"`
+	Nickname string `json:"nickname"`
 }
 type CreateUserRequestBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+	Nickname string `json:"nickname"`
 }
 
 // CreateUser godoc
 // @Summary      Create an account
-// @Description  Create a new account with a login and password
+// @Description  Create a new account with a login and password login must be unique and password signature(<login_message>)
 // @Accept       json
 // @Produce      json
 // @Tags         Account
@@ -46,16 +48,27 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 		c.Logger().Errorf("Failed to load create user request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	user, err := controller.svc.CreateUser(c.Request().Context(), body.Login, body.Password)
+	user, err := controller.svc.CreateUser(c.Request().Context(), body.Login, body.Password, body.Nickname)
 	if err != nil {
 		c.Logger().Errorf("Failed to create user: %v", err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		if strings.Contains(err.Error(), responses.LoginTakenError.Message) ||
+			(strings.Contains(err.Error(), "duplicate") && strings.Contains(err.Error(), "login")) {
+			return c.JSON(http.StatusBadRequest, responses.LoginTakenError)
+		} else if strings.Contains(err.Error(), responses.NicknameTakenError.Message) ||
+			(strings.Contains(err.Error(), "duplicate") && strings.Contains(err.Error(), "nickname")) {
+			return c.JSON(http.StatusBadRequest, responses.NicknameTakenError)
+		} else if strings.Contains(err.Error(), responses.NicknameFormatError.Message) {
+			return c.JSON(http.StatusBadRequest, responses.NicknameFormatError)
+		} else {
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+
 	}
 
 	var ResponseBody CreateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Password = user.Password
-	ResponseBody.ID = user.ID
+	ResponseBody.Nickname = user.Nickname
 
 	return c.JSON(http.StatusOK, &ResponseBody)
 }

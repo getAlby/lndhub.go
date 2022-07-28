@@ -3,14 +3,21 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"regexp"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/uptrace/bun"
 )
 
-func (svc *LndhubService) CreateUser(ctx context.Context, login string, password string) (user *models.User, err error) {
+var (
+	validNickname = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
+)
+
+func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickname string) (user *models.User, err error) {
 
 	user = &models.User{}
 
@@ -24,12 +31,36 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 		user.Login = string(randLoginBytes)
 	}
 
+	// login must me unique across nickname column as well
+	existingUser, err := svc.FindUserByNickname(ctx, user.Login)
+	if err == nil && existingUser.Login != user.Login {
+		return nil, fmt.Errorf(responses.LoginTakenError.Message)
+	}
+
 	if password == "" {
 		randPasswordBytes, err := randBytesFromStr(20, alphaNumBytes)
 		if err != nil {
 			return nil, err
 		}
 		password = string(randPasswordBytes)
+	}
+	user.Nickname = nickname
+	if nickname == "" {
+		user.Nickname = user.Login
+	} else if !validNickname.MatchString(nickname) {
+		return nil, fmt.Errorf(responses.NicknameFormatError.Message)
+	}
+
+	// Nickname must me unique across login column as well
+	existingUser, err = svc.FindUserByLogin(ctx, user.Nickname)
+	if err == nil && existingUser.Login != user.Login {
+		return nil, fmt.Errorf(responses.NicknameTakenError.Message)
+	}
+
+	// If we are trying to create an already created user (with another password)
+	existingUser, err = svc.FindUserByLogin(ctx, user.Login)
+	if err == nil && !security.VerifyPassword(existingUser.Password, password) {
+		return nil, fmt.Errorf(responses.LoginTakenError.Message)
 	}
 
 	// we only store the hashed password but return the initial plain text password in the HTTP response
@@ -40,9 +71,10 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
 	err = svc.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
+		if _, err := tx.NewInsert().Model(user).On("CONFLICT (login) DO UPDATE").Set("nickname = EXCLUDED.nickname").Exec(ctx); err != nil {
 			return err
 		}
+
 		accountTypes := []string{
 			common.AccountTypeIncoming,
 			common.AccountTypeCurrent,
@@ -76,6 +108,26 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	var user models.User
 
 	err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Limit(1).Scan(ctx)
+	if err != nil {
+		return &user, err
+	}
+	return &user, nil
+}
+
+func (svc *LndhubService) FindUserByNickname(ctx context.Context, nickname string) (*models.User, error) {
+	var user models.User
+
+	err := svc.DB.NewSelect().Model(&user).Where("nickname = ?", nickname).Limit(1).Scan(ctx)
+	if err != nil {
+		return &user, err
+	}
+	return &user, nil
+}
+
+func (svc *LndhubService) FindUserByLoginOrNickname(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+
+	err := svc.DB.NewSelect().Model(&user).Where("nickname = ? OR login = ?", username, username).Limit(1).Scan(ctx)
 	if err != nil {
 		return &user, err
 	}

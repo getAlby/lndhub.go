@@ -52,6 +52,20 @@ type ExpectedBalanceResponse struct {
 	}
 }
 
+type InvoiceResponseBody struct {
+	Payreq string   `json:"pr"`
+	Routes []string `json:"routes"`
+}
+
+type ExpectedLnurlpResponseBody struct {
+	Callback       string `json:"callback"`
+	MaxSendable    uint64 `json:"maxSendable"`
+	MinSendable    uint64 `json:"minSendable"`
+	Metadata       string `json:"metadata"`
+	CommentAllowed uint   `json:"commentAllowed"`
+	Tag            string `json:"tag"`
+}
+
 type ExpectedCheckPaymentResponseBody struct {
 	IsPaid bool `json:"paid"`
 }
@@ -59,12 +73,21 @@ type ExpectedCheckPaymentResponseBody struct {
 type ExpectedCreateUserResponseBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+	Nickname string `json:"nickname"`
 }
+
 type ExpectedCreateUserRequestBody struct {
 	Login       string `json:"login"`
 	Password    string `json:"password"`
 	PartnerID   string `json:"partnerid"`
 	AccountType string `json:"accounttype"`
+	Nickname    string `json:"nickname"`
+}
+
+type ExpectedCreateUser struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
 }
 
 type ExpectedOutgoingInvoice struct {

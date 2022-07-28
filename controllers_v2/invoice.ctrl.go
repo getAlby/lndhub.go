@@ -1,7 +1,10 @@
 package v2controllers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -136,6 +139,11 @@ type AddInvoiceResponseBody struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
+type InvoiceResponseBody struct {
+	Payreq string   `json:"pr"`
+	Routes []string `json:"routes"`
+}
+
 // AddInvoice godoc
 // @Summary      Generate a new invoice
 // @Description  Returns a new bolt11 invoice
@@ -146,7 +154,7 @@ type AddInvoiceResponseBody struct {
 // @Success      200      {object}  AddInvoiceResponseBody
 // @Failure      400      {object}  responses.ErrorResponse
 // @Failure      500      {object}  responses.ErrorResponse
-// @Router       /v2/invoices [post]
+// @Router       /v2/addinvoice [post]
 // @Security     OAuth2Password
 func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
@@ -177,6 +185,58 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &responseBody)
+}
+
+// Invoice godoc
+// @Summary      Generate an invoice without credentials
+// @Description  Ask a user to generate an invoice
+// @Accept       json
+// @Produce      json
+// @Param        user_login path string true "User login or nickname"
+// @Param        amount path string true "amount in millisatoshis at the invoice"
+// @Tags         Invoice
+// @Success      200  {object}  InvoiceResponseBody
+// @Failure      400  {object}  responses.LnurlErrorResponse
+// @Failure      500  {object}  responses.LnurlErrorResponse
+// @Router       /v2/invoice/{user} [get]
+// @Security     OAuth2Password
+func (controller *InvoiceController) Invoice(c echo.Context) error {
+	// The user param could be userID (login) or a nickname (lnaddress)
+	user, err := controller.svc.FindUserByLoginOrNickname(c.Request().Context(), c.Param("user"))
+	if err != nil {
+		c.Logger().Errorf("Failed to find user by login or nickname: user %v error %v", c.Param("user"), err)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
+	var amt_msat int64 = -1
+	if c.QueryParams().Has("amount") {
+		amt_msat, err = strconv.ParseInt(c.QueryParam("amount"), 10, 64)
+		if err != nil {
+			c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam("amount"), err)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+	}
+
+	if controller.svc.Config.MaxReceiveAmount > 0 && amt_msat/1000 > controller.svc.Config.MaxReceiveAmount {
+		c.Logger().Errorf("Max receive amount exceeded for user_id:%v (amount:%v)", user.ID, amt_msat/1000)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
+
+	descriptionHash := lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
+
+	descriptionhash_hex := sha256.Sum256([]byte(descriptionHash))
+	descriptionhash_string := hex.EncodeToString(descriptionhash_hex[:])
+	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s", user.ID, amt_msat/1000, descriptionhash_string)
+	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, "", descriptionhash_string)
+	if err != nil {
+		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", user.ID, err)
+		sentry.CaptureException(err)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
+	responseBody := InvoiceResponseBody{}
+	responseBody.Payreq = invoice.PaymentRequest
+
+	return c.JSON(http.StatusOK, &responseBody)
+
 }
 
 // GetInvoice godoc

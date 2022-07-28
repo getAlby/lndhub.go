@@ -14,6 +14,21 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
+type ErrorResponseLnurl struct {
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
+var LnurlpBadArgumentsError = ErrorResponseLnurl{
+	Status: "ERROR",
+	Reason: "Bad arguments",
+}
+
+var LnurlpBadAuthError = ErrorResponseLnurl{
+	Status: "ERROR",
+	Reason: "Bad auth",
+}
+
 var GeneralServerError = ErrorResponse{
 	Error:   true,
 	Code:    6,
@@ -26,6 +41,23 @@ var BadArgumentsError = ErrorResponse{
 	Message: "Bad arguments",
 }
 
+var LoginTakenError = ErrorResponse{
+	Error:   true,
+	Code:    9,
+	Message: "Login already taken",
+}
+
+var NicknameTakenError = ErrorResponse{
+	Error:   true,
+	Code:    10,
+	Message: "Nickname already taken",
+}
+
+var NicknameFormatError = ErrorResponse{
+	Error:   true,
+	Code:    11,
+	Message: "Wrong nickname format",
+}
 var BadAuthError = ErrorResponse{
 	Error:   true,
 	Code:    1,
