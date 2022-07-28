@@ -1,20 +1,18 @@
 package security
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	PASS_SALT = "spicy salt for lndhub jLrtux4m-9FtCzNi"
-)
-
-// HashPassword : Hash Password
+// HashPassword encrypts a plaintext password. Returns the ciphertext
 func HashPassword(password string) string {
-	h := hmac.New(sha256.New, []byte(PASS_SALT))
-	h.Write([]byte(password))
-	password = hex.EncodeToString(h.Sum(nil))
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	password = string(bytes)
 
 	return password
+}
+
+// VerifyPassword returns true if the ciphertext provided is a valid hash from the plaintext pass provided. False otherwise
+func VerifyPassword(ciphertext, plaintext string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(ciphertext), []byte(plaintext)) == nil
 }
