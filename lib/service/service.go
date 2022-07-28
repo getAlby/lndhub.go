@@ -37,7 +37,7 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 				return "", "", fmt.Errorf("bad auth")
 			}
 
-			if user.Password != security.HashPassword(password) {
+			if !security.VerifyPassword(user.Password, password) {
 				return "", "", fmt.Errorf("bad auth")
 			}
 		}

@@ -67,6 +67,12 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 		return nil, fmt.Errorf(responses.NicknameTakenError.Message)
 	}
 
+	// If we are trying to create an already created user (with another password)
+	existingUser, err = svc.FindUserByLogin(ctx, user.Login)
+	if err == nil && !security.VerifyPassword(existingUser.Password, password) {
+		return nil, fmt.Errorf(responses.LoginTakenError.Message)
+	}
+
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
@@ -75,7 +81,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
 	err = svc.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(user).On("CONFLICT (login, password) DO UPDATE").Set("nickname = EXCLUDED.nickname").Exec(ctx); err != nil {
+		if _, err := tx.NewInsert().Model(user).On("CONFLICT (login) DO UPDATE").Set("nickname = EXCLUDED.nickname").Exec(ctx); err != nil {
 			return err
 		}
 
