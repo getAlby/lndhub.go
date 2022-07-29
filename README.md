@@ -48,6 +48,7 @@ vim .env # edit your config
 + `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
 + `FEE_RESERVE`: (default: false) Keep fee reserve for each user
 + `ALLOW_ACCOUNT_CREATION`: (default: true) Enable creation of new accounts
++ `MIN_PASSWORD_ENTROPY`: (default: 0 = disable check) Minimum entropy (bits) of a password to be accepted during account creation
 + `MAX_RECEIVE_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) for which an invoice can be created
 + `MAX_SEND_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) of an invoice that can be paid
 + `MAX_ACCOUNT_BALANCE`: (default: 0 = no limit) Set maximum balance (in satoshi) for each account
