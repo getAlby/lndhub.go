@@ -31,7 +31,7 @@ type CreateUserRequestBody struct {
 
 // CreateUser godoc
 // @Summary      Create an account
-// @Description  Create a new account with a login and password login must be accountID and password signature("log in into mintter lndhub: <accountID>)")
+// @Description  Create a new account with a login and password. If login is an libp2p CID then the password must be the signature("log in into mintter lndhub: <accountID>)") and the pubkey must be present in the auth header.
 // @Accept       json
 // @Produce      json
 // @Tags         Account

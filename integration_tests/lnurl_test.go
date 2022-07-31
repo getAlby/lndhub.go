@@ -66,7 +66,7 @@ func (suite *LnurlTestSuite) TearDownSuite() {
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 
 	// call the lnurl endpoint
-	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Nickname, nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Login, nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}
@@ -101,7 +101,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	// call the lnurl endpoint
 	const payreq_type = "payRequest"
 	const amt_sats = int64(1245)
-	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Nickname+"?amt="+strconv.FormatInt(amt_sats, 10), nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Login+"?amt="+strconv.FormatInt(amt_sats, 10), nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}

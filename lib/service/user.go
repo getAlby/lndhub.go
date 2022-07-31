@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	validNickname = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
+	validNickname = regexp.MustCompile(`^[a-zA-Z0-9_\-]*$`)
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickname string) (user *models.User, err error) {
@@ -54,16 +54,15 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 			}
 		}
 	}
+
 	user.Nickname = nickname
-	if nickname == "" {
-		user.Nickname = user.Login
-	} else if !validNickname.MatchString(nickname) {
+	if !validNickname.MatchString(user.Nickname) {
 		return nil, fmt.Errorf(responses.NicknameFormatError.Message)
 	}
 
 	// Nickname must me unique across login column as well
-	existingUser, err = svc.FindUserByLogin(ctx, user.Nickname)
-	if err == nil && existingUser.Login != user.Login {
+	existingUser, err = svc.FindUserByLoginOrNickname(ctx, user.Nickname)
+	if err == nil && existingUser.Login != user.Login && user.Nickname != "" {
 		return nil, fmt.Errorf(responses.NicknameTakenError.Message)
 	}
 
@@ -73,6 +72,13 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 		return nil, fmt.Errorf(responses.LoginTakenError.Message)
 	}
 
+	// if the user already exists and there is a blank nickname in the request,
+	// we respond the actual nickname.
+	if err == nil && user.Nickname == "" {
+		//return actual password in the response, not the hashed one
+		existingUser.Password = password
+		return existingUser, nil
+	}
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	hashedPassword := security.HashPassword(password)
 	user.Password = hashedPassword
