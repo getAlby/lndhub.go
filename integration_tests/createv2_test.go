@@ -58,7 +58,6 @@ func (suite *CreateUserV2TestSuite) TearDownTest() {
 		fmt.Printf("Tear down test error %v\n", err.Error())
 		return
 	}
-	fmt.Println("Tear down test success")
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
@@ -91,12 +90,12 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	responseBody := ExpectedCreateUserRequestBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, testLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, testLogin)
-	assert.EqualValues(suite.T(), responseBody.Password, hex.EncodeToString(messageSigned))
+	assert.EqualValues(suite.T(), testLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), "", responseBody.Nickname)
+	assert.EqualValues(suite.T(), hex.EncodeToString(messageSigned), responseBody.Password)
 	user, err := suite.Service.FindUserByLoginOrNickname(context.Background(), testLogin)
 	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), user.Nickname, testLogin)
+	assert.Equal(suite.T(), testLogin, user.Login)
 
 	const newNickname = "newNickname"
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
@@ -109,14 +108,30 @@ func (suite *CreateUserV2TestSuite) TestCreateAndChangeNickname() {
 	req2.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req2)
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, testLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, newNickname)
-	assert.EqualValues(suite.T(), responseBody.Password, hex.EncodeToString(messageSigned))
+	assert.EqualValues(suite.T(), testLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), newNickname, responseBody.Nickname)
+	assert.EqualValues(suite.T(), hex.EncodeToString(messageSigned), responseBody.Password)
 	user, err = suite.Service.FindUserByLoginOrNickname(context.Background(), newNickname)
 	assert.NoError(suite.T(), err)
-	assert.EqualValues(suite.T(), user.Nickname, newNickname)
+	assert.EqualValues(suite.T(), newNickname, user.Nickname)
+
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedCreateUserRequestBody{
+		Login:    testLogin,
+		Password: hex.EncodeToString(messageSigned),
+		Nickname: "", // to get the nickname
+	}))
+	req3 := httptest.NewRequest(http.MethodPost, "/v2/create", &buf)
+	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req3.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
+	rec3 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec3, req3)
+	assert.Equal(suite.T(), http.StatusOK, rec3.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec3.Body).Decode(&responseBody))
+	assert.EqualValues(suite.T(), testLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), newNickname, responseBody.Nickname)
+	assert.EqualValues(suite.T(), hex.EncodeToString(messageSigned), responseBody.Password)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateWrongLogin() {
@@ -150,12 +165,12 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongLogin() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	responseBody := ExpectedCreateUserRequestBody{}
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, testLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, testLogin)
-	assert.EqualValues(suite.T(), responseBody.Password, hex.EncodeToString(messageSigned))
+	assert.EqualValues(suite.T(), testLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), "", responseBody.Nickname)
+	assert.EqualValues(suite.T(), hex.EncodeToString(messageSigned), responseBody.Password)
 	user, err := suite.Service.FindUserByLoginOrNickname(context.Background(), testLogin)
 	assert.NoError(suite.T(), err)
-	assert.EqualValues(suite.T(), user.Nickname, testLogin)
+	assert.EqualValues(suite.T(), "", user.Nickname)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
@@ -187,7 +202,7 @@ func (suite *CreateUserV2TestSuite) TestCreateWrongSignature() {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hex.EncodeToString(pubBytes)))
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
-	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
+	assert.Equal(suite.T(), rec.Code, http.StatusUnauthorized)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateWithNoSignature() {
@@ -210,9 +225,9 @@ func (suite *CreateUserV2TestSuite) TestCreateWithNoSignature() {
 	responseBody := ExpectedCreateUserRequestBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, testLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, testNickname)
-	assert.EqualValues(suite.T(), responseBody.Password, testPassword)
+	assert.EqualValues(suite.T(), testLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), testNickname, responseBody.Nickname)
+	assert.EqualValues(suite.T(), testPassword, responseBody.Password)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateTakenUserNickname() {
@@ -235,9 +250,9 @@ func (suite *CreateUserV2TestSuite) TestCreateTakenUserNickname() {
 	responseBody := ExpectedCreateUserRequestBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, takenLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, takenNickname)
-	assert.EqualValues(suite.T(), responseBody.Password, takenPassword)
+	assert.EqualValues(suite.T(), takenLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), takenNickname, responseBody.Nickname)
+	assert.EqualValues(suite.T(), takenPassword, responseBody.Password)
 
 	const newNickname = "newNickname"
 	const newPassword = "newPassword"
@@ -297,9 +312,9 @@ func (suite *CreateUserV2TestSuite) TestCreateTakenUserNickname() {
 	suite.echo.ServeHTTP(rec6, req6)
 	assert.Equal(suite.T(), http.StatusOK, rec6.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec6.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, takenLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, takenLogin)
-	assert.EqualValues(suite.T(), responseBody.Password, takenPassword)
+	assert.EqualValues(suite.T(), takenLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), takenLogin, responseBody.Nickname)
+	assert.EqualValues(suite.T(), takenPassword, responseBody.Password)
 	_, err := suite.Service.FindUserByNickname(context.Background(), takenNickname)
 	assert.Error(suite.T(), err)
 
@@ -314,9 +329,9 @@ func (suite *CreateUserV2TestSuite) TestCreateTakenUserNickname() {
 	suite.echo.ServeHTTP(rec7, req7)
 	assert.Equal(suite.T(), http.StatusOK, rec7.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec7.Body).Decode(&responseBody))
-	assert.EqualValues(suite.T(), responseBody.Login, takenLogin)
-	assert.EqualValues(suite.T(), responseBody.Nickname, takenLogin)
-	assert.EqualValues(suite.T(), responseBody.Password, takenPassword)
+	assert.EqualValues(suite.T(), takenLogin, responseBody.Login)
+	assert.EqualValues(suite.T(), takenLogin, responseBody.Nickname)
+	assert.EqualValues(suite.T(), takenPassword, responseBody.Password)
 }
 
 func (suite *CreateUserV2TestSuite) TestCreateWrongNickname() {
