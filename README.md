@@ -33,8 +33,10 @@ vim .env # edit your config
 + `JWT_ACCESS_EXPIRY`: How long the access tokens should be valid (in seconds, default 2 days)
 + `JWT_REFRESH_EXPIRY`: How long the refresh tokens should be valid (in seconds, default 7 days)
 + `LND_ADDRESS`: LND gRPC address (with port) (e.g. `localhost:10009`)
-+ `LND_MACAROON_HEX`: LND macaroon (hex-encoded `admin.macaroon`)
-+ `LND_CERT_HEX`: LND certificate (hex-encoded `tls.cert`)
++ `LND_MACAROON_HEX`: LND macaroon (hex-encoded contents of `admin.macaroon` or `lndhub.macaroon`, see below)
++ `LND_MACAROON_FILE`: LND macaroon (provided as path on a filesystem)
++ `LND_CERT_HEX`: LND certificate (hex-encoded contents of `tls.cert`)
++ `LND_CERT_FILE`: LND certificate (provided as path on a filesystem)
 + `CUSTOM_NAME`: Name used to overwrite the node alias in the getInfo call
 + `LOG_FILE_PATH`: (optional) By default all logs are written to STDOUT. If you want to log to a file provide the log file path here
 + `SENTRY_DSN`: (optional) Sentry DSN for exception tracking
@@ -66,6 +68,13 @@ Or you bake a new macaroon with the following permissions and use that instead:
 
 ```
 lncli bakemacaroon info:read invoices:read invoices:write offchain:read offchain:write
+```
+
+If you want to use a macaroon stored on a filesystem, you either set `LND_MACAROON_FILE` to a path pointing to `admin.macaroon`
+or use the following command to generate the `lndhub.macaroon` and setting the variable to path of that file.
+
+```
+lncli bakemacaroon --save_to=lndhub.macaroon info:read invoices:read invoices:write offchain:read offchain:write
 ```
 
 ## Developing
