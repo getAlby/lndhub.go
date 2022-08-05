@@ -85,6 +85,7 @@ SocketLoop:
 						Type:           common.InvoiceTypeUser,
 						Amount:         invoice.Amount,
 						IsPaid:         invoice.State == common.InvoiceStateSettled,
+						CustomRecords:  invoice.DestinationCustomRecords,
 					}})
 			if err != nil {
 				controller.svc.Logger.Error(err)
