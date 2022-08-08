@@ -34,7 +34,7 @@ type PayInvoiceResponseBody struct {
 	Amount             int64                 `json:"num_satoshis,omitempty"`
 	Description        string                `json:"description,omitempty"`
 	DescriptionHashStr string                `json:"description_hash,omitempty"`
-	PaymentError       string                `json:"payment_error,omitempty"`
+	PaymentError       string                `json:"payment_error"`
 	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
