@@ -221,12 +221,18 @@ func (controller *InvoiceController) Invoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 	}
 
-	descriptionHash := lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
+	var descriptionhash_string string = ""
+	var memo string = ""
+	if c.QueryParams().Has("memo") {
+		memo = c.QueryParam("memo")
+	} else {
+		descriptionHash := lnurlDescriptionHash(user.Nickname, controller.svc.Config.LnurlDomain)
+		descriptionhash_hex := sha256.Sum256([]byte(descriptionHash))
+		descriptionhash_string = hex.EncodeToString(descriptionhash_hex[:])
+	}
 
-	descriptionhash_hex := sha256.Sum256([]byte(descriptionHash))
-	descriptionhash_string := hex.EncodeToString(descriptionhash_hex[:])
-	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s", user.ID, amt_msat/1000, descriptionhash_string)
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, "", descriptionhash_string)
+	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s memo:%s", user.ID, amt_msat/1000, descriptionhash_string, memo)
+	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, memo, descriptionhash_string)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", user.ID, err)
 		sentry.CaptureException(err)
