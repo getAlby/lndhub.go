@@ -82,7 +82,7 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 			CustomRecords:   invoice.DestinationCustomRecords,
 		}
 	}
-	return c.JSON(http.StatusOK, &response)
+	return c.JSON(http.StatusOK, &GetInvoicesResponseBody{Invoices: response})
 }
 
 // GetIncomingInvoices godoc
@@ -124,7 +124,7 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 			CustomRecords:   invoice.DestinationCustomRecords,
 		}
 	}
-	return c.JSON(http.StatusOK, &response)
+	return c.JSON(http.StatusOK, &GetInvoicesResponseBody{Invoices: response})
 }
 
 type AddInvoiceRequestBody struct {
@@ -139,6 +139,9 @@ type AddInvoiceResponseBody struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
+type GetInvoicesResponseBody struct {
+	Invoices []Invoice `json:"invoices"`
+}
 type InvoiceResponseBody struct {
 	Payreq string   `json:"pr"`
 	Routes []string `json:"routes"`
