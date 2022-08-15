@@ -74,8 +74,8 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(lnurlResponse))
 	assert.EqualValues(suite.T(), lnurlResponse.Tag, v2controllers.LNURLP_TAG)
 	assert.EqualValues(suite.T(), lnurlResponse.CommentAllowed, v2controllers.LNURLP_COMMENT_SIZE)
-	assert.EqualValues(suite.T(), lnurlResponse.MinSendable, 1)
-	assert.EqualValues(suite.T(), lnurlResponse.MaxSendable, suite.service.Config.MaxReceiveAmount)
+	assert.EqualValues(suite.T(), lnurlResponse.MinSendable, 1000)
+	assert.EqualValues(suite.T(), lnurlResponse.MaxSendable, suite.service.Config.MaxReceiveAmount*1000)
 	urlStart := strings.Index(lnurlResponse.Callback, "/v2/invoice")
 	assert.Greater(suite.T(), urlStart, 0)
 
@@ -108,8 +108,8 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(lnurlResponse))
 	assert.Equal(suite.T(), lnurlResponse.Tag, payreq_type)
-	assert.EqualValues(suite.T(), lnurlResponse.MinSendable, amt_sats)
-	assert.EqualValues(suite.T(), lnurlResponse.MaxSendable, amt_sats)
+	assert.EqualValues(suite.T(), lnurlResponse.MinSendable, amt_sats*1000)
+	assert.EqualValues(suite.T(), lnurlResponse.MaxSendable, amt_sats*1000)
 	urlStart := strings.Index(lnurlResponse.Callback, "/v2/invoice")
 	assert.Greater(suite.T(), urlStart, 0)
 

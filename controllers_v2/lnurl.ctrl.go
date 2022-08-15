@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	MIN_RECEIVABLE      = 1
-	PREFIX_MSG          = "Sats for "
-	LNURLP_COMMENT_SIZE = 127
-	LNURLP_TAG          = "payRequest"
+	MIN_RECEIVABLE_MSATS = 1000
+	PREFIX_MSG           = "Sats for "
+	LNURLP_COMMENT_SIZE  = 127
+	LNURLP_TAG           = "payRequest"
 )
 
 // LnurlController : Add lnurl controller struct
@@ -56,8 +56,8 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 	}
 
 	responseBody := &LnurlpResponseBody{}
-	responseBody.MinSendable = MIN_RECEIVABLE
-	responseBody.MaxSendable = uint64(controller.svc.Config.MaxReceiveAmount)
+	responseBody.MinSendable = MIN_RECEIVABLE_MSATS
+	responseBody.MaxSendable = uint64(controller.svc.Config.MaxReceiveAmount * 1000)
 	responseBody.Callback = "https://" + controller.svc.Config.LnurlDomain + "/v2/invoice/" + c.Param("user")
 	if c.QueryParams().Has("amt") {
 		amt, err := strconv.ParseInt(c.QueryParam("amt"), 10, 64)
@@ -65,12 +65,12 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 			c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam(c.QueryParam("amt")), err)
 			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 		}
-		if amt > controller.svc.Config.MaxReceiveAmount || amt < MIN_RECEIVABLE {
-			c.Logger().Errorf("amt provided (%d) not in range [%d-%d]. %v", amt, MIN_RECEIVABLE, controller.svc.Config.MaxReceiveAmount)
+		if amt > controller.svc.Config.MaxReceiveAmount || amt < MIN_RECEIVABLE_MSATS {
+			c.Logger().Errorf("amt provided (%d) not in range [%d-%d] msats. %v", amt, MIN_RECEIVABLE_MSATS, controller.svc.Config.MaxReceiveAmount)
 			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 		}
-		responseBody.MinSendable = uint64(amt)
-		responseBody.MaxSendable = responseBody.MinSendable
+		responseBody.MinSendable = uint64(amt * 1000)
+		responseBody.MaxSendable = uint64(amt * 1000)
 		responseBody.Callback = responseBody.Callback + "?amount=" + strconv.FormatInt(amt*1000, 10)
 	}
 
