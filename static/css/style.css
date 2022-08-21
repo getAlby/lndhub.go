@@ -184,7 +184,7 @@ footer a {
  	body {
  		 padding-right: 300px;
  	}
-	.logo {
+	.logo, .logo img {
 		width: 200px;
 	}
 	.sidebar {
@@ -216,7 +216,7 @@ footer a {
 	}
 }
 @media (max-width: 1199px){
-	.logo {
+	.logo, .logo img {
 		width: 200px;
 	}
 	.scroll {
@@ -244,7 +244,7 @@ footer a {
 	}
 }
 @media (max-width: 959px){
-	.logo {
+	.logo, .logo img {
 		width: 200px;
 	}
 }
