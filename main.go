@@ -12,6 +12,7 @@ import (
 
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
+	"github.com/getAlby/lndhub.go/cln"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -134,7 +135,15 @@ func main() {
 			CertFile:     c.LNDCertFile,
 		})
 	case service.CLN_TYPE:
-		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
+		lnClient, err = cln.NewCLNClient(cln.CLNClientOptions{
+			Host:           c.LNDAddress,
+			CaCertHex:      c.CLNClientCertHex,
+			ClientCertHex:  c.CLNClientCertHex,
+			ClientKeyHex:   c.CLNClientKeyHex,
+			CaCertFile:     c.CLNCaCertFile,
+			ClientCertFile: c.CLNClientCertFile,
+			ClientKeyFile:  c.CLNClientKeyFile,
+		})
 	default:
 		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
 	}
@@ -146,7 +155,7 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
-	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+	logger.Infof("Connected to %s: %s - %s", c.LightningType, getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
 		Config:         c,

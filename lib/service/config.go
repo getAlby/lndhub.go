@@ -23,6 +23,11 @@ type Config struct {
 	LNDMacaroonFile       string `envconfig:"LND_MACAROON_FILE"`
 	LNDCertFile           string `envconfig:"LND_CERT_FILE"`
 	LNDCertHex            string `envconfig:"LND_CERT_HEX"`
+	CLNClientCertHex      string `envconfig:"CLN_CLIENT_CERT_HEX"`
+	CLNClientCertFile     string `envconfig:"CLN_CLIENT_CERT_FILE"`
+	CLNCaCertFile         string `envconfig:"CLN_CA_CERT_FILE"`
+	CLNClientKeyHex       string `envconfig:"CLN_CLIENT_KEY_HEX"`
+	CLNClientKeyFile      string `envconfig:"CLN_CLIENT_KEY_FILE"`
 	CustomName            string `envconfig:"CUSTOM_NAME"`
 	Host                  string `envconfig:"HOST" default:"localhost:3000"`
 	Port                  int    `envconfig:"PORT" default:"3000"`

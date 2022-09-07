@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -26,17 +27,48 @@ type InvoiceHandler struct {
 	invoiceChan chan (*lnrpc.Invoice)
 }
 type CLNClientOptions struct {
-	Host          string
-	CaCertHex     string
-	ClientCertHex string
-	ClientKeyHex  string
+	Host           string
+	CaCertHex      string
+	ClientCertHex  string
+	ClientKeyHex   string
+	CaCertFile     string
+	ClientCertFile string
+	ClientKeyFile  string
 }
 
-func loadTLSCredentials(caCertHex, clientCertHex, clientKeyHex string) (credentials.TransportCredentials, error) {
-	// Load certificate of the CA who signed server's certificate
-	pemServerCA, err := hex.DecodeString(caCertHex)
-	if err != nil {
-		return nil, err
+func loadTLSCredentials(options CLNClientOptions) (result credentials.TransportCredentials, err error) {
+	var pemServerCA []byte
+	var clientCert []byte
+	var clientKey []byte
+	// if the ca cert is provided as a file, we assume everything is provided as a file
+	// else we assume everything is provided as hex
+	if options.CaCertFile != "" {
+		pemServerCA, err = ioutil.ReadFile(options.CaCertFile)
+		if err != nil {
+			return nil, err
+		}
+		clientCert, err = ioutil.ReadFile(options.ClientCertFile)
+		if err != nil {
+			return nil, err
+		}
+		clientKey, err = ioutil.ReadFile(options.ClientKeyFile)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		pemServerCA, err = hex.DecodeString(options.CaCertHex)
+		if err != nil {
+			return nil, err
+		}
+		// Load client's certificate and private key
+		clientCert, err = hex.DecodeString(options.CaCertHex)
+		if err != nil {
+			return nil, err
+		}
+		clientKey, err = hex.DecodeString(options.CaCertHex)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	certPool := x509.NewCertPool()
@@ -44,15 +76,6 @@ func loadTLSCredentials(caCertHex, clientCertHex, clientKeyHex string) (credenti
 		return nil, fmt.Errorf("failed to add server CA's certificate")
 	}
 
-	// Load client's certificate and private key
-	clientCert, err := hex.DecodeString(clientCertHex)
-	if err != nil {
-		return nil, err
-	}
-	clientKey, err := hex.DecodeString(clientKeyHex)
-	if err != nil {
-		return nil, err
-	}
 	clientKeyPair, err := tls.X509KeyPair(clientCert, clientKey)
 	if err != nil {
 		return nil, err
@@ -67,7 +90,7 @@ func loadTLSCredentials(caCertHex, clientCertHex, clientKeyHex string) (credenti
 }
 
 func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
-	credentials, err := loadTLSCredentials(options.CaCertHex, options.ClientCertHex, options.ClientKeyHex)
+	credentials, err := loadTLSCredentials(options)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +105,9 @@ func NewCLNClient(options CLNClientOptions) (*CLNClient, error) {
 	}
 	return &CLNClient{
 		client: NewNodeClient(conn),
+		handler: &InvoiceHandler{
+			invoiceChan: make(chan *lnrpc.Invoice),
+		},
 	}, nil
 }
 
@@ -130,8 +156,7 @@ func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 }
 
 func (cl *CLNClient) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (lnd.SubscribeInvoicesWrapper, error) {
-	//cl.client.LastInvoiceIndex = int(req.AddIndex)
-	//cl.client.ListenForInvoices()
+	//todo start goroutine
 	return cl, nil
 }
 
@@ -143,7 +168,7 @@ func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 	return &lnrpc.GetInfoResponse{
 		Version:             info.Version,
 		CommitHash:          info.Version,
-		IdentityPubkey:      string(info.Id),
+		IdentityPubkey:      hex.EncodeToString(info.Id),
 		Alias:               info.Alias,
 		Color:               string(info.Color),
 		NumPendingChannels:  info.NumPendingChannels,
@@ -166,5 +191,6 @@ func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 }
 
 func (cl *CLNClient) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
+	//todo use https://github.com/nbd-wtf/ln-decodepay to decode invoice
 	return nil, nil
 }
