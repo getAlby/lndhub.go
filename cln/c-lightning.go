@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/gofrs/uuid"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	decodepay "github.com/nbd-wtf/ln-decodepay"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -152,6 +154,21 @@ func (cl *CLNClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest
 }
 
 func (cl *CLNClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
+	exp := uint64(req.Expiry)
+	cltv := uint32(req.CltvExpiry)
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+	cl.client.Invoice(ctx, &InvoiceRequest{
+		Msatoshi:     &AmountOrAny{},
+		Description:  req.Memo,
+		Label:        uuid.String(),
+		Expiry:       &exp,
+		Preimage:     req.RPreimage,
+		Cltv:         &cltv,
+		Deschashonly: new(bool),
+	})
 	return nil, nil
 }
 
@@ -192,5 +209,24 @@ func (cl *CLNClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 
 func (cl *CLNClient) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
 	//todo use https://github.com/nbd-wtf/ln-decodepay to decode invoice
-	return nil, nil
+	decoded, err := decodepay.Decodepay(bolt11)
+	if err != nil {
+		return nil, err
+	}
+	//we leave non-relevant info blank here
+	return &lnrpc.PayReq{
+		Destination:     decoded.Payee,
+		PaymentHash:     decoded.PaymentHash,
+		NumSatoshis:     decoded.MSatoshi / 1000,
+		Timestamp:       int64(decoded.CreatedAt),
+		Expiry:          int64(decoded.Expiry),
+		Description:     decoded.Description,
+		DescriptionHash: decoded.DescriptionHash,
+		FallbackAddr:    "",
+		CltvExpiry:      int64(decoded.MinFinalCLTVExpiry),
+		RouteHints:      []*lnrpc.RouteHint{},
+		PaymentAddr:     []byte{},
+		NumMsat:         decoded.MSatoshi,
+		Features:        map[uint32]*lnrpc.Feature{},
+	}, nil
 }
