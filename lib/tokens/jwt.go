@@ -3,9 +3,12 @@ package tokens
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -35,6 +38,10 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 		token := c.Get("UserJwt").(*jwt.Token)
 		claims := token.Claims.(*jwtCustomClaims)
 		c.Set("UserID", claims.ID)
+		// pass UserID to sentry for exception notifications
+		if hub := sentryecho.GetHubFromContext(c); hub != nil {
+			hub.Scope().SetUser(sentry.User{ID: strconv.FormatInt(claims.ID, 10)})
+		}
 	}
 
 	return middleware.JWTWithConfig(config)
@@ -81,8 +88,7 @@ func GenerateRefreshToken(secret []byte, expiryInSeconds int, u *models.User) (s
 
 	return t, nil
 }
-
-func GetUserIdFromToken(secret []byte, token string) (int64, error) {
+func ParseToken(secret []byte, token string, mustBeRefresh bool) (int64, error) {
 	userIdClaim := "id"
 	isRefreshClaim := "isRefresh"
 	claims := jwt.MapClaims{}
@@ -100,7 +106,7 @@ func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 
 	var userId interface{}
 	for k, v := range claims {
-		if k == isRefreshClaim && v.(bool) == false {
+		if k == isRefreshClaim && !v.(bool) && mustBeRefresh {
 			return -1, errors.New("This is not a refresh token")
 		}
 		if k == userIdClaim {
@@ -113,4 +119,8 @@ func GetUserIdFromToken(secret []byte, token string) (int64, error) {
 	}
 
 	return int64(userId.(float64)), nil
+}
+
+func GetUserIdFromToken(secret []byte, token string) (int64, error) {
+	return ParseToken(secret, token, true)
 }

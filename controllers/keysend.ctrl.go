@@ -24,7 +24,7 @@ func NewKeySendController(svc *service.LndhubService) *KeySendController {
 }
 
 type KeySendRequestBody struct {
-	Amount        int64             `json:"amount" validate:"required"`
+	Amount        int64             `json:"amount" validate:"required,gt=0"`
 	Destination   string            `json:"destination" validate:"required"`
 	Memo          string            `json:"memo" validate:"omitempty"`
 	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
@@ -41,7 +41,6 @@ type KeySendResponseBody struct {
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-// KeySend : Key send Controller
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := KeySendRequestBody{}
@@ -64,6 +63,13 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		Keysend: true,
 	}
 
+	if controller.svc.Config.MaxSendAmount > 0 {
+		if lnPayReq.PayReq.NumSatoshis > controller.svc.Config.MaxSendAmount {
+			c.Logger().Errorf("Max send amount exceeded for user_id:%v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+	}
+
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return err
@@ -74,8 +80,12 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return err
 	}
 
-	if currentBalance < invoice.Amount {
-		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
+	minimumBalance := invoice.Amount
+	if controller.svc.Config.FeeReserve {
+		minimumBalance += invoice.CalcFeeLimit()
+	}
+	if currentBalance < minimumBalance {
+		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
@@ -89,7 +99,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: %v", err)
+		c.Logger().Errorf("Payment failed: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,

@@ -21,16 +21,15 @@ func NewCheckPaymentController(svc *service.LndhubService) *CheckPaymentControll
 	return &CheckPaymentController{svc: svc}
 }
 
-// CheckPayment : Check Payment Controller
 func (controller *CheckPaymentController) CheckPayment(c echo.Context) error {
-	userId := c.Get("UserID").(int64)
+	userID := c.Get("UserID").(int64)
 	rHash := c.Param("payment_hash")
 
-	invoice, err := controller.svc.FindInvoiceByPaymentHash(c.Request().Context(), userId, rHash)
+	invoice, err := controller.svc.FindInvoiceByPaymentHash(c.Request().Context(), userID, rHash)
 
 	// Probably we did not find the invoice
 	if err != nil {
-		c.Logger().Errorf("Invalid checkpayment request payment_hash=%s", rHash)
+		c.Logger().Errorf("Invalid checkpayment request user_id:%v payment_hash:%s", userID, rHash)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 

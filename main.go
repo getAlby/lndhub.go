@@ -15,6 +15,7 @@ import (
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/docs"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -29,6 +30,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
@@ -40,6 +42,22 @@ var indexHtml string
 //go:embed static/*
 var staticContent embed.FS
 
+// @title        LndHub.go
+// @version      0.9.0
+// @description  Accounting wrapper for the Lightning Network providing separate accounts for end-users.
+
+// @contact.name   Alby
+// @contact.url    https://getalby.com
+// @contact.email  hello@getalby.com
+
+// @license.name  GNU GPLv3
+// @license.url   https://www.gnu.org/licenses/gpl-3.0.en.html
+
+// @BasePath  /
+
+// @securitydefinitions.oauth2.password  OAuth2Password
+// @tokenUrl                             /auth
+// @schemes                              https http
 func main() {
 	c := &service.Config{}
 
@@ -109,9 +127,11 @@ func main() {
 	switch c.LightningType {
 	case service.LND_TYPE:
 		lnClient, err = lnd.NewLNDclient(lnd.LNDoptions{
-			Address:     c.LNDAddress,
-			MacaroonHex: c.LNDMacaroonHex,
-			CertHex:     c.LNDCertHex,
+			Address:      c.LNDAddress,
+			MacaroonHex:  c.LNDMacaroonHex,
+			MacaroonFile: c.LNDMacaroonFile,
+			CertHex:      c.LNDCertHex,
+			CertFile:     c.LNDCertFile,
 		})
 	case service.CLN_TYPE:
 		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
@@ -134,44 +154,33 @@ func main() {
 		LndClient:      lnClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
+		InvoicePubSub:  service.NewPubsub(),
 	}
 
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
-	// Public endpoints for account creation and authentication
-	e.POST("/auth", controllers.NewAuthController(svc).Auth)
-	e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware)
-	e.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice, middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
-
-	// Secured endpoints which require a Authorization token (JWT)
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
-	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
-	securedWithStrictRateLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
-	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)
-	secured.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
-	secured.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(svc).CheckPayment)
-	secured.GET("/balance", controllers.NewBalanceController(svc).Balance)
-	secured.GET("/getinfo", controllers.NewGetInfoController(svc).GetInfo, createCacheClient().Middleware())
-	securedWithStrictRateLimit.POST("/keysend", controllers.NewKeySendController(svc).KeySend)
 
-	// These endpoints are currently not supported and we return a blank response for backwards compatibility
-	blankController := controllers.NewBlankController(svc)
-	secured.GET("/getbtc", blankController.GetBtc)
-	secured.GET("/getpending", blankController.GetPending)
+	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware)
+	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware)
 
-	//Index page endpoints, no Authorization required
-	homeController := controllers.NewHomeController(svc, indexHtml)
-	e.GET("/", homeController.Home, createCacheClient().Middleware())
-	e.GET("/qr", homeController.QR)
-	//workaround, just adding /static would make a request to these resources hit the authorized group
-	e.GET("/static/css/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
-	e.GET("/static/img/*", echo.WrapHandler(http.FileServer(http.FS(staticContent))))
-	e.Pre(middleware.Rewrite(map[string]string{
-		"/favicon.ico": "/static/img/favicon.png",
-	}))
+	//invoice streaming
+	//Authentication should be done through the query param because this is a websocket
+	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
+
+	//Swagger API spec
+	docs.SwaggerInfo.Host = c.Host
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
+
+	//Start webhook subscription
+	if svc.Config.WebhookUrl != "" {
+		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
+		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
+		defer cancelWebhook()
+	}
 
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo

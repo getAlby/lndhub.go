@@ -1,0 +1,458 @@
+basePath: /
+definitions:
+  controllers.AuthRequestBody:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  controllers.AuthResponseBody:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  responses.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: boolean
+      message:
+        type: string
+    type: object
+  v2controllers.AddInvoiceRequestBody:
+    properties:
+      amount:
+        minimum: 0
+        type: integer
+      description:
+        type: string
+      description_hash:
+        type: string
+    required:
+    - amount
+    type: object
+  v2controllers.AddInvoiceResponseBody:
+    properties:
+      expires_at:
+        type: string
+      payment_hash:
+        type: string
+      payment_request:
+        type: string
+    type: object
+  v2controllers.BalanceResponse:
+    properties:
+      balance:
+        type: integer
+      currency:
+        type: string
+      unit:
+        type: string
+    type: object
+  v2controllers.CreateUserRequestBody:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  v2controllers.CreateUserResponseBody:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  v2controllers.Invoice:
+    properties:
+      amount:
+        type: integer
+      custom_records:
+        additionalProperties:
+          items:
+            type: integer
+          type: array
+        type: object
+      description:
+        type: string
+      description_hash:
+        type: string
+      destination:
+        type: string
+      error_message:
+        type: string
+      expires_at:
+        type: string
+      fee:
+        type: integer
+      is_paid:
+        type: boolean
+      keysend:
+        type: boolean
+      payment_hash:
+        type: string
+      payment_preimage:
+        type: string
+      payment_request:
+        type: string
+      settled_at:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+    type: object
+  v2controllers.KeySendRequestBody:
+    properties:
+      amount:
+        type: integer
+      customRecords:
+        additionalProperties:
+          type: string
+        type: object
+      destination:
+        type: string
+      memo:
+        type: string
+    required:
+    - amount
+    - destination
+    type: object
+  v2controllers.KeySendResponseBody:
+    properties:
+      amount:
+        type: integer
+      description:
+        type: string
+      description_hash:
+        type: string
+      destination:
+        type: string
+      fee:
+        type: integer
+      payment_hash:
+        type: string
+      payment_preimage:
+        type: string
+    type: object
+  v2controllers.PayInvoiceRequestBody:
+    properties:
+      amount:
+        minimum: 0
+        type: integer
+      invoice:
+        type: string
+    required:
+    - invoice
+    type: object
+  v2controllers.PayInvoiceResponseBody:
+    properties:
+      amount:
+        type: integer
+      description:
+        type: string
+      description_hash:
+        type: string
+      destination:
+        type: string
+      fee:
+        type: integer
+      payment_hash:
+        type: string
+      payment_preimage:
+        type: string
+      payment_request:
+        type: string
+    type: object
+info:
+  contact:
+    email: hello@getalby.com
+    name: Alby
+    url: https://getalby.com
+  description: Accounting wrapper for the Lightning Network providing separate accounts
+    for end-users.
+  license:
+    name: GNU GPLv3
+    url: https://www.gnu.org/licenses/gpl-3.0.en.html
+  title: LndHub.go
+  version: 0.9.0
+paths:
+  /auth:
+    post:
+      consumes:
+      - application/json
+      description: Exchanges a login + password for a token
+      parameters:
+      - description: Login and password
+        in: body
+        name: AuthRequestBody
+        schema:
+          $ref: '#/definitions/controllers.AuthRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.AuthResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      summary: Authenticate
+      tags:
+      - Account
+  /v2/balance:
+    get:
+      consumes:
+      - application/json
+      description: Current user's balance in satoshi
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.BalanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Retrieve balance
+      tags:
+      - Account
+  /v2/invoices:
+    post:
+      consumes:
+      - application/json
+      description: Returns a new bolt11 invoice
+      parameters:
+      - description: Add Invoice
+        in: body
+        name: invoice
+        required: true
+        schema:
+          $ref: '#/definitions/v2controllers.AddInvoiceRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.AddInvoiceResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Generate a new invoice
+      tags:
+      - Invoice
+  /v2/invoices/{payment_hash}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve information about a specific invoice by payment hash
+      parameters:
+      - description: Payment hash
+        in: path
+        name: payment_hash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.Invoice'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Get a specific invoice
+      tags:
+      - Invoice
+  /v2/invoices/incoming:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of incoming invoices for a user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/v2controllers.Invoice'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Retrieve incoming invoices
+      tags:
+      - Invoice
+  /v2/invoices/outgoing:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of outgoing payments for a user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/v2controllers.Invoice'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Retrieve outgoing payments
+      tags:
+      - Invoice
+  /v2/payments/bolt11:
+    post:
+      consumes:
+      - application/json
+      description: Pay a bolt11 invoice
+      parameters:
+      - description: Invoice to pay
+        in: body
+        name: PayInvoiceRequest
+        required: true
+        schema:
+          $ref: '#/definitions/v2controllers.PayInvoiceRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.PayInvoiceResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Pay an invoice
+      tags:
+      - Payment
+  /v2/payments/keysend:
+    post:
+      consumes:
+      - application/json
+      description: Pay a node without an invoice using it's public key
+      parameters:
+      - description: Invoice to pay
+        in: body
+        name: KeySendRequestBody
+        required: true
+        schema:
+          $ref: '#/definitions/v2controllers.KeySendRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.KeySendResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Make a keysend payment
+      tags:
+      - Payment
+  /v2/users:
+    post:
+      consumes:
+      - application/json
+      description: Create a new account with a login and password
+      parameters:
+      - description: Create User
+        in: body
+        name: account
+        schema:
+          $ref: '#/definitions/v2controllers.CreateUserRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.CreateUserResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      summary: Create an account
+      tags:
+      - Account
+schemes:
+- https
+- http
+securityDefinitions:
+  OAuth2Password:
+    flow: password
+    tokenUrl: /auth
+    type: oauth2
+swagger: "2.0"

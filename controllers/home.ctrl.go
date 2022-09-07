@@ -40,6 +40,7 @@ type HomepageContent struct {
 	BlockHeight        int
 	Uris               []string
 	Channels           []Channel
+	Branding           service.BrandingConfig
 }
 
 type Channel struct {
@@ -85,14 +86,14 @@ func (controller *HomeController) Home(c echo.Context) error {
 		return err
 	}
 	// See original code: https://github.com/BlueWallet/LndHub/blob/master/controllers/website.js#L32
-	maxChanCapicity := -1
+	maxChanCapacity := -1
 	for _, ch := range channels.Channels {
-		maxChanCapicity = Max(maxChanCapicity, int(ch.Capacity))
+		maxChanCapacity = Max(maxChanCapacity, int(ch.Capacity))
 	}
 	channelSlice := []Channel{}
 	for _, ch := range channels.Channels {
 
-		magic := maxChanCapicity / 100
+		magic := maxChanCapacity / 100
 		channelSlice = append(channelSlice, Channel{
 			Name:         pubkeyToName[ch.RemotePubkey],
 			RemotePubkey: ch.RemotePubkey,
@@ -111,12 +112,14 @@ func (controller *HomeController) Home(c echo.Context) error {
 		BlockHeight:        int(info.BlockHeight),
 		Channels:           channelSlice,
 		Uris:               info.Uris,
+		Branding:           controller.svc.Config.Branding,
 	}
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, content)
 	if err != nil {
 		return err
 	}
+	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=300, stale-if-error=21600") // cache for 5 minutes or if error for 6 hours max
 	return c.HTMLBlob(http.StatusOK, buf.Bytes())
 }
 

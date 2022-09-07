@@ -1,9 +1,13 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -13,7 +17,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -23,7 +26,8 @@ import (
 
 type PaymentTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
+	mlnd                     *MockLND
+	externalLND              *MockLND
 	service                  *service.LndhubService
 	aliceLogin               ExpectedCreateUserResponseBody
 	aliceToken               string
@@ -33,16 +37,14 @@ type PaymentTestSuite struct {
 }
 
 func (suite *PaymentTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd3RegtestAddress,
-		MacaroonHex: lnd3RegtestMacaroonHex,
-	})
+	mlnd := newDefaultMockLND()
+	suite.mlnd = mlnd
+	externalLND, err := NewMockLND("1234567890abcdefabcd", 0, make(chan (*lnrpc.Invoice)))
 	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
+		log.Fatalf("Error initializing test service: %v", err)
 	}
-	suite.fundingClient = lndClient
-
-	svc, err := LndHubTestServiceInit(nil)
+	suite.externalLND = externalLND
+	svc, err := LndHubTestServiceInit(mlnd)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -71,6 +73,8 @@ func (suite *PaymentTestSuite) SetupSuite() {
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
+	suite.echo.GET("/gettxs", controllers.NewGetTXSController(suite.service).GetTXS)
+	suite.echo.POST("/keysend", controllers.NewKeySendController(suite.service).KeySend)
 }
 
 func (suite *PaymentTestSuite) TearDownSuite() {
@@ -89,20 +93,18 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	fee := 0
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
-	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	//wait a bit for the payment to be processed
+	time.Sleep(10 * time.Millisecond)
 
 	//create invoice for bob
 	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
 	//pay bob from alice
-	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
+	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: bobInvoice.PayReq,
+	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 
 	aliceId := getUserIdFromToken(suite.aliceToken)
@@ -136,13 +138,9 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	bobSatRequested := 500
 	// currently fee is 0 for internal payments
 	fee := 0
-	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
 	//wait a bit for the callback event to hit
@@ -151,7 +149,9 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	//create invoice for bob
 	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
 	//pay bob from alice
-	payResponse := suite.createPayInvoiceReq(bobInvoice.PayReq, suite.aliceToken)
+	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: bobInvoice.PayReq,
+	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 	//try to pay same invoice again for make it fail
 	_ = suite.createPayInvoiceReqError(bobInvoice.PayReq, suite.aliceToken)
@@ -187,6 +187,54 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	assert.Equal(suite.T(), transactonEntries[4].Amount, int64(bobSatRequested))
 	// assert that balance was reduced only once
 	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested+fee), int64(aliceBalance))
+}
+func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
+	aliceFundingSats := 1000
+	bobAmt := 100
+	memo := "integration test internal keysend from alice"
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal keysend alice", suite.aliceToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+
+	//check bob's balance before payment
+	bobId := getUserIdFromToken(suite.bobToken)
+	previousBobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+
+	//pay bob from alice using a keysend payment
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(ExpectedKeySendRequestBody{
+		Amount:      int64(bobAmt),
+		Destination: suite.service.IdentityPubkey,
+		Memo:        memo,
+		//add memo as WHATSAT_MESSAGE custom record
+		CustomRecords: map[string]string{fmt.Sprint(service.TLV_WHATSAT_MESSAGE): memo,
+			fmt.Sprint(service.TLV_WALLET_ID): suite.bobLogin.Login},
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/keysend", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	keySendResponse := &ExpectedKeySendResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(keySendResponse))
+
+	//check bob's balance after payment
+	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+	assert.Equal(suite.T(), int64(bobAmt)+previousBobBalance, bobBalance)
+	//check bob's invoices for whatsat message
+	invoicesBob, _ := suite.service.InvoicesFor(context.Background(), bobId, common.InvoiceTypeIncoming)
+	foundKeySend := false
+	for _, invoice := range invoicesBob {
+		if invoice.Keysend {
+			foundKeySend = true
+			assert.Equal(suite.T(), memo, string(invoice.DestinationCustomRecords[service.TLV_WHATSAT_MESSAGE]))
+		}
+	}
+	assert.True(suite.T(), foundKeySend)
 }
 
 func TestInternalPaymentTestSuite(t *testing.T) {

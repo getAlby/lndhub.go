@@ -10,6 +10,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
 )
 
@@ -33,22 +34,21 @@ type PayInvoiceResponseBody struct {
 	Amount             int64                 `json:"num_satoshis,omitempty"`
 	Description        string                `json:"description,omitempty"`
 	DescriptionHashStr string                `json:"description_hash,omitempty"`
-	PaymentError       string                `json:"payment_error,omitempty"`
+	PaymentError       string                `json:"payment_error"`
 	PaymentPreimage    *lib.JavaScriptBuffer `json:"payment_preimage,omitempty"`
 	PaymentRoute       *service.Route        `json:"payment_route,omitempty"`
 }
 
-// PayInvoice : Pay invoice Controller
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	reqBody := PayInvoiceRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
-		c.Logger().Errorf("Failed to load payinvoice request body: %v", err)
+		c.Logger().Errorf("Failed to load payinvoice request body: user_id:%v error: %v", userID, err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	if err := c.Validate(&reqBody); err != nil {
-		c.Logger().Errorf("Invalid payinvoice request body: %v", err)
+		c.Logger().Errorf("Invalid payinvoice request body user_id:%v error: %v", userID, err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -56,25 +56,28 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
-		c.Logger().Errorf("Invalid payment request: %v", err)
+		c.Logger().Errorf("Invalid payment request user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	// TODO: zero amount invoices
-	/*
-		_, err = controller.svc.ParseInt(reqBody.Amount)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{
-				"error":   true,
-				"code":    8,
-				"message": "Bad arguments",
-			})
-		}
-	*/
 
 	lnPayReq := &lnd.LNPayReq{
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
+	}
+	if decodedPaymentRequest.NumSatoshis == 0 {
+		amt, err := controller.svc.ParseInt(reqBody.Amount)
+		if err != nil || amt <= 0 {
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+		lnPayReq.PayReq.NumSatoshis = amt
+	}
+
+	if controller.svc.Config.MaxSendAmount > 0 {
+		if lnPayReq.PayReq.NumSatoshis > controller.svc.Config.MaxSendAmount {
+			c.Logger().Errorf("Max send amount exceeded for user_id:%v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
 	}
 
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
@@ -87,16 +90,26 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		return err
 	}
 
-	if currentBalance < invoice.Amount {
-		c.Logger().Errorf("User does not have enough balance invoice_id=%v user_id=%v balance=%v amount=%v", invoice.ID, userID, currentBalance, invoice.Amount)
-
+	minimumBalance := invoice.Amount
+	if controller.svc.Config.FeeReserve {
+		minimumBalance += invoice.CalcFeeLimit()
+	}
+	if currentBalance < minimumBalance {
+		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: %v", err)
-		sentry.CaptureException(err)
+		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)
+		if hub := sentryecho.GetHubFromContext(c); hub != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("invoice_id", invoice.ID)
+				scope.SetExtra("destination_pubkey_hex", invoice.DestinationPubkeyHex)
+				scope.SetExtra("payment_request", invoice.PaymentRequest)
+				hub.CaptureException(err)
+			})
+		}
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,
 			"code":    10,

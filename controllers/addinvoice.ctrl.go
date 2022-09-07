@@ -30,7 +30,6 @@ type AddInvoiceResponseBody struct {
 	PayReq         string `json:"pay_req"`
 }
 
-// AddInvoice : Add invoice Controller
 func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
 	return AddInvoice(c, controller.svc, userID)
@@ -50,14 +49,33 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 	}
 
 	amount, err := svc.ParseInt(body.Amount)
-	if err != nil {
+	if err != nil || amount < 0 {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	c.Logger().Infof("Adding invoice: user_id=%v memo=%s value=%v description_hash=%s", userID, body.Memo, amount, body.DescriptionHash)
+
+	if svc.Config.MaxReceiveAmount > 0 {
+		if amount > svc.Config.MaxReceiveAmount {
+			c.Logger().Errorf("Max receive amount exceeded for user_id:%v (amount:%v)", userID, amount)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+	}
+
+	if svc.Config.MaxAccountBalance > 0 {
+		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userID)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
+		}
+		if currentBalance+amount > svc.Config.MaxAccountBalance {
+			c.Logger().Errorf("Max account balance exceeded for user_id:%v (balance:%v + amount:%v)", userID, currentBalance, amount)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+	}
+
+	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)
 
 	invoice, err := svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
 	if err != nil {
-		c.Logger().Errorf("Error creating invoice: %v", err)
+		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}

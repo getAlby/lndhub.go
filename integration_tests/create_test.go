@@ -25,7 +25,7 @@ type CreateUserTestSuite struct {
 }
 
 func (suite *CreateUserTestSuite) SetupSuite() {
-	svc, err := LndHubTestServiceInit(nil)
+	svc, err := LndHubTestServiceInit(newDefaultMockLND())
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}

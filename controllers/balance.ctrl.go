@@ -22,7 +22,6 @@ type BalanceResponse struct {
 	}
 }
 
-// Balance : Balance Controller
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)

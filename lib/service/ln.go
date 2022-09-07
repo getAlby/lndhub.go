@@ -11,6 +11,8 @@ const (
 	KEYSEND_CUSTOM_RECORD = 5482373484
 	TLV_WHATSAT_MESSAGE   = 34349334
 	TLV_RECORD_NAME       = 128100
+
+	TLV_WALLET_ID = 696969 //cfr. https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay
 )
 
 func (svc *LndhubService) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {

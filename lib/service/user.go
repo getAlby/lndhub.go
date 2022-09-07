@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 	"database/sql"
-	"math/rand"
+	"fmt"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/uptrace/bun"
+	passwordvalidator "github.com/wagslane/go-password-validator"
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, login string, password string) (user *models.User, err error) {
@@ -18,11 +19,26 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 	// generate user login/password if not provided
 	user.Login = login
 	if login == "" {
-		user.Login = randStringBytes(20)
+		randLoginBytes, err := randBytesFromStr(20, alphaNumBytes)
+		if err != nil {
+			return nil, err
+		}
+		user.Login = string(randLoginBytes)
 	}
 
 	if password == "" {
-		password = randStringBytes(20)
+		randPasswordBytes, err := randBytesFromStr(20, alphaNumBytes)
+		if err != nil {
+			return nil, err
+		}
+		password = string(randPasswordBytes)
+	} else {
+		if svc.Config.MinPasswordEntropy > 0 {
+			entropy := passwordvalidator.GetEntropy(password)
+			if entropy < float64(svc.Config.MinPasswordEntropy) {
+				return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
+			}
+		}
 	}
 
 	// we only store the hashed password but return the initial plain text password in the HTTP response
@@ -111,12 +127,4 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 		return nil, err
 	}
 	return invoices, nil
-}
-
-func randStringBytes(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = alphaNumBytes[rand.Intn(len(alphaNumBytes))]
-	}
-	return string(b)
 }

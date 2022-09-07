@@ -28,7 +28,6 @@ type CreateUserRequestBody struct {
 	AccountType string `json:"accounttype"`
 }
 
-// CreateUser : Create user Controller
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
 
 	var body CreateUserRequestBody

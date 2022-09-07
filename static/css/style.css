@@ -19,7 +19,7 @@ body {
     height: 100%;
     width: 100%;
 }
-.sidebar { 
+.sidebar {
 	background: #fff;
 	box-shadow: 0 -1px 4px 0 rgba(0,0,0,.20);
 }
@@ -50,7 +50,6 @@ body {
 	width: 25%;
 	margin-right: 32px;
 }
-
 .box h3 {
 	font-size: 18px;
 	margin: 0;
@@ -107,7 +106,6 @@ body {
 	top: 24px;
 	right: 24px;
 }
-
 #progressbar {
 	appearance: none;
 	margin: 0;
@@ -171,7 +169,7 @@ body {
 	font-weight: 500;
 }
 .qr {
-	margin: 0 -24px; 
+	margin: 0 -24px;
 	width: 268px
 }
 footer {
@@ -180,17 +178,20 @@ footer {
 footer a {
 	font-size: 14px;
 	color: #0070FF;
-	text-decoration: none; 
+	text-decoration: none;
 }
 @media (min-width: 1200px){
  	body {
  		 padding-right: 300px;
  	}
+	.logo, .logo img {
+		width: 200px;
+	}
 	.sidebar {
 		position: fixed;
 		top: 0;
 		right: 0;
-		width: 300px; 
+		width: 300px;
 		height: 100%;
 		box-shadow: 0 0 4px 0 rgba(0,0,0,.20);
 	}
@@ -215,7 +216,7 @@ footer a {
 	}
 }
 @media (max-width: 1199px){
-	.logo {
+	.logo, .logo img {
 		width: 200px;
 	}
 	.scroll {
@@ -228,7 +229,6 @@ footer a {
 	}
 	.boxes .box {
 		width: 180px;
-		
 	}
 	.row {
 		position: relative;
@@ -244,10 +244,7 @@ footer a {
 	}
 }
 @media (max-width: 959px){
-	.logo {
+	.logo, .logo img {
 		width: 200px;
 	}
-
 }
-
-

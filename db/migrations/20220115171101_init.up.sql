@@ -1,4 +1,4 @@
-CREATE TABLE public.users (
+CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email character varying UNIQUE,
     login character varying NOT NULL UNIQUE,
@@ -9,7 +9,7 @@ CREATE TABLE public.users (
 
 --bun:split
 
-CREATE TABLE public.invoices (
+CREATE TABLE invoices (
     id SERIAL PRIMARY KEY,
     type character varying,
     user_id bigint,
@@ -21,7 +21,7 @@ CREATE TABLE public.invoices (
     r_hash character varying,
     preimage character varying,
     internal boolean,
-    state character varying DEFAULT 'initialized'::character varying,
+    state character varying DEFAULT 'initialized',
     error_message character varying,
     add_index bigint,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -29,26 +29,26 @@ CREATE TABLE public.invoices (
     updated_at timestamp with time zone,
     settled_at timestamp with time zone,
     CONSTRAINT fk_user
-        FOREIGN KEY(user_id) 
+        FOREIGN KEY(user_id)
         REFERENCES users(id)
         ON DELETE CASCADE
 );
 
 --bun:split
 
-CREATE TABLE public.accounts (
+CREATE TABLE accounts (
     id SERIAL PRIMARY KEY,
     user_id bigint NOT NULL,
     type character varying NOT NULL,
     CONSTRAINT fk_user
-        FOREIGN KEY(user_id) 
+        FOREIGN KEY(user_id)
         REFERENCES users(id)
         ON DELETE CASCADE
 );
 
 --bun:split
 
-CREATE TABLE public.transaction_entries (
+CREATE TABLE transaction_entries (
     id SERIAL PRIMARY KEY,
     user_id bigint NOT NULL,
     invoice_id bigint NOT NULL,
@@ -58,11 +58,11 @@ CREATE TABLE public.transaction_entries (
     amount bigint NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT fk_user
-        FOREIGN KEY(user_id) 
+        FOREIGN KEY(user_id)
         REFERENCES users(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_credit_account
-        FOREIGN KEY(credit_account_id) 
+        FOREIGN KEY(credit_account_id)
         REFERENCES accounts(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_debit_account

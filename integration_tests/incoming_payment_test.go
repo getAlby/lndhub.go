@@ -3,6 +3,7 @@ package integration_tests
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,9 +17,9 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -26,24 +27,17 @@ import (
 
 type IncomingPaymentTestSuite struct {
 	TestSuite
-	fundingClient            *lnd.LNDWrapper
 	service                  *service.LndhubService
+	mockLND                  *MockLND
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
 	invoiceUpdateSubCancelFn context.CancelFunc
 }
 
 func (suite *IncomingPaymentTestSuite) SetupSuite() {
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:     lnd2RegtestAddress,
-		MacaroonHex: lnd2RegtestMacaroonHex,
-	})
-	if err != nil {
-		log.Fatalf("Error setting up funding client: %v", err)
-	}
-	suite.fundingClient = lndClient
-
-	svc, err := LndHubTestServiceInit(nil)
+	mockLND := newDefaultMockLND()
+	suite.mockLND = mockLND
+	svc, err := LndHubTestServiceInit(mockLND)
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -88,17 +82,10 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	assert.Equal(suite.T(), int64(0), balance.BTC.AvailableBalance)
 	fundingSatAmt := 10
 	invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
-	//try to pay invoice with external node
-	// Prepare the LNRPC call
-	sendPaymentRequest := lnrpc.SendRequest{
-		PaymentRequest: invoiceResponse.PayReq,
-		FeeLimit:       nil,
-	}
-	_, err := suite.fundingClient.SendPaymentSync(context.Background(), &sendPaymentRequest)
+	err := suite.mockLND.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
-
-	//wait a bit for the callback event to hit
-	time.Sleep(100 * time.Millisecond)
+	//wait a bit for the payment to be processed
+	time.Sleep(10 * time.Millisecond)
 	//check balance again
 	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
@@ -109,6 +96,101 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	//assert the balance was added to the user's account
 	assert.Equal(suite.T(), int64(fundingSatAmt), balance.BTC.AvailableBalance)
 
+}
+func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
+	var buf bytes.Buffer
+	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	rec := httptest.NewRecorder()
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
+	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
+	suite.echo.ServeHTTP(rec, req)
+	//lookup balance before
+	balance := &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	initialBalance := balance.BTC.AvailableBalance
+	fundingSatAmt := 0
+	sendSatAmt := 10
+	invoiceResponse := suite.createAddInvoiceReq(fundingSatAmt, "integration test IncomingPaymentTestSuite", suite.userToken)
+	err := suite.mockLND.mockPaidInvoice(invoiceResponse, int64(sendSatAmt), false, nil)
+	assert.NoError(suite.T(), err)
+	//wait a bit for the callback event to hit
+	time.Sleep(10 * time.Millisecond)
+
+	//check balance again
+	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	suite.echo.ServeHTTP(rec, req)
+	balance = &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	//assert the payment value was added to the user's account
+	assert.Equal(suite.T(), initialBalance+int64(sendSatAmt), balance.BTC.AvailableBalance)
+}
+func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
+	var buf bytes.Buffer
+	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	rec := httptest.NewRecorder()
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
+	suite.echo.GET("/getuserinvoices", controllers.NewGetTXSController(suite.service).GetUserInvoices)
+	suite.echo.ServeHTTP(rec, req)
+	//lookup balance before
+	balance := &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	initialBalance := balance.BTC.AvailableBalance
+	keysendSatAmt := 10
+
+	//make keysend payment
+	pHash := sha256.New()
+	preImage, err := randBytesFromStr(32, random.Hex)
+	assert.NoError(suite.T(), err)
+	pHash.Write(preImage)
+	err = suite.mockLND.mockPaidInvoice(nil, int64(keysendSatAmt), true, &lnrpc.InvoiceHTLC{
+		CustomRecords: map[uint64][]byte{
+			service.TLV_WALLET_ID:         []byte(suite.userLogin.Login),
+			service.KEYSEND_CUSTOM_RECORD: preImage,
+		},
+	})
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the callback event to hit
+	time.Sleep(10 * time.Millisecond)
+	//check balance again
+	req = httptest.NewRequest(http.MethodGet, "/balance", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	suite.echo.ServeHTTP(rec, req)
+	balance = &ExpectedBalanceResponse{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
+	//assert the payment value was added to the user's account
+	assert.Equal(suite.T(), initialBalance+int64(keysendSatAmt), balance.BTC.AvailableBalance)
+
+	//Look up payment to check the custom records
+	// check invoices again
+	req = httptest.NewRequest(http.MethodGet, "/getuserinvoices", nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	rec = httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	// controller := controllers.NewGetTXSController(suite.Service)
+	incomingPayments := &[]ExpectedIncomingInvoice{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(incomingPayments))
+	//find the keysend payment, there should be only 1
+	var keySendPayment ExpectedIncomingInvoice
+	for _, payment := range *incomingPayments {
+		if payment.Keysend {
+			keySendPayment = payment
+			break
+		}
+	}
+	assert.True(suite.T(), keySendPayment.Keysend)
+	login := keySendPayment.CustomRecords[service.TLV_WALLET_ID]
+	assert.Equal(suite.T(), suite.userLogin.Login, string(login))
 }
 
 func TestIncomingPaymentTestSuite(t *testing.T) {

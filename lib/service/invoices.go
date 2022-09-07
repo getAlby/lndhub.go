@@ -6,8 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
-	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -46,16 +45,26 @@ func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId i
 	return &invoice, nil
 }
 
-func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
-	sendPaymentResponse := SendPaymentResponse{}
-	// find invoice
+func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *models.Invoice) (sendPaymentResponse SendPaymentResponse, err error) {
+	//Check if it's a keysend payment
+	//If it is, an invoice will be created on-the-fly
 	var incomingInvoice models.Invoice
-	err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
-	if err != nil {
-		// invoice not found or already settled
-		// TODO: logging
-		return sendPaymentResponse, err
+	if invoice.Keysend {
+		keysendInvoice, err := svc.HandleInternalKeysendPayment(ctx, invoice)
+		if err != nil {
+			return sendPaymentResponse, err
+		}
+		incomingInvoice = *keysendInvoice
+	} else {
+		// find invoice
+		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
+		if err != nil {
+			// invoice not found or already settled
+			// TODO: logging
+			return sendPaymentResponse, err
+		}
 	}
+
 	// Get the user's current and incoming account for the transaction entry
 	recipientCreditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, incomingInvoice.UserID)
 	if err != nil {
@@ -71,7 +80,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		InvoiceID:       incomingInvoice.ID,
 		CreditAccountID: recipientCreditAccount.ID,
 		DebitAccountID:  recipientDebitAccount.ID,
-		Amount:          invoice.Amount,
+		Amount:          incomingInvoice.Amount,
 	}
 	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
@@ -83,11 +92,11 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 	preimage, _ := hex.DecodeString(incomingInvoice.Preimage)
 	sendPaymentResponse.PaymentPreimageStr = incomingInvoice.Preimage
 	sendPaymentResponse.PaymentPreimage = preimage
-	sendPaymentResponse.Invoice = invoice
-	paymentHash, _ := hex.DecodeString(invoice.RHash)
-	sendPaymentResponse.PaymentHashStr = invoice.RHash
+	sendPaymentResponse.Invoice = &incomingInvoice
+	paymentHash, _ := hex.DecodeString(incomingInvoice.RHash)
+	sendPaymentResponse.PaymentHashStr = incomingInvoice.RHash
 	sendPaymentResponse.PaymentHash = paymentHash
-	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: invoice.Amount, TotalFees: 0}
+	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: incomingInvoice.Amount, TotalFees: 0}
 
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = common.InvoiceStateSettled
@@ -97,6 +106,8 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
 	}
+	svc.InvoicePubSub.Publish(strconv.FormatInt(incomingInvoice.UserID, 10), incomingInvoice)
+	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, incomingInvoice)
 
 	return sendPaymentResponse, nil
 }
@@ -131,7 +142,11 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 }
 
 func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
-	feeLimit := calcFeeLimit(invoice)
+	feeLimit := lnrpc.FeeLimit{
+		Limit: &lnrpc.FeeLimit_Fixed{
+			Fixed: invoice.CalcFeeLimit(),
+		},
+	}
 
 	if !invoice.Keysend {
 		return &lnrpc.SendRequest{
@@ -141,7 +156,10 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 		}, nil
 	}
 
-	preImage := makePreimageHex()
+	preImage, err := makePreimageHex()
+	if err != nil {
+		return nil, err
+	}
 	pHash := sha256.New()
 	pHash.Write(preImage)
 	// Prepare the LNRPC call
@@ -161,31 +179,18 @@ func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error)
 	}, nil
 }
 
-func calcFeeLimit(invoice *models.Invoice) lnrpc.FeeLimit {
-	limit := int64(10)
-	if invoice.Amount > 1000 {
-		limit = int64(math.Ceil(float64(invoice.Amount)*float64(0.01)) + 1)
-	}
-
-	return lnrpc.FeeLimit{
-		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: limit,
-		},
-	}
-}
-
 func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoice) (*SendPaymentResponse, error) {
 	userId := invoice.UserID
 
 	// Get the user's current and outgoing account for the transaction entry
 	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
 	if err != nil {
-		svc.Logger.Errorf("Could not find current account user_id:%v", invoice.UserID)
+		svc.Logger.Errorf("Could not find current account user_id:%v", userId)
 		return nil, err
 	}
 	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
 	if err != nil {
-		svc.Logger.Errorf("Could not find outgoing account user_id:%v", invoice.UserID)
+		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
 	}
 
@@ -201,7 +206,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// If the user does not have enough balance this call fails
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
 		return nil, err
 	}
 
@@ -229,6 +234,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
 	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
+	invoice.RHash = paymentResponse.PaymentHashStr
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
 }
@@ -307,6 +313,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		svc.Logger.Info(amountMsg)
 		sentry.CaptureMessage(amountMsg)
 	}
+	svc.InvoicePubSub.Publish(common.InvoiceTypeOutgoing, *invoice)
 
 	return nil
 }
@@ -336,7 +343,10 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 }
 
 func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
-	preimage := makePreimageHex()
+	preimage, err := makePreimageHex()
+	if err != nil {
+		return nil, err
+	}
 	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
 	invoice := models.Invoice{
@@ -350,7 +360,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	}
 
 	// Save invoice - we save the invoice early to have a record in case the LN call fails
-	_, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
+	_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -395,10 +405,6 @@ func (svc *LndhubService) DecodePaymentRequest(ctx context.Context, bolt11 strin
 
 const hexBytes = random.Hex
 
-func makePreimageHex() []byte {
-	b := make([]byte, 32)
-	for i := range b {
-		b[i] = hexBytes[rand.Intn(len(hexBytes))]
-	}
-	return b
+func makePreimageHex() ([]byte, error) {
+	return randBytesFromStr(32, hexBytes)
 }

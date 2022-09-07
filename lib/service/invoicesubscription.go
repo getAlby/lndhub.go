@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,12 +18,81 @@ import (
 	"github.com/uptrace/bun"
 )
 
+func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) (result *models.Invoice, err error) {
+	//Find the payee user
+	user, err := svc.FindUserByLogin(ctx, string(invoice.DestinationCustomRecords[TLV_WALLET_ID]))
+	if err != nil {
+		return nil, err
+	}
+	preImage, err := makePreimageHex()
+	if err != nil {
+		return nil, err
+	}
+	pHash := sha256.New()
+	pHash.Write(preImage)
+	expiry := time.Hour * 24
+	incomingInvoice := models.Invoice{
+		Type:                     common.InvoiceTypeIncoming,
+		UserID:                   user.ID,
+		Amount:                   invoice.Amount,
+		Internal:                 true,
+		Memo:                     "",
+		State:                    common.InvoiceStateInitialized,
+		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
+		Keysend:                  true,
+		RHash:                    hex.EncodeToString(pHash.Sum(nil)),
+		Preimage:                 hex.EncodeToString(preImage),
+		DestinationCustomRecords: invoice.DestinationCustomRecords,
+		DestinationPubkeyHex:     svc.IdentityPubkey,
+		AddIndex:                 invoice.AddIndex,
+	}
+	//persist the incoming invoice
+	_, err = svc.DB.NewInsert().Model(&incomingInvoice).Exec(ctx)
+	return &incomingInvoice, err
+}
+
+func (svc *LndhubService) HandleKeysendPayment(ctx context.Context, rawInvoice *lnrpc.Invoice) error {
+	var invoice models.Invoice
+	rHashStr := hex.EncodeToString(rawInvoice.RHash)
+	//First check if this keysend payment was already processed
+	count, err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state = ?",
+		common.InvoiceTypeIncoming,
+		rHashStr,
+		common.InvoiceStateSettled).Count(ctx)
+	if err != nil {
+		return err
+	}
+	if count != 0 {
+		return fmt.Errorf("Already processed keysend payment %s", rHashStr)
+	}
+
+	//construct the invoice
+	invoice, err = svc.createKeysendInvoice(ctx, rawInvoice)
+	if err != nil {
+		return err
+	}
+	//persist the invoice
+	_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *lnrpc.Invoice) error {
 	var invoice models.Invoice
 	rHashStr := hex.EncodeToString(rawInvoice.RHash)
 
 	svc.Logger.Infof("Invoice update: r_hash:%s state:%v", rHashStr, rawInvoice.State.String())
 
+	//Check if it's a keysend payment
+	//If it is, an invoice will be created on-the-fly
+	if rawInvoice.IsKeysend {
+		err := svc.HandleKeysendPayment(ctx, rawInvoice)
+		if err != nil {
+			return err
+		}
+	}
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
 	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
 		common.InvoiceTypeIncoming,
@@ -80,7 +152,11 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 			InvoiceID:       invoice.ID,
 			CreditAccountID: creditAccount.ID,
 			DebitAccountID:  debitAccount.ID,
-			Amount:          invoice.Amount,
+			Amount:          rawInvoice.AmtPaidSat,
+		}
+
+		if rawInvoice.AmtPaidSat != invoice.Amount {
+			svc.Logger.Infof("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
 		}
 
 		// Save the transaction entry
@@ -97,15 +173,52 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
+	svc.InvoicePubSub.Publish(strconv.FormatInt(invoice.UserID, 10), invoice)
+	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, invoice)
 
 	return nil
+}
+
+func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *lnrpc.Invoice) (result models.Invoice, err error) {
+	//Look for the user-identifying TLV record
+	//which are located in the HTLC's.
+	//TODO: can the records differe from HTLC to HTLC? Probably not
+	if len(rawInvoice.Htlcs) == 0 {
+		return result, fmt.Errorf("Invoice's HTLC array has length 0")
+	}
+	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
+	//Find user. Our convention here is that the TLV
+	//record should contain the user's login string
+	//(LND already returns the decoded string so there is no need to hex-decode it)
+	user, err := svc.FindUserByLogin(ctx, string(userLoginCustomRecord))
+	if err != nil {
+		return result, err
+	}
+
+	expiry := time.Hour * 24 // not really relevant here, the invoice will be updated immediately
+	result = models.Invoice{
+		Type:                     common.InvoiceTypeIncoming,
+		UserID:                   user.ID,
+		Amount:                   rawInvoice.AmtPaidSat,
+		Memo:                     "",
+		State:                    common.InvoiceStateInitialized,
+		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
+		Keysend:                  true,
+		RHash:                    hex.EncodeToString(rawInvoice.RHash),
+		Preimage:                 hex.EncodeToString(rawInvoice.RPreimage),
+		DestinationCustomRecords: rawInvoice.Htlcs[0].CustomRecords,
+		DestinationPubkeyHex:     svc.IdentityPubkey,
+		AddIndex:                 rawInvoice.AddIndex,
+	}
+	return result, nil
 }
 
 func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.SubscribeInvoicesWrapper, error) {
 	var invoice models.Invoice
 	invoiceSubscriptionOptions := lnrpc.InvoiceSubscription{}
-	// Find the oldest NOT settled invoice with an add_index
-	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
+	// Find the oldest NOT settled AND NOT expired invoice with an add_index
+	//  Note: expired invoices will not be settled anymore, so we don't care about those
+	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL AND invoice.expires_at >= now()").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
 	// IF we found an invoice we use that index to start the subscription
 	if err == nil {
 		invoiceSubscriptionOptions = lnrpc.InvoiceSubscription{AddIndex: invoice.AddIndex - 1} // -1 because we want updates for that invoice already
@@ -121,32 +234,37 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		return err
 	}
 	for {
-		// receive the next invoice update
-		rawInvoice, err := invoiceSubscriptionStream.Recv()
-		if err != nil {
-			svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
-			sentry.CaptureException(err)
-			// TODO: close the stream somehoe before retrying?
-			// Wait 30 seconds and try to reconnect
-			// TODO: implement some backoff
-			time.Sleep(30 * time.Second)
-			invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
-			continue
-		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("Context was canceled")
+		default:
+			// receive the next invoice update
+			rawInvoice, err := invoiceSubscriptionStream.Recv()
+			if err != nil {
+				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+				sentry.CaptureException(err)
+				// TODO: close the stream somehoe before retrying?
+				// Wait 30 seconds and try to reconnect
+				// TODO: implement some backoff
+				time.Sleep(30 * time.Second)
+				invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
+				continue
+			}
 
-		// Ignore updates for open invoices
-		// We store the invoice details in the AddInvoice call
-		// Processing open invoices here could cause a race condition:
-		// We could get this notification faster than we finish the AddInvoice call
-		if rawInvoice.State == lnrpc.Invoice_OPEN {
-			svc.Logger.Infof("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
-			continue
-		}
+			// Ignore updates for open invoices
+			// We store the invoice details in the AddInvoice call
+			// Processing open invoices here could cause a race condition:
+			// We could get this notification faster than we finish the AddInvoice call
+			if rawInvoice.State == lnrpc.Invoice_OPEN {
+				svc.Logger.Infof("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
+				continue
+			}
 
-		processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
-		if processingError != nil {
-			svc.Logger.Error(processingError)
-			sentry.CaptureException(processingError)
+			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
+			if processingError != nil {
+				svc.Logger.Error(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
+				sentry.CaptureException(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
+			}
 		}
 	}
 }
