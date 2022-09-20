@@ -7,18 +7,19 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"golang.org/x/time/rate"
 )
 
-func RegisterLegacyEndpoints(svc *service.LndhubService, e *echo.Echo, secured *echo.Group, securedWithStrictRateLimit *echo.Group, strictRateLimitMiddleware echo.MiddlewareFunc, adminMw echo.MiddlewareFunc) {
+func RegisterLegacyEndpoints(svc *service.LndhubService, e *echo.Echo, tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW, rateLimitPerMinMW, rateLimitPerSecMW echo.MiddlewareFunc) {
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	if svc.Config.AllowAccountCreation {
-		e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware, adminMw)
+		e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitPerMinMW, strictRateLimitPerSecMW)
 	}
-	e.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice, middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(svc.Config.DefaultRateLimit))))
+	e.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice, rateLimitPerMinMW, rateLimitPerSecMW)
 
 	// Secured endpoints which require a Authorization token (JWT)
+	securedWithStrictRateLimit := e.Group("", tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW)
+	secured := e.Group("", tokenMW, rateLimitPerMinMW, rateLimitPerSecMW)
 	secured.POST("/addinvoice", controllers.NewAddInvoiceController(svc).AddInvoice)
 	securedWithStrictRateLimit.POST("/payinvoice", controllers.NewPayInvoiceController(svc).PayInvoice)
 	secured.GET("/gettxs", controllers.NewGetTXSController(svc).GetTXS)

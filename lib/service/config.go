@@ -29,9 +29,10 @@ type Config struct {
 	Port                             int     `envconfig:"PORT" default:"3000"`
 	EnableGRPC                       bool    `envconfig:"ENABLE_GRPC" default:"false"`
 	GRPCPort                         int     `envconfig:"GRPC_PORT" default:"10009"`
-	DefaultRateLimit                 int     `envconfig:"DEFAULT_RATE_LIMIT" default:"10"`
-	StrictRateLimit                  int     `envconfig:"STRICT_RATE_LIMIT" default:"10"`
-	BurstRateLimit                   int     `envconfig:"BURST_RATE_LIMIT" default:"1"`
+	DefaultRateLimit         PerMin  int     `envconfig:"DEFAULT_RATE_LIMIT_PER_MIN" default:"240"`
+	DefaultRateLimitPerSec  int     `envconfig:"DEFAULT_RATE_LIMIT_PER_SEC" default:"4"`
+	StrictRateLimitPerMin            int     `envconfig:"STRICT_RATE_LIMIT_PER_MIN" default:"120"`
+	StrictRateLimitPerSec            int     `envconfig:"STRICT_RATE_LIMIT_PER_SEC" default:"2"`
 	EnablePrometheus                 bool    `envconfig:"ENABLE_PROMETHEUS" default:"false"`
 	PrometheusPort                   int     `envconfig:"PROMETHEUS_PORT" default:"9092"`
 	WebhookUrl                       string  `envconfig:"WEBHOOK_URL"`
