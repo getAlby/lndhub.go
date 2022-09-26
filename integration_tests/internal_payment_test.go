@@ -131,6 +131,27 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	assert.Equal(suite.T(), 1, len(transactionEntriesBob))
 	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesBob[0].Amount)
 	assert.Equal(suite.T(), int64(bobSatRequested), bobBalance)
+
+	//generate 0 amount invoice
+	zeroAmt := suite.createAddInvoiceReq(0, "integration test internal payment bob 0 amount", suite.bobToken)
+	toPayForZeroAmt := 10
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: zeroAmt.PayReq,
+		Amount:  toPayForZeroAmt,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+
+	payInvoiceResponse := &ExpectedPayInvoiceResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payInvoiceResponse))
+	//assert bob was credited the correct amount
+	bobBalance, _ = suite.service.CurrentUserBalance(context.Background(), bobId)
+	assert.Equal(suite.T(), int64(bobSatRequested+toPayForZeroAmt), bobBalance)
 }
 
 func (suite *PaymentTestSuite) TestInternalPaymentFail() {

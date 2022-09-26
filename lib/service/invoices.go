@@ -80,7 +80,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		InvoiceID:       incomingInvoice.ID,
 		CreditAccountID: recipientCreditAccount.ID,
 		DebitAccountID:  recipientDebitAccount.ID,
-		Amount:          incomingInvoice.Amount,
+		Amount:          invoice.Amount,
 	}
 	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
@@ -101,6 +101,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = common.InvoiceStateSettled
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
+	incomingInvoice.Amount = invoice.Amount // set just in case of 0 amount invoice
 	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(ctx)
 	if err != nil {
 		// could not save the invoice of the recipient
