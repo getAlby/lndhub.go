@@ -126,7 +126,7 @@ func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, opti
 	})
 }
 
-func (wrapper *LNDWrapper) TrackPayment(ctx context.Context, hash string, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+func (wrapper *LNDWrapper) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
 	client, err := wrapper.routerClient.TrackPaymentV2(ctx, &routerrpc.TrackPaymentRequest{
 		PaymentHash:       []byte(hash),
 		NoInflightUpdates: true,

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/getAlby/lndhub.go/db/models"
@@ -20,22 +21,27 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 		return fmt.Errorf("User ID's don't match : entry %v, invoice %v", entry, invoice)
 	}
 	//ask lnd using TrackPaymentV2 by hash of payment
-	payment, err := svc.LndClient.TrackPayment(ctx, invoice.RHash)
+	rawHash, err := hex.DecodeString(invoice.RHash)
+	if err != nil {
+		return err
+	}
+	payment, err := svc.LndClient.TrackPayment(ctx, rawHash)
 	if err != nil {
 		return err
 	}
 	//call HandleFailedPayment or HandleSuccesfulPayment
 	if payment.Status == lnrpc.Payment_FAILED {
+		svc.Logger.Infof("Updating failed payment %v", payment)
 		return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
 	}
 	if payment.Status == lnrpc.Payment_SUCCEEDED {
 		invoice.Fee = payment.FeeSat
 		invoice.Preimage = payment.PaymentPreimage
-		//is it needed to update the hash here?
+		svc.Logger.Infof("Updating completed payment %v", payment)
 		return svc.HandleSuccessfulPayment(ctx, invoice, entry)
 	}
 	if payment.Status == lnrpc.Payment_IN_FLIGHT {
-		//todo, we need to keep calling Recv() in this case, in a seperate goroutine maybe?
+		//TODO, we need to keep calling Recv() in this case, in a seperate goroutine maybe?
 		return nil
 	}
 	return nil

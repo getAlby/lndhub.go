@@ -137,6 +137,6 @@ func (mock *lndSubscriptionStartMockClient) DecodeBolt11(ctx context.Context, bo
 	panic("not implemented") // TODO: Implement
 }
 
-func (mlnd *lndSubscriptionStartMockClient) TrackPayment(ctx context.Context, hash string, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+func (mlnd *lndSubscriptionStartMockClient) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
 	return nil, nil
 }

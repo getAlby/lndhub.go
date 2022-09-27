@@ -216,7 +216,7 @@ func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 	}, nil
 }
 
-func (mlnd *MockLND) TrackPayment(ctx context.Context, hash string, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+func (mlnd *MockLND) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
 	return nil, nil
 }
 
