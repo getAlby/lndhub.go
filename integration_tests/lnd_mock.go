@@ -216,6 +216,10 @@ func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 	}, nil
 }
 
+func (mlnd *MockLND) TrackPayment(ctx context.Context, hash string, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+	return nil, nil
+}
+
 func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
 	inv, err := zpay32.Decode(bolt11, &chaincfg.RegressionNetParams)
 	if err != nil {

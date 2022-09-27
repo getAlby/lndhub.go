@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/macaroons"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -30,7 +31,8 @@ type LNDoptions struct {
 }
 
 type LNDWrapper struct {
-	client lnrpc.LightningClient
+	client       lnrpc.LightningClient
+	routerClient routerrpc.RouterClient
 }
 
 func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
@@ -92,7 +94,8 @@ func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 	}
 
 	return &LNDWrapper{
-		client: lnrpc.NewLightningClient(conn),
+		client:       lnrpc.NewLightningClient(conn),
+		routerClient: routerrpc.NewRouterClient(conn),
 	}, nil
 }
 
@@ -117,7 +120,19 @@ func (wrapper *LNDWrapper) GetInfo(ctx context.Context, req *lnrpc.GetInfoReques
 }
 
 func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
+
 	return wrapper.client.DecodePayReq(ctx, &lnrpc.PayReqString{
 		PayReq: bolt11,
 	})
+}
+
+func (wrapper *LNDWrapper) TrackPayment(ctx context.Context, hash string, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+	client, err := wrapper.routerClient.TrackPaymentV2(ctx, &routerrpc.TrackPaymentRequest{
+		PaymentHash:       []byte(hash),
+		NoInflightUpdates: true,
+	}, options...)
+	if err != nil {
+		return nil, err
+	}
+	return client.Recv()
 }

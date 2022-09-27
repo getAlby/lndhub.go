@@ -14,6 +14,7 @@ type LightningClientWrapper interface {
 	SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error)
 	GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error)
 	DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error)
+	TrackPayment(ctx context.Context, hash string, options ...grpc.CallOption) (*lnrpc.Payment, error)
 }
 
 type SubscribeInvoicesWrapper interface {
