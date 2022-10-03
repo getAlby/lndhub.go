@@ -13,6 +13,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
+	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -61,6 +62,26 @@ func (suite *CreateUserTestSuite) TestCreate() {
 		assert.NotEmpty(suite.T(), responseBody.Password)
 		fmt.Printf("Sucessfully created user with login %s\n", responseBody.Login)
 	}
+}
+func (suite *CreateUserTestSuite) TestAdminCreate() {
+	adminToken := "admin_token"
+	e := echo.New()
+	e.HTTPErrorHandler = responses.HTTPErrorHandler
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+	controller := controllers.NewCreateUserController(suite.Service)
+	e.POST("/create", controller.CreateUser, tokens.AdminTokenMiddleware(adminToken))
+	req := httptest.NewRequest(http.MethodPost, "/create", bytes.NewReader([]byte{}))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	req.Header.Set("Authorization", "Bearer not_the_admin_token")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adminToken))
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 }
 
 func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {
