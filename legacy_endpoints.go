@@ -10,11 +10,11 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func RegisterLegacyEndpoints(svc *service.LndhubService, e *echo.Echo, secured *echo.Group, securedWithStrictRateLimit *echo.Group, strictRateLimitMiddleware echo.MiddlewareFunc) {
+func RegisterLegacyEndpoints(svc *service.LndhubService, e *echo.Echo, secured *echo.Group, securedWithStrictRateLimit *echo.Group, strictRateLimitMiddleware echo.MiddlewareFunc, adminMw echo.MiddlewareFunc) {
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	if svc.Config.AllowAccountCreation {
-		e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware)
+		e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware, adminMw)
 	}
 	e.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice, middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(svc.Config.DefaultRateLimit))))
 
