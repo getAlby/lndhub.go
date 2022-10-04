@@ -9,6 +9,14 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
+func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (pendingPayments []models.Invoice, err error) {
+	//this should be called in a goroutine at startup
+	//todo
+	//check database for all pending payments
+	//call trackoutgoingpaymentstatus for each one
+	return nil, nil
+}
+
 func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoice *models.Invoice) error {
 
 	//fetch the tx entry for the invoice
@@ -31,17 +39,22 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 	}
 	//call HandleFailedPayment or HandleSuccesfulPayment
 	if payment.Status == lnrpc.Payment_FAILED {
-		svc.Logger.Infof("Updating failed payment %v", payment)
-		return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
+		svc.Logger.Infof("Failed payment detected: %v", payment)
+		//todo handle failed payment
+		//return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
+		return nil
 	}
 	if payment.Status == lnrpc.Payment_SUCCEEDED {
 		invoice.Fee = payment.FeeSat
 		invoice.Preimage = payment.PaymentPreimage
-		svc.Logger.Infof("Updating completed payment %v", payment)
-		return svc.HandleSuccessfulPayment(ctx, invoice, entry)
+		svc.Logger.Infof("Completed payment detected: %v", payment)
+		//todo handle succesful payment
+		//return svc.HandleSuccessfulPayment(ctx, invoice, entry)
+		return nil
 	}
 	if payment.Status == lnrpc.Payment_IN_FLIGHT {
-		//TODO, we need to keep calling Recv() in this case, in a seperate goroutine maybe?
+		//todo handle inflight payment
+		svc.Logger.Infof("In-flight payment detected: %v", payment)
 		return nil
 	}
 	return nil
