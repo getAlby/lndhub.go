@@ -145,7 +145,8 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
 	feeLimit := lnrpc.FeeLimit{
 		Limit: &lnrpc.FeeLimit_Fixed{
-			Fixed: invoice.CalcFeeLimit(),
+			//if we get here, the destination is never ourselves, so we can use a dummy
+			Fixed: invoice.CalcFeeLimit("dummy"),
 		},
 	}
 

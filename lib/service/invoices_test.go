@@ -12,7 +12,7 @@ func TestCalcFeeWithInvoiceLessThan1000(t *testing.T) {
 		Amount: 500,
 	}
 
-	feeLimit := invoice.CalcFeeLimit()
+	feeLimit := invoice.CalcFeeLimit("dummy")
 	expectedFee := int64(10)
 	assert.Equal(t, expectedFee, feeLimit)
 }
@@ -22,7 +22,7 @@ func TestCalcFeeWithInvoiceEqualTo1000(t *testing.T) {
 		Amount: 500,
 	}
 
-	feeLimit := invoice.CalcFeeLimit()
+	feeLimit := invoice.CalcFeeLimit("dummy")
 	expectedFee := int64(10)
 	assert.Equal(t, expectedFee, feeLimit)
 }
@@ -32,7 +32,7 @@ func TestCalcFeeWithInvoiceMoreThan1000(t *testing.T) {
 		Amount: 1500,
 	}
 
-	feeLimit := invoice.CalcFeeLimit()
+	feeLimit := invoice.CalcFeeLimit("dummy")
 	// 1500 * 0.01 + 1
 	expectedFee := int64(16)
 	assert.Equal(t, expectedFee, feeLimit)

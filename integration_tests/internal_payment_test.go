@@ -86,6 +86,52 @@ func (suite *PaymentTestSuite) TearDownTest() {
 	clearTable(suite.service, "invoices")
 }
 
+func (suite *PaymentTestSuite) TestPaymentFeeReserve() {
+	//set config to check for fee reserve
+	suite.service.Config.FeeReserve = true
+	aliceFundingSats := 1000
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the payment to be processed
+	time.Sleep(10 * time.Millisecond)
+
+	//try to make external payment
+	//which should fail
+	//create external invoice
+	externalSatRequested := 1000
+	externalInvoice := lnrpc.Invoice{
+		Memo:  "integration tests: external pay from user",
+		Value: int64(externalSatRequested),
+	}
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	//pay external invoice
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because fee reserve is active
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	//try to make internal payment, which should work
+	bobSatRequested := 1000
+	//create invoice for bob
+	bobInvoice := suite.createAddInvoiceReq(bobSatRequested, "integration test internal payment bob", suite.bobToken)
+	//pay bob from alice, this should work because it's internal
+	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: bobInvoice.PayReq,
+	}, suite.aliceToken)
+	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
+	//reset fee reserve so it's not used in other tests
+	suite.service.Config.FeeReserve = false
+}
 func (suite *PaymentTestSuite) TestInternalPayment() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500
