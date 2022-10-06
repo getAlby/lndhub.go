@@ -21,7 +21,7 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	for _, inv := range pendingPayments {
 		err = svc.TrackOutgoingPaymentstatus(ctx, &inv)
 		if err != nil {
-			svc.Logger.Error(err)
+			svc.Logger.Errorf("Error tracking payment %v: %s", inv, err.Error())
 		}
 	}
 	return nil
