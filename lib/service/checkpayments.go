@@ -9,12 +9,22 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
-func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (pendingPayments []models.Invoice, err error) {
-	//this should be called in a goroutine at startup
-	//todo
+func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (err error) {
 	//check database for all pending payments
+	pendingPayments := []models.Invoice{}
+	err = svc.DB.NewSelect().Model(&pendingPayments).Where("state = 'initialized'").Where("type = 'outgoing'").Scan(ctx)
+	if err != nil {
+		return err
+	}
+	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
-	return nil, nil
+	for _, inv := range pendingPayments {
+		err = svc.TrackOutgoingPaymentstatus(ctx, &inv)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+	}
+	return nil
 }
 
 func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoice *models.Invoice) error {
