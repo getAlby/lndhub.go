@@ -87,7 +87,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
 	if err != nil {
-		controller.svc.DB.NewDelete().Model(&invoice).Where("id = ?", invoice.ID).Exec(c.Request().Context())
+		controller.svc.DB.NewDelete().Where("id = ?", invoice.ID).Exec(c.Request().Context())
 		return err
 	}
 
