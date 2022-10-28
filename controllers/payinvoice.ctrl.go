@@ -87,6 +87,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
 	if err != nil {
+		controller.svc.DB.NewDelete().Model(&invoice).Where("id = ?", invoice.ID).Exec(c.Request().Context())
 		return err
 	}
 
@@ -96,6 +97,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 	if currentBalance < minimumBalance {
 		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
+		controller.svc.DB.NewDelete().Model(&invoice).Where("id = ?", invoice.ID).Exec(c.Request().Context())
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
 
