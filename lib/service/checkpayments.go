@@ -16,7 +16,7 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	if err != nil {
 		return err
 	}
-	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
+	svc.Logger.Infof("Found %d pending payments, spawning trackers", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
 	for _, inv := range pendingPayments {
 		//spawn goroutines
@@ -25,7 +25,7 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	return nil
 }
 
-//Should be called in a goroutine as the tracking can potentially take a long time
+// Should be called in a goroutine as the tracking can potentially take a long time
 func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoice *models.Invoice) {
 
 	//fetch the tx entry for the invoice
@@ -62,7 +62,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			return
 		}
 		if payment.Status == lnrpc.Payment_FAILED {
-			svc.Logger.Infof("Failed payment detected: %v", payment)
+			svc.Logger.Infof("Failed payment detected: hash %s, reason %s", payment.PaymentHash, payment.FailureReason)
 			//todo handle failed payment
 			//return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
 			return
@@ -70,7 +70,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 		if payment.Status == lnrpc.Payment_SUCCEEDED {
 			invoice.Fee = payment.FeeSat
 			invoice.Preimage = payment.PaymentPreimage
-			svc.Logger.Infof("Completed payment detected: %v", payment)
+			svc.Logger.Infof("Completed payment detected: hash %s", payment.PaymentHash)
 			//todo handle succesful payment
 			//return svc.HandleSuccessfulPayment(ctx, invoice, entry)
 			return
