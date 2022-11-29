@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -64,16 +65,22 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 		if payment.Status == lnrpc.Payment_FAILED {
 			svc.Logger.Infof("Failed payment detected: hash %s, reason %s", payment.PaymentHash, payment.FailureReason)
 			//todo handle failed payment
-			//return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
+			err = svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
+			if err != nil {
+				svc.Logger.Errorf("Error handling failed payment %v: %s", invoice, err.Error())
+				return
+			}
 			return
 		}
 		if payment.Status == lnrpc.Payment_SUCCEEDED {
 			invoice.Fee = payment.FeeSat
 			invoice.Preimage = payment.PaymentPreimage
 			svc.Logger.Infof("Completed payment detected: hash %s", payment.PaymentHash)
-			//todo handle succesful payment
-			//return svc.HandleSuccessfulPayment(ctx, invoice, entry)
-			return
+			err = svc.HandleSuccessfulPayment(ctx, invoice, entry)
+			if err != nil {
+				svc.Logger.Errorf("Error handling successful payment %v: %s", invoice, err.Error())
+				return
+			}
 		}
 		//Since we shouldn't get in-flight updates we shouldn't get here
 		svc.Logger.Warnf("Got an unexpected in-flight update %v", payment)
