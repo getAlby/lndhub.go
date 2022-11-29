@@ -126,6 +126,10 @@ func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, opti
 	})
 }
 
+func (wrapper *LNDWrapper) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (SubscribePaymentWrapper, error) {
+	return wrapper.routerClient.TrackPaymentV2(ctx, req, options...)
+}
+
 func (wrapper *LNDWrapper) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
 	client, err := wrapper.routerClient.TrackPaymentV2(ctx, &routerrpc.TrackPaymentRequest{
 		PaymentHash:       []byte(hash),

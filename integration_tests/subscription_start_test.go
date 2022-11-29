@@ -17,6 +17,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/uptrace/bun"
@@ -127,6 +128,9 @@ func (mock *lndSubscriptionStartMockClient) SubscribeInvoices(ctx context.Contex
 //wait forever
 func (mock *lndSubscriptionStartMockClient) Recv() (*lnrpc.Invoice, error) {
 	select {}
+}
+func (mock *lndSubscriptionStartMockClient) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (lnd.SubscribePaymentWrapper, error) {
+	return nil, nil
 }
 
 func (mock *lndSubscriptionStartMockClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {

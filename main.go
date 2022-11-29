@@ -166,12 +166,11 @@ func main() {
 	go svc.InvoiceUpdateSubscription(context.Background())
 
 	// Check the status of all pending outgoing payments
-	go func() {
-		err = svc.CheckAllPendingOutgoingPayments(context.Background())
-		if err != nil {
-			svc.Logger.Error(err)
-		}
-	}()
+	// A goroutine will be spawned for each one
+	err = svc.CheckAllPendingOutgoingPayments(context.Background())
+	if err != nil {
+		svc.Logger.Error(err)
+	}
 
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {

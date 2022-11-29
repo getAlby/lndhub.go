@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 )
 
 func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (err error) {
@@ -19,53 +19,63 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
 	for _, inv := range pendingPayments {
-		err = svc.TrackOutgoingPaymentstatus(ctx, &inv)
-		if err != nil {
-			svc.Logger.Errorf("Error tracking payment %v: %s", inv, err.Error())
-		}
+		//spawn goroutines
+		go svc.TrackOutgoingPaymentstatus(ctx, &inv)
 	}
 	return nil
 }
 
-func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoice *models.Invoice) error {
+//Should be called in a goroutine as the tracking can potentially take a long time
+func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoice *models.Invoice) {
 
 	//fetch the tx entry for the invoice
 	entry := models.TransactionEntry{}
 	err := svc.DB.NewSelect().Model(&entry).Where("invoice_id = ?", invoice.ID).Limit(1).Scan(ctx)
 	if err != nil {
-		return err
+		svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+		return
+
 	}
 	if entry.UserID != invoice.UserID {
-		return fmt.Errorf("User ID's don't match : entry %v, invoice %v", entry, invoice)
+		svc.Logger.Errorf("User ID's don't match : entry %v, invoice %v", entry, invoice)
+		return
 	}
 	//ask lnd using TrackPaymentV2 by hash of payment
 	rawHash, err := hex.DecodeString(invoice.RHash)
 	if err != nil {
-		return err
+		svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+		return
 	}
-	payment, err := svc.LndClient.TrackPayment(ctx, rawHash)
+	paymentTracker, err := svc.LndClient.SubscribePayment(ctx, &routerrpc.TrackPaymentRequest{
+		PaymentHash:       rawHash,
+		NoInflightUpdates: true,
+	})
 	if err != nil {
-		return err
+		svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+		return
 	}
 	//call HandleFailedPayment or HandleSuccesfulPayment
-	if payment.Status == lnrpc.Payment_FAILED {
-		svc.Logger.Infof("Failed payment detected: %v", payment)
-		//todo handle failed payment
-		//return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
-		return nil
+	for {
+		payment, err := paymentTracker.Recv()
+		if err != nil {
+			svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+			return
+		}
+		if payment.Status == lnrpc.Payment_FAILED {
+			svc.Logger.Infof("Failed payment detected: %v", payment)
+			//todo handle failed payment
+			//return svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
+			return
+		}
+		if payment.Status == lnrpc.Payment_SUCCEEDED {
+			invoice.Fee = payment.FeeSat
+			invoice.Preimage = payment.PaymentPreimage
+			svc.Logger.Infof("Completed payment detected: %v", payment)
+			//todo handle succesful payment
+			//return svc.HandleSuccessfulPayment(ctx, invoice, entry)
+			return
+		}
+		//Since we shouldn't get in-flight updates we shouldn't get here
+		svc.Logger.Warnf("Got an unexpected in-flight update %v", payment)
 	}
-	if payment.Status == lnrpc.Payment_SUCCEEDED {
-		invoice.Fee = payment.FeeSat
-		invoice.Preimage = payment.PaymentPreimage
-		svc.Logger.Infof("Completed payment detected: %v", payment)
-		//todo handle succesful payment
-		//return svc.HandleSuccessfulPayment(ctx, invoice, entry)
-		return nil
-	}
-	if payment.Status == lnrpc.Payment_IN_FLIGHT {
-		//todo handle inflight payment
-		svc.Logger.Infof("In-flight payment detected: %v", payment)
-		return nil
-	}
-	return nil
 }
