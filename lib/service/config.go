@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+const (
+	LND_TYPE = "lnd"
+	CLN_TYPE = "cln"
+)
+
 type Config struct {
 	DatabaseUri           string `envconfig:"DATABASE_URI" required:"true"`
 	SentryDSN             string `envconfig:"SENTRY_DSN"`
@@ -13,11 +18,17 @@ type Config struct {
 	AdminToken            string `envconfig:"ADMIN_TOKEN"`
 	JWTRefreshTokenExpiry int    `envconfig:"JWT_REFRESH_EXPIRY" default:"604800"` // in seconds, default 7 days
 	JWTAccessTokenExpiry  int    `envconfig:"JWT_ACCESS_EXPIRY" default:"172800"`  // in seconds, default 2 days
+	LightningType         string `envconfig:"LIGHTNING_TYPE" default:"lnd"`        // lnd, cln (or something else later)
 	LNDAddress            string `envconfig:"LND_ADDRESS" required:"true"`
+	LNDMacaroonHex        string `envconfig:"LND_MACAROON_HEX" required:"true"`
 	LNDMacaroonFile       string `envconfig:"LND_MACAROON_FILE"`
 	LNDCertFile           string `envconfig:"LND_CERT_FILE"`
-	LNDMacaroonHex        string `envconfig:"LND_MACAROON_HEX"`
 	LNDCertHex            string `envconfig:"LND_CERT_HEX"`
+	CLNClientCertHex      string `envconfig:"CLN_CLIENT_CERT_HEX"`
+	CLNClientCertFile     string `envconfig:"CLN_CLIENT_CERT_FILE"`
+	CLNCaCertFile         string `envconfig:"CLN_CA_CERT_FILE"`
+	CLNClientKeyHex       string `envconfig:"CLN_CLIENT_KEY_HEX"`
+	CLNClientKeyFile      string `envconfig:"CLN_CLIENT_KEY_FILE"`
 	CustomName            string `envconfig:"CUSTOM_NAME"`
 	Host                  string `envconfig:"HOST" default:"localhost:3000"`
 	Port                  int    `envconfig:"PORT" default:"3000"`

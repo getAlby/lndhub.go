@@ -12,6 +12,7 @@ import (
 
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
+	"github.com/getAlby/lndhub.go/cln"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -121,27 +122,45 @@ func main() {
 		e.Use(sentryecho.New(sentryecho.Options{}))
 	}
 
-	// Init new LND client
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:      c.LNDAddress,
-		MacaroonFile: c.LNDMacaroonFile,
-		MacaroonHex:  c.LNDMacaroonHex,
-		CertFile:     c.LNDCertFile,
-		CertHex:      c.LNDCertHex,
-	})
+	// Init new Lightning client
+	var lnClient lnd.LightningClientWrapper
+
+	switch c.LightningType {
+	case service.LND_TYPE:
+		lnClient, err = lnd.NewLNDclient(lnd.LNDoptions{
+			Address:      c.LNDAddress,
+			MacaroonHex:  c.LNDMacaroonHex,
+			MacaroonFile: c.LNDMacaroonFile,
+			CertHex:      c.LNDCertHex,
+			CertFile:     c.LNDCertFile,
+		})
+	case service.CLN_TYPE:
+		lnClient, err = cln.NewCLNClient(cln.CLNClientOptions{
+			Host:           c.LNDAddress,
+			CaCertHex:      c.CLNClientCertHex,
+			ClientCertHex:  c.CLNClientCertHex,
+			ClientKeyHex:   c.CLNClientKeyHex,
+			CaCertFile:     c.CLNCaCertFile,
+			ClientCertFile: c.CLNClientCertFile,
+			ClientKeyFile:  c.CLNClientKeyFile,
+		})
+	default:
+		e.Logger.Fatalf("Error initializing node: type not recognized: %s", c.LightningType)
+	}
+
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
-	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	getInfo, err := lnClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
-	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+	logger.Infof("Connected to %s: %s - %s", c.LightningType, getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
 		Config:         c,
 		DB:             dbConn,
-		LndClient:      lndClient,
+		LndClient:      lnClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
