@@ -76,7 +76,7 @@ func (suite *HodlInvoiceSuite) SetupSuite() {
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
 }
 
-func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
+func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	userFundingSats := 1000
 	externalSatRequested := 500
 	// fund user account
@@ -89,69 +89,9 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 
 	// create external invoice
 	externalInvoice := lnrpc.Invoice{
-		Memo:  "integration tests: external pay from user",
-		Value: int64(externalSatRequested),
-	}
-	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
-	assert.NoError(suite.T(), err)
-	// pay external from user, req will be canceled after 2 sec
-	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
-	// check to see that balance was reduced
-	userId := getUserIdFromToken(suite.userToken)
-	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
-	// wait for payment to be updated as pending in database
-	time.Sleep(3 * time.Second)
-	// check payment is pending
-	inv, err := suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
-	//start payment checking loop
-	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
-	assert.NoError(suite.T(), err)
-	//send settle invoice with lnrpc.payment
-	suite.hodlLND.SettlePayment(lnrpc.Payment{
-		PaymentHash:     hex.EncodeToString(invoice.RHash),
-		Value:           externalInvoice.Value,
-		CreationDate:    0,
-		Fee:             0,
-		PaymentPreimage: "123preimage",
-		ValueSat:        externalInvoice.Value,
-		ValueMsat:       0,
-		PaymentRequest:  invoice.PaymentRequest,
-		Status:          lnrpc.Payment_SUCCEEDED,
-		FailureReason:   0,
-	})
-	//wait a bit for db update to happen
-	time.Sleep(time.Second)
-
-	if err != nil {
-		fmt.Printf("Error when getting balance %v\n", err.Error())
-	}
-	//fetch user balance again
-	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
-	// check payment is updated as succesful
-	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), common.InvoiceStateSettled, inv.State)
-}
-
-func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
-	userFundingSats := 1000
-	externalSatRequested := 500
-	// fund user account
-	invoiceResponse := suite.createAddInvoiceReq(userFundingSats, "integration test external payment user", suite.userToken)
-	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
-	assert.NoError(suite.T(), err)
-
-	// wait a bit for the callback event to hit
-	time.Sleep(10 * time.Millisecond)
-
-	// create external invoice
-	externalInvoice := lnrpc.Invoice{
-		Memo:  "integration tests: external pay from user",
-		Value: int64(externalSatRequested),
+		Memo:      "integration tests: external pay from user",
+		Value:     int64(externalSatRequested),
+		RPreimage: []byte("preimage1"),
 	}
 	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
@@ -183,7 +123,7 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 		Value:           externalInvoice.Value,
 		CreationDate:    0,
 		Fee:             0,
-		PaymentPreimage: "123preimage",
+		PaymentPreimage: "",
 		ValueSat:        externalInvoice.Value,
 		ValueMsat:       0,
 		PaymentRequest:  invoice.PaymentRequest,
@@ -219,6 +159,56 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[2].CreditAccountID)
 	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
 	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
+
+	// create external invoice
+	externalInvoice = lnrpc.Invoice{
+		Memo:      "integration tests: external pay from user",
+		Value:     int64(externalSatRequested),
+		RPreimage: []byte("preimage2"),
+	}
+	invoice, err = suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	// pay external from user, req will be canceled after 2 sec
+	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
+	// wait for payment to be updated as pending in database
+	time.Sleep(3 * time.Second)
+	// check payment is pending
+	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
+	//start payment checking loop
+	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+	assert.NoError(suite.T(), err)
+	//send settle invoice with lnrpc.payment
+	suite.hodlLND.SettlePayment(lnrpc.Payment{
+		PaymentHash:     hex.EncodeToString(invoice.RHash),
+		Value:           externalInvoice.Value,
+		CreationDate:    0,
+		Fee:             0,
+		PaymentPreimage: "preimage2",
+		ValueSat:        externalInvoice.Value,
+		ValueMsat:       0,
+		PaymentRequest:  invoice.PaymentRequest,
+		Status:          lnrpc.Payment_SUCCEEDED,
+		FailureReason:   0,
+	})
+	//wait a bit for db update to happen
+	time.Sleep(time.Second)
+
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	//fetch user balance again
+	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
+	// check payment is updated as succesful
+	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), common.InvoiceStateSettled, inv.State)
+	clearTable(suite.service, "invoices")
+	clearTable(suite.service, "transaction_entries")
+	clearTable(suite.service, "accounts")
 }
 
 func (suite *HodlInvoiceSuite) TearDownSuite() {
