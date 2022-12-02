@@ -96,10 +96,15 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 	assert.NoError(suite.T(), err)
 	// pay external from user, req will be canceled after 2 sec
 	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
-
+	// check to see that balance was reduced
+	userId := getUserIdFromToken(suite.userToken)
+	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
 	// wait for payment to be updated as pending in database
 	time.Sleep(3 * time.Second)
-
+	// check payment is pending
+	inv, err := suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
 	//start payment checking loop
 	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
 	assert.NoError(suite.T(), err)
@@ -116,16 +121,15 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 		Status:          lnrpc.Payment_SUCCEEDED,
 		FailureReason:   0,
 	})
-	// check payment is pending
 
-	// check to see that balance was reduced
-	userId := getUserIdFromToken(suite.userToken)
-	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
-	// check payment is paid
+	// check payment is updated as succesful
+	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
 }
 
 func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
@@ -159,6 +163,11 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
+
+	// check payment is pending
+	inv, err := suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
 
 	//start payment checking loop
 	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
