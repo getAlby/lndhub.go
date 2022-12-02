@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"testing"
@@ -103,6 +104,19 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
 	assert.NoError(suite.T(), err)
 	//send settle invoice with lnrpc.payment
+	suite.hodlLND.SettlePayment(lnrpc.Payment{
+		PaymentHash:     hex.EncodeToString(invoice.RHash),
+		Value:           externalInvoice.Value,
+		CreationDate:    0,
+		Fee:             0,
+		PaymentPreimage: "",
+		ValueSat:        0,
+		ValueMsat:       0,
+		PaymentRequest:  invoice.PaymentRequest,
+		Status:          lnrpc.Payment_SUCCEEDED,
+		FailureReason:   0,
+	})
+	// check payment is pending
 
 	// check to see that balance was reduced
 	userId := getUserIdFromToken(suite.userToken)
@@ -111,8 +125,7 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
-	//todo: check that invoice was updated as completed
-
+	// check payment is paid
 }
 
 func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
@@ -150,7 +163,19 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 	//start payment checking loop
 	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
 	assert.NoError(suite.T(), err)
-	//todo: send cancel invoice with lnrpc.payment
+	//send cancel invoice with lnrpc.payment
+	suite.hodlLND.SettlePayment(lnrpc.Payment{
+		PaymentHash:     hex.EncodeToString(invoice.RHash),
+		Value:           externalInvoice.Value,
+		CreationDate:    0,
+		Fee:             0,
+		PaymentPreimage: "",
+		ValueSat:        0,
+		ValueMsat:       0,
+		PaymentRequest:  invoice.PaymentRequest,
+		Status:          lnrpc.Payment_FAILED,
+		FailureReason:   lnrpc.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
+	})
 
 	// check that balance was reverted and invoice is in error state
 	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
