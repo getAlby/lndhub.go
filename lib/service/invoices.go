@@ -251,7 +251,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	_, err := svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
@@ -263,7 +263,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not update failed payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not update failed payment invoice user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 	}
 	return err
 }
@@ -275,7 +275,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
 	}
 
 	// Get the user's fee account for the transaction entry, current account is already there in parent entry
@@ -297,14 +297,14 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
 	userBalance, err := svc.CurrentUserBalance(ctx, entry.UserID)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 

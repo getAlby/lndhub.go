@@ -24,6 +24,7 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 		//spawn goroutines
 		//https://go.dev/doc/faq#closures_and_goroutines
 		inv := inv
+		svc.Logger.Infof("Spawning tracker for payment with hash %s", inv.RHash)
 		go svc.TrackOutgoingPaymentstatus(ctx, &inv)
 	}
 	return nil
@@ -31,7 +32,6 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 
 // Should be called in a goroutine as the tracking can potentially take a long time
 func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoice *models.Invoice) {
-	fmt.Println(invoice.RHash)
 	//ask lnd using TrackPaymentV2 by hash of payment
 	rawHash, err := hex.DecodeString(invoice.RHash)
 	if err != nil {

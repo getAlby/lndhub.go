@@ -231,7 +231,7 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 	}
 	result := &lnrpc.PayReq{
 		Destination: hex.EncodeToString(inv.Destination.SerializeCompressed()),
-		PaymentHash: string(inv.PaymentHash[:]),
+		PaymentHash: hex.EncodeToString(inv.PaymentHash[:]),
 		NumSatoshis: int64(*inv.MilliSat) / 1000,
 		Timestamp:   inv.Timestamp.Unix(),
 		Expiry:      int64(inv.Expiry()),

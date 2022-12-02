@@ -25,8 +25,9 @@ type HodlPaymentSubscriber struct {
 }
 
 // wait for channel, then return
-func (hps *HodlPaymentSubscriber) Recv() (lnrpc.Payment, error) {
-	return <-hps.ch, nil
+func (hps *HodlPaymentSubscriber) Recv() (*lnrpc.Payment, error) {
+	result := <-hps.ch
+	return &result, nil
 }
 
 func NewLNDMockHodlWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMockHodlWrapperAsync, err error) {
@@ -39,7 +40,7 @@ func NewLNDMockHodlWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMock
 }
 
 func (wrapper *LNDMockHodlWrapperAsync) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (lnd.SubscribePaymentWrapper, error) {
-	return nil, nil
+	return wrapper.hps, nil
 }
 
 func (wrapper *LNDMockHodlWrapperAsync) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {

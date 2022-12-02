@@ -114,22 +114,27 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 		Value:           externalInvoice.Value,
 		CreationDate:    0,
 		Fee:             0,
-		PaymentPreimage: "",
-		ValueSat:        0,
+		PaymentPreimage: "123preimage",
+		ValueSat:        externalInvoice.Value,
 		ValueMsat:       0,
 		PaymentRequest:  invoice.PaymentRequest,
 		Status:          lnrpc.Payment_SUCCEEDED,
 		FailureReason:   0,
 	})
+	//wait a bit for db update to happen
+	time.Sleep(time.Second)
 
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
+	//fetch user balance again
+	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
 	// check payment is updated as succesful
 	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
 	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
+	assert.Equal(suite.T(), common.InvoiceStateSettled, inv.State)
 }
 
 func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
@@ -178,13 +183,15 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 		Value:           externalInvoice.Value,
 		CreationDate:    0,
 		Fee:             0,
-		PaymentPreimage: "",
-		ValueSat:        0,
+		PaymentPreimage: "123preimage",
+		ValueSat:        externalInvoice.Value,
 		ValueMsat:       0,
 		PaymentRequest:  invoice.PaymentRequest,
 		Status:          lnrpc.Payment_FAILED,
 		FailureReason:   lnrpc.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
 	})
+	//wait a bit for db update to happen
+	time.Sleep(time.Second)
 
 	// check that balance was reverted and invoice is in error state
 	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
@@ -199,7 +206,8 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 	}
 	assert.Equal(suite.T(), 1, len(invoices))
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
-	assert.Equal(suite.T(), SendPaymentMockError, invoices[0].ErrorMessage)
+	errorString := "FAILURE_REASON_INCORRECT_PAYMENT_DETAILS"
+	assert.Equal(suite.T(), errorString, invoices[0].ErrorMessage)
 
 	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
