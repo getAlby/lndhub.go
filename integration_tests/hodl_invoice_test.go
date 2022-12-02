@@ -96,11 +96,12 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceSuccess() {
 	// pay external from user, req will be canceled after 2 sec
 	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
 
-	// wait for request to fail
-	time.Sleep(5 * time.Second)
+	// wait for payment to be updated as pending in database
+	time.Sleep(3 * time.Second)
 
-	//TODO
-	//start payment tracking loop
+	//start payment checking loop
+	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+	assert.NoError(suite.T(), err)
 	//send settle invoice with lnrpc.payment
 
 	// check to see that balance was reduced
@@ -135,7 +136,7 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 	// pay external from user, req will be canceled after 2 sec
 	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
 
-	// wait for request to fail
+	// wait for payment to be updated as pending in database
 	time.Sleep(5 * time.Second)
 
 	// check to see that balance was reduced
@@ -146,9 +147,10 @@ func (suite *HodlInvoiceSuite) TestHodlInvoiceFailure() {
 	}
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
 
-	//TODO
-	//start payment tracking loop
-	//send cancel invoice with lnrpc.payment
+	//start payment checking loop
+	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+	assert.NoError(suite.T(), err)
+	//todo: send cancel invoice with lnrpc.payment
 
 	// check that balance was reverted and invoice is in error state
 	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
