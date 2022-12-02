@@ -120,7 +120,6 @@ func (wrapper *LNDWrapper) GetInfo(ctx context.Context, req *lnrpc.GetInfoReques
 }
 
 func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
-
 	return wrapper.client.DecodePayReq(ctx, &lnrpc.PayReqString{
 		PayReq: bolt11,
 	})
