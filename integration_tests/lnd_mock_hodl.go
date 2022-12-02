@@ -2,16 +2,12 @@ package integration_tests
 
 import (
 	"context"
-	"errors"
 
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"google.golang.org/grpc"
 )
-
-type LNDMockHodlWrapper struct {
-	lnd.LightningClientWrapper
-}
 
 func NewLNDMockHodlWrapper(lnd lnd.LightningClientWrapper) (result *LNDMockWrapper, err error) {
 	return &LNDMockWrapper{
@@ -19,33 +15,43 @@ func NewLNDMockHodlWrapper(lnd lnd.LightningClientWrapper) (result *LNDMockWrapp
 	}, nil
 }
 
-func (wrapper *LNDMockHodlWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
-	return nil, errors.New(SendPaymentMockError)
-}
-
-// mock where send payment sync failure is controlled by channel
-// even though send payment method is still sync, suffix "Async" here is used to show intention of using this mock
-var paymentResultChannel = make(chan bool, 1)
-
 type LNDMockHodlWrapperAsync struct {
+	hps *HodlPaymentSubscriber
 	lnd.LightningClientWrapper
 }
 
-func NewLNDMockHodlWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMockWrapperAsync, err error) {
-	return &LNDMockWrapperAsync{
-		lnd,
+type HodlPaymentSubscriber struct {
+	ch chan (lnrpc.Payment)
+}
+
+// wait for channel, then return
+func (hps *HodlPaymentSubscriber) Recv() (lnrpc.Payment, error) {
+	return <-hps.ch, nil
+}
+
+func NewLNDMockHodlWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMockHodlWrapperAsync, err error) {
+	return &LNDMockHodlWrapperAsync{
+		hps: &HodlPaymentSubscriber{
+			ch: make(chan lnrpc.Payment),
+		},
+		LightningClientWrapper: lnd,
 	}, nil
+}
+
+func (wrapper *LNDMockHodlWrapperAsync) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (lnd.SubscribePaymentWrapper, error) {
+	return nil, nil
 }
 
 func (wrapper *LNDMockHodlWrapperAsync) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
 	//block indefinetely
+	//because we don't want this function to ever return something here
+	//the payments should be processed asynchronously by the payment tracker
 	select {}
 }
 
-func (wrapper *LNDMockHodlWrapperAsync) SettlePayment(success bool) {
-	paymentResultChannel <- success
+func (wrapper *LNDMockHodlWrapperAsync) SettlePayment(payment lnrpc.Payment) {
+	wrapper.hps.ch <- payment
 }
 
-//TODO: payment tracker implemantation: read from channel, return to receive method
 //write test that completes payment
 //write test that fails payment
