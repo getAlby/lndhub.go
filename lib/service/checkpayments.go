@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 )
@@ -71,6 +72,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			//todo handle failed payment
 			err = svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
 			if err != nil {
+				sentry.CaptureException(err)
 				svc.Logger.Errorf("Error handling failed payment %v: %s", invoice, err.Error())
 				return
 			}
@@ -83,6 +85,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			svc.Logger.Infof("Completed payment detected: hash %s", payment.PaymentHash)
 			err = svc.HandleSuccessfulPayment(ctx, invoice, entry)
 			if err != nil {
+				sentry.CaptureException(err)
 				svc.Logger.Errorf("Error handling successful payment %v: %s", invoice, err.Error())
 				return
 			}
@@ -90,6 +93,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			return
 		}
 		//Since we shouldn't get in-flight updates we shouldn't get here
+		sentry.CaptureException(fmt.Errorf("Got an unexpected payment update %v", payment))
 		svc.Logger.Warnf("Got an unexpected in-flight update %v", payment)
 	}
 }
