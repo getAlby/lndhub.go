@@ -64,6 +64,8 @@ definitions:
     type: object
   v2controllers.CreateUserResponseBody:
     properties:
+      id:
+        type: integer
       login:
         type: string
       password:
@@ -140,6 +142,27 @@ definitions:
         type: string
       payment_preimage:
         type: string
+    type: object
+  v2controllers.KeySendResult:
+    properties:
+      error:
+        $ref: '#/definitions/responses.ErrorResponse'
+      keysend:
+        $ref: '#/definitions/v2controllers.KeySendResponseBody'
+    type: object
+  v2controllers.MultiKeySendRequestBody:
+    properties:
+      keysends:
+        items:
+          $ref: '#/definitions/v2controllers.KeySendRequestBody'
+        type: array
+    type: object
+  v2controllers.MultiKeySendResponseBody:
+    properties:
+      keysends:
+        items:
+          $ref: '#/definitions/v2controllers.KeySendResult'
+        type: array
     type: object
   v2controllers.PayInvoiceRequestBody:
     properties:
@@ -418,6 +441,38 @@ paths:
       summary: Make a keysend payment
       tags:
       - Payment
+  /v2/payments/keysend/multi:
+    post:
+      consumes:
+      - application/json
+      description: Pay multiple nodes without an invoice using their public key
+      parameters:
+      - description: Invoice to pay
+        in: body
+        name: MultiKeySendRequestBody
+        required: true
+        schema:
+          $ref: '#/definitions/v2controllers.MultiKeySendRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.MultiKeySendResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - OAuth2Password: []
+      summary: Make multiple keysend payments
+      tags:
+      - Payment
   /v2/users:
     post:
       consumes:
@@ -447,9 +502,6 @@ paths:
       summary: Create an account
       tags:
       - Account
-schemes:
-- https
-- http
 securityDefinitions:
   OAuth2Password:
     flow: password

@@ -13,11 +13,13 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 		e.POST("/v2/users", v2controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware, adminMw)
 	}
 	invoiceCtrl := v2controllers.NewInvoiceController(svc)
+	keysendCtrl := v2controllers.NewKeySendController(svc)
 	secured.POST("/v2/invoices", invoiceCtrl.AddInvoice)
 	secured.GET("/v2/invoices/incoming", invoiceCtrl.GetIncomingInvoices)
 	secured.GET("/v2/invoices/outgoing", invoiceCtrl.GetOutgoingInvoices)
 	secured.GET("/v2/invoices/:payment_hash", invoiceCtrl.GetInvoice)
 	securedWithStrictRateLimit.POST("/v2/payments/bolt11", v2controllers.NewPayInvoiceController(svc).PayInvoice)
-	securedWithStrictRateLimit.POST("/v2/payments/keysend", v2controllers.NewKeySendController(svc).KeySend)
+	securedWithStrictRateLimit.POST("/v2/payments/keysend", keysendCtrl.KeySend)
+	securedWithStrictRateLimit.POST("/v2/payments/keysend/multi", keysendCtrl.MultiKeySend)
 	secured.GET("/v2/balance", v2controllers.NewBalanceController(svc).Balance)
 }
