@@ -14,7 +14,8 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	//check database for all pending payments
 	pendingPayments := []models.Invoice{}
 	//since this part is synchronously executed before the main server starts, we should not get into race conditions
-	err = svc.DB.NewSelect().Model(&pendingPayments).Where("state = 'initialized'").Where("type = 'outgoing'").Scan(ctx)
+	//only fetch invoices from the last 2 weeks which should be a safe timeframe for hodl invoices to avoid refetching old invoices again and again
+	err = svc.DB.NewSelect().Model(&pendingPayments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
 	if err != nil {
 		return err
 	}
