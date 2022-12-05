@@ -96,17 +96,6 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 // @Router       /v2/payments/keysend/multi [post]
 // @Security     OAuth2Password
 func (controller *KeySendController) MultiKeySend(c echo.Context) error {
-	// TODO
-	// - V create request and response structs
-	// - V extract shared code
-	// - V call shared code in loop
-	// - V fill and return response
-	// - test
-	// - integration tests
-	// - PR
-	// - deploy
-	// - Update API
-	// - mail sam
 	userID := c.Get("UserID").(int64)
 	reqBody := MultiKeySendRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
