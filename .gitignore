@@ -24,3 +24,5 @@ vendor/
 
 # env, use .env_example for reference
 .env
+
+initialized_payments_dryrun/*

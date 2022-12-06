@@ -17,6 +17,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/uptrace/bun"
@@ -128,6 +129,9 @@ func (mock *lndSubscriptionStartMockClient) SubscribeInvoices(ctx context.Contex
 func (mock *lndSubscriptionStartMockClient) Recv() (*lnrpc.Invoice, error) {
 	select {}
 }
+func (mock *lndSubscriptionStartMockClient) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (lnd.SubscribePaymentWrapper, error) {
+	return nil, nil
+}
 
 func (mock *lndSubscriptionStartMockClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
 	panic("not implemented") // TODO: Implement
@@ -135,4 +139,8 @@ func (mock *lndSubscriptionStartMockClient) GetInfo(ctx context.Context, req *ln
 
 func (mock *lndSubscriptionStartMockClient) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
 	panic("not implemented") // TODO: Implement
+}
+
+func (mlnd *lndSubscriptionStartMockClient) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+	return nil, nil
 }

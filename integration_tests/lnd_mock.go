@@ -15,6 +15,7 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"google.golang.org/grpc"
@@ -57,6 +58,9 @@ type MockSubscribeInvoices struct {
 func (mockSub *MockSubscribeInvoices) Recv() (*lnrpc.Invoice, error) {
 	inv := <-mockSub.invoiceChan
 	return inv, nil
+}
+func (mlnd *MockLND) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (lnd.SubscribePaymentWrapper, error) {
+	return nil, nil
 }
 
 func (mlnd *MockLND) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
@@ -216,6 +220,10 @@ func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, opt
 	}, nil
 }
 
+func (mlnd *MockLND) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
+	return nil, nil
+}
+
 func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
 	inv, err := zpay32.Decode(bolt11, &chaincfg.RegressionNetParams)
 	if err != nil {
@@ -223,7 +231,7 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 	}
 	result := &lnrpc.PayReq{
 		Destination: hex.EncodeToString(inv.Destination.SerializeCompressed()),
-		PaymentHash: string(inv.PaymentHash[:]),
+		PaymentHash: hex.EncodeToString(inv.PaymentHash[:]),
 		NumSatoshis: int64(*inv.MilliSat) / 1000,
 		Timestamp:   inv.Timestamp.Unix(),
 		Expiry:      int64(inv.Expiry()),

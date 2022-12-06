@@ -165,6 +165,13 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	go svc.InvoiceUpdateSubscription(context.Background())
 
+	// Check the status of all pending outgoing payments
+	// A goroutine will be spawned for each one
+	err = svc.CheckAllPendingOutgoingPayments(context.Background())
+	if err != nil {
+		svc.Logger.Error(err)
+	}
+
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {
 		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
