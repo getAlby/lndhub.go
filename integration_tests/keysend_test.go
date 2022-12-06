@@ -1,13 +1,18 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/getAlby/lndhub.go/controllers"
+	v2controllers "github.com/getAlby/lndhub.go/controllers_v2"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -60,6 +65,7 @@ func (suite *KeySendTestSuite) SetupSuite() {
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
 	suite.echo.POST("/keysend", controllers.NewKeySendController(suite.service).KeySend)
+	suite.echo.POST("/v2/payments/keysend/multi", v2controllers.NewKeySendController(suite.service).MultiKeySend)
 }
 
 func (suite *KeySendTestSuite) TearDownTest() {
@@ -105,6 +111,52 @@ func (suite *KeySendTestSuite) TestKeysendPaymentNonExistentDestination() {
 	time.Sleep(100 * time.Millisecond)
 
 	suite.createKeySendReqError(int64(externalSatRequested), "key send test", "12345", suite.aliceToken)
+}
+
+func (suite *KeySendTestSuite) TestMultiKeysend() {
+	aliceFundingSats := 1000
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
+	//wait a bit for the callback event to hit
+	time.Sleep(100 * time.Millisecond)
+
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(v2controllers.MultiKeySendRequestBody{
+		Keysends: []v2controllers.KeySendRequestBody{
+			{
+				Amount:      150,
+				Destination: "03abcdef123456789a",
+			},
+			{
+				Amount:      100,
+				Destination: "03abcdef123456789a",
+			},
+			{
+				Amount:      50,
+				Destination: "03abcdef123456789a",
+			},
+		},
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/v2/payments/keysend/multi", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+
+	keySendResponse := &v2controllers.MultiKeySendResponseBody{}
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(keySendResponse))
+	//check response
+	assert.Equal(suite.T(), len(keySendResponse.Keysends), 3)
+	//check that balance was reduced appropriately
+	userId := getUserIdFromToken(suite.aliceToken)
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	assert.Equal(suite.T(), int64(aliceFundingSats)-300-3*suite.mlnd.fee, aliceBalance)
 }
 
 func TestKeySendTestSuite(t *testing.T) {
