@@ -37,7 +37,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 	//ask lnd using TrackPaymentV2 by hash of payment
 	rawHash, err := hex.DecodeString(invoice.RHash)
 	if err != nil {
-		svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+		svc.Logger.Errorf("Error tracking payment %s: %s", invoice.RHash, err.Error())
 		return
 	}
 	paymentTracker, err := svc.LndClient.SubscribePayment(ctx, &routerrpc.TrackPaymentRequest{
@@ -45,26 +45,26 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 		NoInflightUpdates: true,
 	})
 	if err != nil {
-		svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+		svc.Logger.Errorf("Error tracking payment %s: %s", invoice.RHash, err.Error())
 		return
 	}
 	//fetch the tx entry for the invoice
 	entry := models.TransactionEntry{}
-	err = svc.DB.NewSelect().Model(&entry).Where("invoice_id = ?", invoice.ID).Limit(1).Scan(ctx)
-	if err != nil {
-		svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
-		return
-
-	}
-	if entry.UserID != invoice.UserID {
-		svc.Logger.Errorf("User ID's don't match : entry %v, invoice %v", entry, invoice)
-		return
-	}
 	//call HandleFailedPayment or HandleSuccesfulPayment
 	for {
 		payment, err := paymentTracker.Recv()
 		if err != nil {
 			svc.Logger.Errorf("Error tracking payment with hash %s: %s", invoice.RHash, err.Error())
+			return
+		}
+		err = svc.DB.NewSelect().Model(&entry).Where("invoice_id = ?", invoice.ID).Limit(1).Scan(ctx)
+		if err != nil {
+			svc.Logger.Errorf("Error tracking payment %s: %s", invoice.RHash, err.Error())
+			return
+
+		}
+		if entry.UserID != invoice.UserID {
+			svc.Logger.Errorf("User ID's don't match : entry %v, invoice %v", entry, invoice)
 			return
 		}
 		if payment.Status == lnrpc.Payment_FAILED {
