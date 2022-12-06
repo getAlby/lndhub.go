@@ -144,6 +144,8 @@ Both incoming and outgoing keysend payments are supported. For outgoing keysend 
 
 For incoming keysend payments, we are using a [custom TLV record with type `696969`](https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay), which should contain the hex-encoded `login` of the receiving user's account. TLV records are stored as json blobs with the invoices and are returned by the `/getuserinvoices` endpoint.
 
+The V2 API has an endpoint to make multiple keysend payments with 1 request, which can be useful for splitting value4value payments.
+
 ### Ideas
 
 + Using low level database constraints to prevent data inconsistencies
