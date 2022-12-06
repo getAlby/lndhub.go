@@ -16,7 +16,7 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	pendingPayments := []models.Invoice{}
 	//since this part is synchronously executed before the main server starts, we should not get into race conditions
 	//only fetch invoices from the last 2 weeks which should be a safe timeframe for hodl invoices to avoid refetching old invoices again and again
-	err = svc.DB.NewSelect().Model(&pendingPayments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
+	err = svc.DB.NewSelect().Model(&pendingPayments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("r_hash != ''").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
 	if err != nil {
 		return err
 	}
@@ -64,16 +64,15 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 	for {
 		payment, err := paymentTracker.Recv()
 		if err != nil {
-			svc.Logger.Errorf("Error tracking payment %v: %s", invoice, err.Error())
+			svc.Logger.Errorf("Error tracking payment with hash %s: %s", invoice.RHash, err.Error())
 			return
 		}
 		if payment.Status == lnrpc.Payment_FAILED {
 			svc.Logger.Infof("Failed payment detected: hash %s, reason %s", payment.PaymentHash, payment.FailureReason)
-			//todo handle failed payment
 			err = svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
 			if err != nil {
 				sentry.CaptureException(err)
-				svc.Logger.Errorf("Error handling failed payment %v: %s", invoice, err.Error())
+				svc.Logger.Errorf("Error handling failed payment %s: %s", invoice.RHash, err.Error())
 				return
 			}
 			svc.Logger.Infof("Updated failed payment: hash %s, reason %s", payment.PaymentHash, payment.FailureReason)
@@ -86,7 +85,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			err = svc.HandleSuccessfulPayment(ctx, invoice, entry)
 			if err != nil {
 				sentry.CaptureException(err)
-				svc.Logger.Errorf("Error handling successful payment %v: %s", invoice, err.Error())
+				svc.Logger.Errorf("Error handling successful payment %s: %s", invoice.RHash, err.Error())
 				return
 			}
 			svc.Logger.Infof("Updated completed payment: hash %s", payment.PaymentHash)
