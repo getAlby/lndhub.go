@@ -28,6 +28,18 @@ type KeySendRequestBody struct {
 	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
 }
 
+type MultiKeySendRequestBody struct {
+	Keysends []KeySendRequestBody `json:"keysends"`
+}
+type MultiKeySendResponseBody struct {
+	Keysends []KeySendResult `json:"keysends"`
+}
+
+type KeySendResult struct {
+	Keysend *KeySendResponseBody     `json:"keysend,omitempty"`
+	Error   *responses.ErrorResponse `json:"error,omitempty"`
+}
+
 type KeySendResponseBody struct {
 	Amount          int64  `json:"amount"`
 	Fee             int64  `json:"fee"`
@@ -38,7 +50,7 @@ type KeySendResponseBody struct {
 	PaymentHash     string `json:"payment_hash,omitempty"`
 }
 
-//// KeySend godoc
+// // KeySend godoc
 // @Summary      Make a keysend payment
 // @Description  Pay a node without an invoice using it's public key
 // @Accept       json
@@ -63,6 +75,61 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
+	result, err := controller.SingleKeySend(c, &reqBody, userID)
+	if err != nil {
+		c.Logger().Errorf("Failed to send keysend: %s", err.Message)
+		return c.JSON(err.Code, err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// // MultiKeySend godoc
+// @Summary      Make multiple keysend payments
+// @Description  Pay multiple nodes without an invoice using their public key
+// @Accept       json
+// @Produce      json
+// @Tags         Payment
+// @Param        MultiKeySendRequestBody  body      MultiKeySendRequestBody  True  "Invoice to pay"
+// @Success      200                 {object}  MultiKeySendResponseBody
+// @Failure      400                 {object}  responses.ErrorResponse
+// @Failure      500                 {object}  responses.ErrorResponse
+// @Router       /v2/payments/keysend/multi [post]
+// @Security     OAuth2Password
+func (controller *KeySendController) MultiKeySend(c echo.Context) error {
+	userID := c.Get("UserID").(int64)
+	reqBody := MultiKeySendRequestBody{}
+	if err := c.Bind(&reqBody); err != nil {
+		c.Logger().Errorf("Failed to load keysend request body: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	if err := c.Validate(&reqBody); err != nil {
+		c.Logger().Errorf("Invalid keysend request body: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	result := &MultiKeySendResponseBody{
+		Keysends: []KeySendResult{},
+	}
+	for _, keysend := range reqBody.Keysends {
+		keysend := keysend
+		res, err := controller.SingleKeySend(c, &keysend, userID)
+		if err != nil {
+			controller.svc.Logger.Errorf("Error making keysend split payment %v %s", keysend, err.Message)
+			result.Keysends = append(result.Keysends, KeySendResult{
+				Keysend: &KeySendResponseBody{
+					Destination: keysend.Destination,
+				},
+				Error: err,
+			})
+			continue
+		}
+		result.Keysends = append(result.Keysends, KeySendResult{
+			Keysend: res,
+		})
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeySendRequestBody, userID int64) (result *KeySendResponseBody, resp *responses.ErrorResponse) {
 	lnPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
 			Destination: reqBody.Destination,
@@ -74,12 +141,12 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
-		return err
+		return nil, &responses.GeneralServerError
 	}
 
 	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
 	if err != nil {
-		return err
+		return nil, &responses.GeneralServerError
 	}
 
 	minimumBalance := invoice.Amount
@@ -88,14 +155,14 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	if currentBalance < minimumBalance {
 		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
-		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
+		return nil, &responses.NotEnoughBalanceError
 	}
 
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 	for key, value := range reqBody.CustomRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+			return nil, &responses.BadArgumentsError
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
 	}
@@ -103,11 +170,11 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	if err != nil {
 		c.Logger().Errorf("Payment failed: user_id:%v error: %v", userID, err)
 		sentry.CaptureException(err)
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":   true,
-			"code":    10,
-			"message": err.Error(),
-		})
+		return nil, &responses.ErrorResponse{
+			Error:   true,
+			Code:    10,
+			Message: err.Error(),
+		}
 	}
 
 	responseBody := &KeySendResponseBody{
@@ -119,5 +186,5 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		PaymentHash:     sendPaymentResponse.PaymentHashStr,
 	}
 
-	return c.JSON(http.StatusOK, responseBody)
+	return responseBody, nil
 }

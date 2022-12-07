@@ -397,6 +397,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/v2/payments/keysend/multi": {
+            "post": {
+                "security": [
+                    {
+                        "OAuth2Password": []
+                    }
+                ],
+                "description": "Pay multiple nodes without an invoice using their public key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payment"
+                ],
+                "summary": "Make multiple keysend payments",
+                "parameters": [
+                    {
+                        "description": "Invoice to pay",
+                        "name": "MultiKeySendRequestBody",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v2controllers.MultiKeySendRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v2controllers.MultiKeySendResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v2/users": {
             "post": {
                 "description": "Create a new account with a login and password",
@@ -543,6 +594,9 @@ const docTemplate = `{
         "v2controllers.CreateUserResponseBody": {
             "type": "object",
             "properties": {
+                "id": {
+                    "type": "integer"
+                },
                 "login": {
                     "type": "string"
                 },
@@ -660,6 +714,39 @@ const docTemplate = `{
                 }
             }
         },
+        "v2controllers.KeySendResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/responses.ErrorResponse"
+                },
+                "keysend": {
+                    "$ref": "#/definitions/v2controllers.KeySendResponseBody"
+                }
+            }
+        },
+        "v2controllers.MultiKeySendRequestBody": {
+            "type": "object",
+            "properties": {
+                "keysends": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v2controllers.KeySendRequestBody"
+                    }
+                }
+            }
+        },
+        "v2controllers.MultiKeySendResponseBody": {
+            "type": "object",
+            "properties": {
+                "keysends": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v2controllers.KeySendResult"
+                    }
+                }
+            }
+        },
         "v2controllers.PayInvoiceRequestBody": {
             "type": "object",
             "required": [
@@ -719,7 +806,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "0.9.0",
 	Host:             "",
 	BasePath:         "/",
-	Schemes:          []string{"https", "http"},
+	Schemes:          []string{},
 	Title:            "LndHub.go",
 	Description:      "Accounting wrapper for the Lightning Network providing separate accounts for end-users.",
 	InfoInstanceName: "swagger",
