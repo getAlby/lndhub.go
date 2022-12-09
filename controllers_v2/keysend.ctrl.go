@@ -78,7 +78,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	result, err := controller.SingleKeySend(c, &reqBody, userID)
 	if err != nil {
 		c.Logger().Errorf("Failed to send keysend: %s", err.Message)
-		return c.JSON(err.Code, err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.JSON(http.StatusOK, result)
 }
