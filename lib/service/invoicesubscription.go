@@ -130,6 +130,10 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		return err
 	}
 
+	if rawInvoice.AmtPaidSat != invoice.Amount {
+		svc.Logger.Infof("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
+	}
+
 	// if the invoice is NOT settled we just update the invoice state
 	if !rawInvoice.Settled {
 		svc.Logger.Infof("Invoice not settled invoice_id:%v state: %s", invoice.ID, rawInvoice.State.String())
@@ -139,6 +143,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		// if the invoice is settled we update the state and create an transaction entry to the current account
 		invoice.SettledAt = bun.NullTime{Time: time.Unix(rawInvoice.SettleDate, 0)}
 		invoice.State = common.InvoiceStateSettled
+		invoice.Amount = rawInvoice.AmtPaidSat
 		_, err = tx.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
 		if err != nil {
 			tx.Rollback()
@@ -154,11 +159,6 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 			DebitAccountID:  debitAccount.ID,
 			Amount:          rawInvoice.AmtPaidSat,
 		}
-
-		if rawInvoice.AmtPaidSat != invoice.Amount {
-			svc.Logger.Infof("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
-		}
-
 		// Save the transaction entry
 		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 		if err != nil {
