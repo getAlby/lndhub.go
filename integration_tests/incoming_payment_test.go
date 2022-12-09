@@ -128,6 +128,16 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&balance))
 	//assert the payment value was added to the user's account
 	assert.Equal(suite.T(), initialBalance+int64(sendSatAmt), balance.BTC.AvailableBalance)
+
+	//check transaction list
+	req = httptest.NewRequest(http.MethodGet, "/getuserinvoices", &buf)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	suite.echo.ServeHTTP(rec, req)
+	invoices := make([]ExpectedIncomingInvoice, 1)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&invoices))
+	//assert the payment value was added to the user's account
+	assert.Equal(suite.T(), int64(sendSatAmt), invoices[0].Amount)
 }
 func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	var buf bytes.Buffer
