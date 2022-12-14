@@ -188,10 +188,14 @@ func main() {
 		port := 10009
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
-			log.Fatalf("failed to listen: %v", err)
+			log.Fatalf("Failed to start grpc server: %v", err)
 		}
 		s := grpc.NewServer()
-		lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcserver.NewGrpcServer(svc, context.TODO()))
+		grpcServer, err := grpcserver.NewGrpcServer(svc, context.TODO())
+		if err != nil {
+			log.Fatalf("Failed to init grpc server, %s", err.Error())
+		}
+		lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcServer)
 		log.Printf("grpc server listening at %v", lis.Addr())
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)

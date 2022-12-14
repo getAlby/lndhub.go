@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lndhubrpc"
@@ -19,13 +20,17 @@ type Server struct {
 	ctx              context.Context
 }
 
-func NewGrpcServer(svc *service.LndhubService, ctx context.Context) *Server {
+func NewGrpcServer(svc *service.LndhubService, ctx context.Context) (*Server, error) {
 	incomingInvoices := make(chan models.Invoice)
+	_, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	if err != nil {
+		return nil, err
+	}
 	return &Server{
 		svc:              svc,
 		incomingInvoices: incomingInvoices,
 		ctx:              ctx,
-	}
+	}, nil
 }
 
 func (s *Server) SubsribeInvoices(req *lndhubrpc.SubsribeInvoicesRequest, srv lndhubrpc.InvoiceSubscription_SubsribeInvoicesServer) error {
