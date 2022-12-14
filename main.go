@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,11 +17,13 @@ import (
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/docs"
+	"github.com/getAlby/lndhub.go/grpcserver"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getAlby/lndhub.go/lndhubrpc"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
@@ -34,6 +37,7 @@ import (
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
 )
 
 //go:embed templates/index.html
@@ -178,6 +182,21 @@ func main() {
 		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
 		defer cancelWebhook()
 	}
+
+	//start grpc server
+	go func() {
+		port := 10009
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
+		s := grpc.NewServer()
+		lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcserver.NewGrpcServer(svc, context.TODO()))
+		log.Printf("grpc server listening at %v", lis.Addr())
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
 
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
