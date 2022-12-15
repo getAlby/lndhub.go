@@ -5,7 +5,6 @@ import (
 	"embed"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,13 +16,11 @@ import (
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/docs"
-	"github.com/getAlby/lndhub.go/grpcserver"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
-	"github.com/getAlby/lndhub.go/lndhubrpc"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/go-playground/validator/v10"
@@ -37,7 +34,6 @@ import (
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
 )
 
 //go:embed templates/index.html
@@ -186,7 +182,7 @@ func main() {
 	if svc.Config.EnableGRPC {
 		//start grpc server
 		grpcContext, grpcCancel := context.WithCancel(context.Background())
-		go StartGrpcServer(svc, grpcContext)
+		go svc.StartGrpcServer(grpcContext)
 		defer grpcCancel()
 	}
 
@@ -231,23 +227,6 @@ func main() {
 		}
 	}
 
-}
-
-func StartGrpcServer(svc *service.LndhubService, ctx context.Context) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", svc.Config.GRPCPort))
-	if err != nil {
-		svc.Logger.Fatalf("Failed to start grpc server: %v", err)
-	}
-	s := grpc.NewServer()
-	grpcServer, err := grpcserver.NewGrpcServer(svc, ctx)
-	if err != nil {
-		svc.Logger.Fatalf("Failed to init grpc server, %s", err.Error())
-	}
-	lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcServer)
-	svc.Logger.Infof("gRPC server started at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		svc.Logger.Fatalf("failed to serve: %v", err)
-	}
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
