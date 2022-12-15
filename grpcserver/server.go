@@ -38,7 +38,7 @@ func (s *Server) SubsribeInvoices(req *lndhubrpc.SubsribeInvoicesRequest, srv ln
 		//look up all settled incoming invoices from a certain id
 		//and return them first
 		invoices := []models.Invoice{}
-		err := s.svc.DB.NewSelect().Model(&invoices).Where("state = 'settled'").Where("type = 'incoming'").Where("id > ?", *req.FromId).Scan(s.ctx)
+		err := s.svc.DB.NewSelect().Model(&invoices).Where("state = 'settled'").Where("type = 'incoming'").Where("id > ?", *req.FromId).OrderExpr("id ASC").Scan(s.ctx)
 		if err != nil {
 			return err
 		}
