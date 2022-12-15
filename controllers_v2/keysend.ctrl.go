@@ -75,10 +75,10 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	result, err := controller.SingleKeySend(c, &reqBody, userID)
-	if err != nil {
-		c.Logger().Errorf("Failed to send keysend: %s", err.Message)
-		return c.JSON(http.StatusInternalServerError, err)
+	result, errResp := controller.SingleKeySend(c, &reqBody, userID)
+	if errResp != nil {
+		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
+		return c.JSON(http.StatusInternalServerError, errResp)
 	}
 	return c.JSON(http.StatusOK, result)
 }
