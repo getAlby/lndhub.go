@@ -8,12 +8,14 @@ package lndhubrpc;
 service InvoiceSubscription {
   rpc SubsribeInvoices (SubsribeInvoicesRequest) returns (stream Invoice) {}
 }
-message SubsribeInvoicesRequest {}
+message SubsribeInvoicesRequest {
+    optional uint32 fromId = 1;
+}
 message Invoice {
 
     message CustomRecords {
-        string key = 1;
-        string value = 2;
+        uint64 key = 1;
+        bytes value = 2;
     }
 
     uint32 id = 1;
