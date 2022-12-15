@@ -21,6 +21,8 @@ type Config struct {
 	CustomName            string `envconfig:"CUSTOM_NAME"`
 	Host                  string `envconfig:"HOST" default:"localhost:3000"`
 	Port                  int    `envconfig:"PORT" default:"3000"`
+	EnableGRPC            bool   `envconfig:"ENABLE_GRPC" default:"false"`
+	GRPCPort              int    `envconfig:"GRPC_PORT" default:"10009"`
 	DefaultRateLimit      int    `envconfig:"DEFAULT_RATE_LIMIT" default:"10"`
 	StrictRateLimit       int    `envconfig:"STRICT_RATE_LIMIT" default:"10"`
 	BurstRateLimit        int    `envconfig:"BURST_RATE_LIMIT" default:"1"`

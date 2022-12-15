@@ -183,24 +183,12 @@ func main() {
 		defer cancelWebhook()
 	}
 
-	//start grpc server
-	go func() {
-		port := 10009
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-		if err != nil {
-			svc.Logger.Fatalf("Failed to start grpc server: %v", err)
-		}
-		s := grpc.NewServer()
-		grpcServer, err := grpcserver.NewGrpcServer(svc, context.TODO())
-		if err != nil {
-			svc.Logger.Fatalf("Failed to init grpc server, %s", err.Error())
-		}
-		lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcServer)
-		svc.Logger.Infof("gRPC server started at %v", lis.Addr())
-		if err := s.Serve(lis); err != nil {
-			svc.Logger.Fatalf("failed to serve: %v", err)
-		}
-	}()
+	if svc.Config.EnableGRPC {
+		//start grpc server
+		grpcContext, grpcCancel := context.WithCancel(context.Background())
+		go StartGrpcServer(svc, grpcContext)
+		defer grpcCancel()
+	}
 
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
@@ -243,6 +231,23 @@ func main() {
 		}
 	}
 
+}
+
+func StartGrpcServer(svc *service.LndhubService, ctx context.Context) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", svc.Config.GRPCPort))
+	if err != nil {
+		svc.Logger.Fatalf("Failed to start grpc server: %v", err)
+	}
+	s := grpc.NewServer()
+	grpcServer, err := grpcserver.NewGrpcServer(svc, ctx)
+	if err != nil {
+		svc.Logger.Fatalf("Failed to init grpc server, %s", err.Error())
+	}
+	lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcServer)
+	svc.Logger.Infof("gRPC server started at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		svc.Logger.Fatalf("failed to serve: %v", err)
+	}
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
