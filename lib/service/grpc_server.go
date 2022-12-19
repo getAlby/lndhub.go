@@ -33,25 +33,23 @@ func (svc *LndhubService) StartGrpcServer(ctx context.Context) {
 // server is used to implement helloworld.GreeterServer.
 type Server struct {
 	pb.UnimplementedInvoiceSubscriptionServer
-	svc              *LndhubService
-	incomingInvoices chan models.Invoice
-	ctx              context.Context
+	svc *LndhubService
+	ctx context.Context
 }
 
 func NewGrpcServer(svc *LndhubService, ctx context.Context) (*Server, error) {
-	incomingInvoices := make(chan models.Invoice)
-	_, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
-	if err != nil {
-		return nil, err
-	}
 	return &Server{
-		svc:              svc,
-		incomingInvoices: incomingInvoices,
-		ctx:              ctx,
+		svc: svc,
+		ctx: ctx,
 	}, nil
 }
 
 func (s *Server) SubsribeInvoices(req *lndhubrpc.SubsribeInvoicesRequest, srv lndhubrpc.InvoiceSubscription_SubsribeInvoicesServer) error {
+	incomingInvoices := make(chan models.Invoice)
+	_, err := s.svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	if err != nil {
+		return err
+	}
 	alreadySeenId := int64(-1)
 	if req.FromId != nil {
 		//look up all settled incoming invoices from a certain id
@@ -73,7 +71,7 @@ func (s *Server) SubsribeInvoices(req *lndhubrpc.SubsribeInvoicesRequest, srv ln
 		select {
 		case <-s.ctx.Done():
 			return nil
-		case inv := <-s.incomingInvoices:
+		case inv := <-incomingInvoices:
 			//in case we've already send it over
 			if inv.ID > alreadySeenId {
 				srv.Send(convertInvoice(inv))
