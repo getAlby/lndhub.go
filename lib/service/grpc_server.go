@@ -59,7 +59,10 @@ func (s *Server) SubsribeInvoices(req *lndhubrpc.SubsribeInvoicesRequest, srv ln
 		if err != nil {
 			return err
 		}
-		//add this so we can avoid duplicates in case of a race condition
+		//add this so we can avoid duplicates in case of a race condition:
+		//when an invoice is settled in the time between the execution of
+		//"InvoicePubSub.Subscribe" and the SQL query execution by the db
+		//it can be both in the "incomingInvoices" channel and the SQL result set.
 		if len(invoices) != 0 {
 			alreadySeenId = int64(invoices[len(invoices)-1].ID)
 		}
