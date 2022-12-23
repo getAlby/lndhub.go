@@ -179,6 +179,13 @@ func main() {
 		defer cancelWebhook()
 	}
 
+	if svc.Config.EnableGRPC {
+		//start grpc server
+		grpcContext, grpcCancel := context.WithCancel(context.Background())
+		go svc.StartGrpcServer(grpcContext)
+		defer grpcCancel()
+	}
+
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
 	if svc.Config.EnablePrometheus {
