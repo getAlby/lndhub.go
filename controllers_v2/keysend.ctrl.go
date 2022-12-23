@@ -109,6 +109,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	result := &MultiKeySendResponseBody{
 		Keysends: []KeySendResult{},
 	}
+	singleSuccesfulPayment := false
 	for _, keysend := range reqBody.Keysends {
 		keysend := keysend
 		res, err := controller.SingleKeySend(c, &keysend, userID)
@@ -125,8 +126,13 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 		result.Keysends = append(result.Keysends, KeySendResult{
 			Keysend: res,
 		})
+		singleSuccesfulPayment = true
 	}
-	return c.JSON(http.StatusOK, result)
+	status := http.StatusOK
+	if !singleSuccesfulPayment {
+		status = http.StatusInternalServerError
+	}
+	return c.JSON(status, result)
 }
 
 func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeySendRequestBody, userID int64) (result *KeySendResponseBody, resp *responses.ErrorResponse) {
