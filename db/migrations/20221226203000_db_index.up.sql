@@ -34,6 +34,9 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_type_and_r_hash_and_st
 
 --migration:split
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_user_id_and_invoice_type_and_state_and_created_at ON invoices(user_id, invoice_type, state, created_at);
+
+--migration:split
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS index_transaction_entries_on_user_id ON transaction_entries(user_id);
 
