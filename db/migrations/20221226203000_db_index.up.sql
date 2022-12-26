@@ -1,6 +1,6 @@
 CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_user_id ON invoices(user_id);
 
---migration:splitt
+--migration:split
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_payment_request ON invoices(payment_request);
 
