@@ -10,7 +10,7 @@ CREATE INDEX IF NOT EXISTS index_invoices_on_type ON invoices(type);
 
 --migration:split
 
---CREATE INDEX IF NOT EXISTS index_invoices_on_state ON invoices(state);
+CREATE INDEX IF NOT EXISTS index_invoices_on_state ON invoices(state);
 
 --migration:split
 
