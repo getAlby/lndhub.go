@@ -6,7 +6,7 @@ go 1.17
 
 require (
 	github.com/btcsuite/btcd v0.23.1
-	github.com/getsentry/sentry-go v0.12.0
+	github.com/getsentry/sentry-go v0.16.0
 	github.com/go-playground/validator/v10 v10.10.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/joho/godotenv v1.4.0

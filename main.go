@@ -114,7 +114,8 @@ func main() {
 		if err = sentry.Init(sentry.ClientOptions{
 			Dsn:          c.SentryDSN,
 			IgnoreErrors: []string{"401"},
-			EnableTracing: true,
+			// TODO: Add value from config
+			EnableTracing:    true,
 			TracesSampleRate: 0.01,
 		}); err != nil {
 			logger.Errorf("sentry init error: %v", err)
