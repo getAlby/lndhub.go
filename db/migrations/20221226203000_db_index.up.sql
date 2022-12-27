@@ -4,11 +4,6 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_user_id ON invoices(us
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_r_hash ON invoices(r_hash);
 
-
---bun:split
-
-CREATE INDEX CONCURRENTLY IF NOT EXISTS index_invoices_on_type_and_r_hash_and_state ON invoices(type, r_hash, state);
-
 --bun:split
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS index_transaction_entries_on_user_id ON transaction_entries(user_id);
