@@ -22,7 +22,7 @@ require (
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/ziflex/lecho/v3 v3.3.0
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/macaroon.v2 v2.1.0
 )
@@ -166,7 +166,7 @@ require (
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/macaroon-bakery.v2 v2.0.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
@@ -188,6 +188,6 @@ require (
 	github.com/swaggo/swag v1.8.1
 	golang.org/x/net v0.0.0-20221002022538-bcab6841153b // indirect
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
-	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/genproto v0.0.0-20220114231437-d2e6a121cae0 // indirect
 )
