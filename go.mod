@@ -11,8 +11,8 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/joho/godotenv v1.4.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/labstack/echo/v4 v4.9.0
-	github.com/labstack/gommon v0.3.1
+	github.com/labstack/echo/v4 v4.9.1
+	github.com/labstack/gommon v0.4.0
 	github.com/lightningnetwork/lnd v0.15.0-beta.rc6
 	github.com/stretchr/testify v1.7.1
 	github.com/uptrace/bun v1.0.21
@@ -20,7 +20,7 @@ require (
 	github.com/uptrace/bun/driver/pgdriver v1.0.21
 	github.com/uptrace/bun/extra/bundebug v1.0.21
 	github.com/wagslane/go-password-validator v0.3.0
-	github.com/ziflex/lecho/v3 v3.1.0
+	github.com/ziflex/lecho/v3 v3.3.0
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.28.1
@@ -48,7 +48,7 @@ require (
 	github.com/btcsuite/winsvc v1.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
+	github.com/coreos/go-systemd/v22 v22.3.3-0.20220203105225-a9a7ef127534 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/crypto/blake256 v1.0.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rs/zerolog v1.26.0 // indirect
+	github.com/rs/zerolog v1.28.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
