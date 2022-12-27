@@ -112,9 +112,8 @@ func main() {
 	// Setup exception tracking with Sentry if configured
 	if c.SentryDSN != "" {
 		if err = sentry.Init(sentry.ClientOptions{
-			Dsn:          c.SentryDSN,
-			IgnoreErrors: []string{"401"},
-			// TODO: Add value from config
+			Dsn:              c.SentryDSN,
+			IgnoreErrors:     []string{"401"},
 			EnableTracing:    c.SentryTracesSampleRate > 0,
 			TracesSampleRate: c.SentryTracesSampleRate,
 		}); err != nil {
