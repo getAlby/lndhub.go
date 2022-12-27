@@ -115,8 +115,8 @@ func main() {
 			Dsn:          c.SentryDSN,
 			IgnoreErrors: []string{"401"},
 			// TODO: Add value from config
-			EnableTracing:    true,
-			TracesSampleRate: 0.01,
+			EnableTracing:    c.SentryTracesSampleRate > 0,
+			TracesSampleRate: c.SentryTracesSampleRate,
 		}); err != nil {
 			logger.Errorf("sentry init error: %v", err)
 		}
