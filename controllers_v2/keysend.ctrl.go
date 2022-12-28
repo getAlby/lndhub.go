@@ -106,6 +106,12 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
+	for _, split := range reqBody.Keysends {
+		if err := c.Validate(&split); err != nil {
+			c.Logger().Errorf("Invalid keysend request body: %v", err)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		}
+	}
 	result := &MultiKeySendResponseBody{
 		Keysends: []KeySendResult{},
 	}
