@@ -22,10 +22,11 @@ func NewKeySendController(svc *service.LndhubService) *KeySendController {
 }
 
 type KeySendRequestBody struct {
-	Amount        int64             `json:"amount" validate:"required,gt=0"`
-	Destination   string            `json:"destination" validate:"required"`
-	Memo          string            `json:"memo" validate:"omitempty"`
-	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
+	Amount                  int64             `json:"amount" validate:"required,gt=0"`
+	Destination             string            `json:"destination" validate:"required"`
+	Memo                    string            `json:"memo" validate:"omitempty"`
+	DeprecatedCustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
+	NewCustomRecords        map[string]string `json:"custom_records" validate:"omitempty"`
 }
 
 type MultiKeySendRequestBody struct {
@@ -119,7 +120,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 			result.Keysends = append(result.Keysends, KeySendResult{
 				Keysend: &KeySendResponseBody{
 					Destination:   keysend.Destination,
-					CustomRecords: keysend.CustomRecords,
+					CustomRecords: keysend.NewCustomRecords,
 				},
 				Error: err,
 			})
@@ -167,7 +168,13 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
-	for key, value := range reqBody.CustomRecords {
+	//temporary workaround due to an inconsistency in json snake case vs camel case
+	//DeprecatedCustomRecords to be removed later
+	customRecords := reqBody.DeprecatedCustomRecords
+	if reqBody.NewCustomRecords != nil {
+		customRecords = reqBody.NewCustomRecords
+	}
+	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
 			return nil, &responses.BadArgumentsError
@@ -188,7 +195,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	responseBody := &KeySendResponseBody{
 		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
 		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
-		CustomRecords:   reqBody.CustomRecords,
+		CustomRecords:   customRecords,
 		Description:     reqBody.Memo,
 		Destination:     reqBody.Destination,
 		PaymentPreimage: sendPaymentResponse.PaymentPreimageStr,
