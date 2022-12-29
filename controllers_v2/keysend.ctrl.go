@@ -22,10 +22,11 @@ func NewKeySendController(svc *service.LndhubService) *KeySendController {
 }
 
 type KeySendRequestBody struct {
-	Amount        int64             `json:"amount" validate:"required,gt=0"`
-	Destination   string            `json:"destination" validate:"required"`
-	Memo          string            `json:"memo" validate:"omitempty"`
-	CustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
+	Amount                  int64             `json:"amount" validate:"required,gt=0"`
+	Destination             string            `json:"destination" validate:"required"`
+	Memo                    string            `json:"memo" validate:"omitempty"`
+	DeprecatedCustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
+	CustomRecords           map[string]string `json:"custom_records" validate:"omitempty"`
 }
 
 type MultiKeySendRequestBody struct {
@@ -41,13 +42,14 @@ type KeySendResult struct {
 }
 
 type KeySendResponseBody struct {
-	Amount          int64  `json:"amount"`
-	Fee             int64  `json:"fee"`
-	Description     string `json:"description,omitempty"`
-	DescriptionHash string `json:"description_hash,omitempty"`
-	Destination     string `json:"destination,omitempty"`
-	PaymentPreimage string `json:"payment_preimage,omitempty"`
-	PaymentHash     string `json:"payment_hash,omitempty"`
+	Amount          int64             `json:"amount"`
+	Fee             int64             `json:"fee"`
+	Description     string            `json:"description,omitempty"`
+	DescriptionHash string            `json:"description_hash,omitempty"`
+	Destination     string            `json:"destination,omitempty"`
+	CustomRecords   map[string]string `json:"custom_records" validate:"omitempty"`
+	PaymentPreimage string            `json:"payment_preimage,omitempty"`
+	PaymentHash     string            `json:"payment_hash,omitempty"`
 }
 
 // // KeySend godoc
@@ -123,7 +125,8 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 			controller.svc.Logger.Errorf("Error making keysend split payment %v %s", keysend, err.Message)
 			result.Keysends = append(result.Keysends, KeySendResult{
 				Keysend: &KeySendResponseBody{
-					Destination: keysend.Destination,
+					Destination:   keysend.Destination,
+					CustomRecords: keysend.CustomRecords,
 				},
 				Error: err,
 			})
@@ -171,7 +174,13 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
-	for key, value := range reqBody.CustomRecords {
+	//temporary workaround due to an inconsistency in json snake case vs camel case
+	//DeprecatedCustomRecords to be removed later
+	customRecords := reqBody.DeprecatedCustomRecords
+	if reqBody.CustomRecords != nil {
+		customRecords = reqBody.CustomRecords
+	}
+	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
 			return nil, &responses.BadArgumentsError
@@ -192,6 +201,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	responseBody := &KeySendResponseBody{
 		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
 		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
+		CustomRecords:   customRecords,
 		Description:     reqBody.Memo,
 		Destination:     reqBody.Destination,
 		PaymentPreimage: sendPaymentResponse.PaymentPreimageStr,
