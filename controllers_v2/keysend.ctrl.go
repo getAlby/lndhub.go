@@ -26,7 +26,7 @@ type KeySendRequestBody struct {
 	Destination             string            `json:"destination" validate:"required"`
 	Memo                    string            `json:"memo" validate:"omitempty"`
 	DeprecatedCustomRecords map[string]string `json:"customRecords" validate:"omitempty"`
-	NewCustomRecords        map[string]string `json:"custom_records" validate:"omitempty"`
+	CustomRecords           map[string]string `json:"custom_records" validate:"omitempty"`
 }
 
 type MultiKeySendRequestBody struct {
@@ -120,7 +120,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 			result.Keysends = append(result.Keysends, KeySendResult{
 				Keysend: &KeySendResponseBody{
 					Destination:   keysend.Destination,
-					CustomRecords: keysend.NewCustomRecords,
+					CustomRecords: keysend.CustomRecords,
 				},
 				Error: err,
 			})
@@ -171,8 +171,8 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	//temporary workaround due to an inconsistency in json snake case vs camel case
 	//DeprecatedCustomRecords to be removed later
 	customRecords := reqBody.DeprecatedCustomRecords
-	if reqBody.NewCustomRecords != nil {
-		customRecords = reqBody.NewCustomRecords
+	if reqBody.CustomRecords != nil {
+		customRecords = reqBody.CustomRecords
 	}
 	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
