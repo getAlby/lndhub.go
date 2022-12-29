@@ -46,7 +46,7 @@ type KeySendResponseBody struct {
 	Description     string            `json:"description,omitempty"`
 	DescriptionHash string            `json:"description_hash,omitempty"`
 	Destination     string            `json:"destination,omitempty"`
-	CustomRecords   map[string]string `json:"customRecords" validate:"omitempty"`
+	CustomRecords   map[string]string `json:"custom_ecords" validate:"omitempty"`
 	PaymentPreimage string            `json:"payment_preimage,omitempty"`
 	PaymentHash     string            `json:"payment_hash,omitempty"`
 }
