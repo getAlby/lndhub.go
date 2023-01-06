@@ -57,7 +57,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		incomingInvoice = *keysendInvoice
 	} else {
 		// find invoice
-		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND payment_request = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.PaymentRequest, common.InvoiceStateOpen).Limit(1).Scan(ctx)
+		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND r_hash = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.RHash, common.InvoiceStateOpen).Limit(1).Scan(ctx)
 		if err != nil {
 			// invoice not found or already settled
 			// TODO: logging
