@@ -9,33 +9,38 @@ import (
 )
 
 type ErrorResponse struct {
-	Error   bool   `json:"error"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Error          bool   `json:"error"`
+	Code           int    `json:"code"`
+	Message        string `json:"message"`
+	HttpStatusCode int    `json:"-"`
 }
 
 var GeneralServerError = ErrorResponse{
-	Error:   true,
-	Code:    6,
-	Message: "Something went wrong. Please try again later",
+	Error:          true,
+	Code:           6,
+	Message:        "Something went wrong. Please try again later",
+	HttpStatusCode: 500,
 }
 
 var BadArgumentsError = ErrorResponse{
-	Error:   true,
-	Code:    8,
-	Message: "Bad arguments",
+	Error:          true,
+	Code:           8,
+	Message:        "Bad arguments",
+	HttpStatusCode: 400,
 }
 
 var BadAuthError = ErrorResponse{
-	Error:   true,
-	Code:    1,
-	Message: "bad auth",
+	Error:          true,
+	Code:           1,
+	Message:        "bad auth",
+	HttpStatusCode: 401,
 }
 
 var NotEnoughBalanceError = ErrorResponse{
-	Error:   true,
-	Code:    2,
-	Message: "not enough balance. Make sure you have at least 1% reserved for potential fees",
+	Error:          true,
+	Code:           2,
+	Message:        "not enough balance. Make sure you have at least 1% reserved for potential fees",
+	HttpStatusCode: 400,
 }
 
 func HTTPErrorHandler(err error, c echo.Context) {

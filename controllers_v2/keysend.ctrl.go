@@ -1,6 +1,7 @@
 package v2controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -80,7 +81,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	result, errResp := controller.SingleKeySend(c, &reqBody, userID)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
-		return c.JSON(http.StatusInternalServerError, errResp)
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	return c.JSON(http.StatusOK, result)
 }
@@ -154,6 +155,14 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 		Keysend: true,
 	}
 
+	if reqBody.Destination == controller.svc.IdentityPubkey && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
+		return nil, &responses.ErrorResponse{
+			Error:          true,
+			Code:           8,
+			Message:        fmt.Sprintf("Internal keysend payments require the custom record %d to be present.", service.TLV_WALLET_ID),
+			HttpStatusCode: 400,
+		}
+	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return nil, &responses.GeneralServerError
