@@ -178,7 +178,7 @@ require (
 
 require (
 	github.com/SporkHubr/echo-http-cache v0.0.0-20200706100054-1d7ae9f38029
-	github.com/btcsuite/btcd/btcec/v2 v2.2.2
+	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/go-openapi/spec v0.20.5 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/gorilla/websocket v1.5.0
