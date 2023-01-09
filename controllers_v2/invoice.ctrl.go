@@ -125,7 +125,7 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 }
 
 type AddInvoiceRequestBody struct {
-	Amount          int64  `json:"amount" validate:"required,gte=0"`
+	Amount          int64  `json:"amount" validate:"gte=0"`
 	Description     string `json:"description"`
 	DescriptionHash string `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 }
