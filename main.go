@@ -92,6 +92,19 @@ func main() {
 		logger.Fatalf("Error migrating database: %v", err)
 	}
 
+	// Setup exception tracking with Sentry if configured
+	// sentry init needs to happen before the echo middlewares are added
+	if c.SentryDSN != "" {
+		if err = sentry.Init(sentry.ClientOptions{
+			Dsn:              c.SentryDSN,
+			IgnoreErrors:     []string{"401"},
+			EnableTracing:    c.SentryTracesSampleRate > 0,
+			TracesSampleRate: c.SentryTracesSampleRate,
+		}); err != nil {
+			logger.Errorf("sentry init error: %v", err)
+		}
+	}
+
 	// New Echo app
 	e := echo.New()
 	e.HideBanner = true
@@ -110,16 +123,8 @@ func main() {
 	}))
 
 	// Setup exception tracking with Sentry if configured
+	// sentry init needs to happen before the echo middlewares are added
 	if c.SentryDSN != "" {
-		if err = sentry.Init(sentry.ClientOptions{
-			Dsn:              c.SentryDSN,
-			IgnoreErrors:     []string{"401"},
-			EnableTracing:    c.SentryTracesSampleRate > 0,
-			TracesSampleRate: c.SentryTracesSampleRate,
-		}); err != nil {
-			logger.Errorf("sentry init error: %v", err)
-		}
-		defer sentry.Flush(2 * time.Second)
 		e.Use(sentryecho.New(sentryecho.Options{}))
 	}
 
