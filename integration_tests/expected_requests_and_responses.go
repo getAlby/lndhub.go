@@ -28,6 +28,11 @@ type ExpectedAddInvoiceRequestBody struct {
 	Memo            string      `json:"memo"`
 	DescriptionHash string      `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 }
+type ExpectedV2AddInvoiceRequestBody struct {
+	Amount          int64  `json:"amount"` // amount in Satoshi
+	Memo            string `json:"description"`
+	DescriptionHash string `json:"description_hash,omitempty" validate:"omitempty,hexadecimal,len=64"`
+}
 
 type ExpectedAddInvoiceResponseBody struct {
 	RHash          string `json:"r_hash"`
