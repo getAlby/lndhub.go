@@ -70,6 +70,15 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		}
 	}
 
+	if reqBody.Destination == controller.svc.IdentityPubkey && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
+		return c.JSON(http.StatusBadRequest, &responses.ErrorResponse{
+			Error:          true,
+			Code:           8,
+			Message:        fmt.Sprintf("Internal keysend payments require the custom record %d to be present.", service.TLV_WALLET_ID),
+			HttpStatusCode: 400,
+		})
+	}
+
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return err
