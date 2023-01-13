@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -242,6 +243,14 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 }
 
 func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *models.Invoice, entryToRevert models.TransactionEntry, failedPaymentError error) error {
+	// Process the tx insertion and invoice update in a DB transaction
+	// analogous with the incoming invoice update
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not open tx entry for updating failed payment:r_hash:%s %v", invoice.RHash, err)
+		return err
+	}
 	// add transaction entry with reverted credit/debit account id
 	entry := models.TransactionEntry{
 		UserID:          invoice.UserID,
@@ -250,8 +259,9 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		DebitAccountID:  entryToRevert.CreditAccountID,
 		Amount:          invoice.Amount,
 	}
-	_, err := svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
+		tx.Rollback()
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
@@ -262,10 +272,17 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		invoice.ErrorMessage = failedPaymentError.Error()
 	}
 
-	_, err = svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
+		tx.Rollback()
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update failed payment invoice user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+	}
+	err = tx.Commit()
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
+		return err
 	}
 	return err
 }
