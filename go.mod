@@ -14,11 +14,11 @@ require (
 	github.com/labstack/echo/v4 v4.9.1
 	github.com/labstack/gommon v0.4.0
 	github.com/lightningnetwork/lnd v0.15.5-beta
-	github.com/stretchr/testify v1.8.0
-	github.com/uptrace/bun v1.0.21
+	github.com/stretchr/testify v1.8.1
+	github.com/uptrace/bun v1.1.10
 	github.com/uptrace/bun/dialect/pgdialect v1.0.21
 	github.com/uptrace/bun/driver/pgdriver v1.0.21
-	github.com/uptrace/bun/extra/bundebug v1.0.21
+	github.com/uptrace/bun/extra/bundebug v1.1.10
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/ziflex/lecho/v3 v3.3.0
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
@@ -113,7 +113,7 @@ require (
 	github.com/ltcsuite/ltcd v0.0.0-20190101042124-f37f8bf35796 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mholt/archiver/v3 v3.5.0 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
@@ -131,7 +131,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 // indirect
@@ -164,7 +164,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
-	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect
+	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
