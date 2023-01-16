@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	cache "github.com/SporkHubr/echo-http-cache"
@@ -169,28 +170,33 @@ func main() {
 	docs.SwaggerInfo.Host = c.Host
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
+	var backgroundWg sync.WaitGroup
+	ctx, cancelBackgroundRoutines := context.WithCancel(context.Background())
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	backgroundWg.Add(1)
+	go func() {
+		err = svc.InvoiceUpdateSubscription(ctx)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+		backgroundWg.Done()
+	}()
 
 	// Check the status of all pending outgoing payments
 	// A goroutine will be spawned for each one
-	err = svc.CheckAllPendingOutgoingPayments(context.Background())
+	err = svc.CheckAllPendingOutgoingPayments(ctx)
 	if err != nil {
 		svc.Logger.Error(err)
 	}
 
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {
-		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
-		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
-		defer cancelWebhook()
+		go svc.StartWebhookSubscribtion(ctx, svc.Config.WebhookUrl)
 	}
 
 	if svc.Config.EnableGRPC {
 		//start grpc server
-		grpcContext, grpcCancel := context.WithCancel(context.Background())
-		go svc.StartGrpcServer(grpcContext)
-		defer grpcCancel()
+		go svc.StartGrpcServer(ctx)
 	}
 
 	//Start Prometheus server if necessary
@@ -233,7 +239,10 @@ func main() {
 			e.Logger.Fatal(err)
 		}
 	}
-
+	//cancel and wait for graceful shutdown of background routines
+	cancelBackgroundRoutines()
+	backgroundWg.Wait()
+	fmt.Println("LNDhub exiting gracefully. Goodbye.")
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
