@@ -115,8 +115,12 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
 
 	//start payment checking loop
-	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
-	assert.NoError(suite.T(), err)
+	go func() {
+		err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+		assert.NoError(suite.T(), err)
+	}()
+	//wait a bit for routine to start
+	time.Sleep(time.Second)
 	//send cancel invoice with lnrpc.payment
 	suite.hodlLND.SettlePayment(lnrpc.Payment{
 		PaymentHash:     hex.EncodeToString(invoice.RHash),
@@ -177,8 +181,12 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
 	//start payment checking loop
-	err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
-	assert.NoError(suite.T(), err)
+	go func() {
+		err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+		assert.NoError(suite.T(), err)
+	}()
+	//wait a bit for routine to start
+	time.Sleep(time.Second)
 	//send settle invoice with lnrpc.payment
 	suite.hodlLND.SettlePayment(lnrpc.Payment{
 		PaymentHash:     hex.EncodeToString(invoice.RHash),
