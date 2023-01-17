@@ -154,8 +154,13 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 		},
 		Keysend: true,
 	}
-
-	if reqBody.Destination == controller.svc.IdentityPubkey && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
+	//temporary workaround due to an inconsistency in json snake case vs camel case
+	//DeprecatedCustomRecords to be removed later
+	customRecords := reqBody.DeprecatedCustomRecords
+	if reqBody.CustomRecords != nil {
+		customRecords = reqBody.CustomRecords
+	}
+	if reqBody.Destination == controller.svc.IdentityPubkey && customRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
 		return nil, &responses.ErrorResponse{
 			Error:          true,
 			Code:           8,
@@ -165,11 +170,13 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
+		controller.svc.Logger.Error(err)
 		return nil, &responses.GeneralServerError
 	}
 
 	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
 	if err != nil {
+		controller.svc.Logger.Error(err)
 		return nil, &responses.GeneralServerError
 	}
 
@@ -183,12 +190,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
-	//temporary workaround due to an inconsistency in json snake case vs camel case
-	//DeprecatedCustomRecords to be removed later
-	customRecords := reqBody.DeprecatedCustomRecords
-	if reqBody.CustomRecords != nil {
-		customRecords = reqBody.CustomRecords
-	}
+
 	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
