@@ -128,16 +128,10 @@ func main() {
 		e.Use(sentryecho.New(sentryecho.Options{}))
 	}
 
-	// Init new LND client
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:      c.LNDAddress,
-		MacaroonFile: c.LNDMacaroonFile,
-		MacaroonHex:  c.LNDMacaroonHex,
-		CertFile:     c.LNDCertFile,
-		CertHex:      c.LNDCertHex,
-	})
+	// Init new LN client
+	lndClient, err := createLnClient(c)
 	if err != nil {
-		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
+		e.Logger.Fatalf("Error initializing LN client %s", err.Error())
 	}
 	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
@@ -242,6 +236,23 @@ func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
 		Burst: burst,
 	}
 	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
+}
+
+func createLnClient(c *service.Config) (lnd.LightningClientWrapper, error) {
+	switch c.LNClientType {
+	case service.LND_CLIENT_TYPE:
+		return lnd.NewLNDclient(lnd.LNDoptions{
+			Address:      c.LNDAddress,
+			MacaroonFile: c.LNDMacaroonFile,
+			MacaroonHex:  c.LNDMacaroonHex,
+			CertFile:     c.LNDCertFile,
+			CertHex:      c.LNDCertHex,
+		})
+	case service.ECLAIR_CLIENT_TYPE:
+		return lnd.NewEclairClient(c.EclairHost, c.EclairPassword), nil
+	default:
+		return nil, fmt.Errorf("Client type not recognized: %s", c.LNClientType)
+	}
 }
 
 func createCacheClient() *cache.Client {
