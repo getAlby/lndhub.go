@@ -137,7 +137,7 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
-	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+	logger.Infof("Connected to %s: %s - %s", c.LNClientType, getInfo.Alias, getInfo.IdentityPubkey)
 
 	svc := &service.LndhubService{
 		Config:         c,
