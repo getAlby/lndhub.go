@@ -99,16 +99,34 @@ func (eclair *EclairClient) ListChannels(ctx context.Context, req *lnrpc.ListCha
 }
 
 func (eclair *EclairClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
-	panic("not implemented") // TODO: Implement
+	payload := url.Values{}
+	payload.Add("invoice", req.PaymentRequest)
+	payload.Add("amountMsat", strconv.Itoa(int(req.Amt)*1000))
+	payload.Add("maxFeeFlatSat", strconv.Itoa(int(req.FeeLimit.GetFixed())))
+	payload.Add("blocking", "true") //wtf
+	resp := &EclairPayResponse{}
+	err := eclair.Request(ctx, http.MethodPost, "/payinvoice", "application/x-www-form-urlencoded", payload, resp)
+	if err != nil {
+		return nil, err
+	}
+	errString := ""
+	if resp.Type == "payment-failed" && len(resp.Failures) > 0 {
+		errString = resp.Failures[0].T
+	}
+	//todo sum all parts
+	return &lnrpc.SendResponse{
+		PaymentError:    errString,
+		PaymentPreimage: []byte(resp.PaymentPreimage),
+		PaymentRoute: &lnrpc.Route{
+			TotalFees: int64(resp.Parts[0].FeesPaid),
+			TotalAmt:  int64(resp.RecipientAmount) + int64(resp.Parts[0].FeesPaid),
+		},
+		PaymentHash: []byte(resp.PaymentHash),
+	}, nil
 }
 
 func (eclair *EclairClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
 	payload := url.Values{}
-	///Description:     req.Memo,
-	///DescriptionHash: string(req.DescriptionHash),
-	///AmountMsat:      req.Value,
-	///ExpireIn:        req.Expiry,
-	///paymentPreimage: hex.EncodeToString(req.RPreimage),
 	if req.Memo != "" {
 		payload.Add("description", req.Memo)
 	}
@@ -195,5 +213,21 @@ func (eclair *EclairClient) Request(ctx context.Context, method, endpoint, conte
 }
 
 func (eclair *EclairClient) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
-	panic("not implemented") // TODO: Implement
+	invoice := &EclairInvoice{}
+	payload := url.Values{}
+	payload.Add("invoice", bolt11)
+	err := eclair.Request(ctx, http.MethodPost, "/parseinvoice", "application/x-www-form-urlencoded", payload, invoice)
+	if err != nil {
+		return nil, err
+	}
+	return &lnrpc.PayReq{
+		Destination:     invoice.NodeID,
+		PaymentHash:     invoice.PaymentHash,
+		NumSatoshis:     int64(invoice.Amount) / 1000,
+		Timestamp:       int64(invoice.Timestamp),
+		Expiry:          int64(invoice.Expiry),
+		Description:     invoice.Description,
+		DescriptionHash: invoice.DescriptionHash,
+		NumMsat:         int64(invoice.Amount),
+	}, nil
 }

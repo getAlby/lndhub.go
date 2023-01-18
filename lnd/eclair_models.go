@@ -219,6 +219,7 @@ type EclairInvoice struct {
 	NodeID             string `json:"nodeId"`
 	Serialized         string `json:"serialized"`
 	Description        string `json:"description"`
+	DescriptionHash    string `json:"descriptionHash"`
 	PaymentHash        string `json:"paymentHash"`
 	PaymentMetadata    string `json:"paymentMetadata"`
 	Expiry             int    `json:"expiry"`
@@ -234,4 +235,61 @@ type EclairInvoice struct {
 		Unknown []interface{} `json:"unknown"`
 	} `json:"features"`
 	RoutingInfo []interface{} `json:"routingInfo"`
+}
+
+type EclairPayResponse struct {
+	Type            string `json:"type"`
+	ID              string `json:"id"`
+	PaymentHash     string `json:"paymentHash"`
+	PaymentPreimage string `json:"paymentPreimage"`
+	RecipientAmount int    `json:"recipientAmount"`
+	RecipientNodeID string `json:"recipientNodeId"`
+	Failures        []struct {
+		Amount int64         `json:"amount"`
+		Route  []interface{} `json:"route"`
+		T      string        `json:"t"`
+	} `json:"failures"`
+	Parts []struct {
+		ID          string `json:"id"`
+		Amount      int    `json:"amount"`
+		FeesPaid    int    `json:"feesPaid"`
+		ToChannelID string `json:"toChannelId"`
+		Route       []struct {
+			ShortChannelID string `json:"shortChannelId"`
+			NodeID         string `json:"nodeId"`
+			NextNodeID     string `json:"nextNodeId"`
+			Params         struct {
+				Type          string `json:"type"`
+				ChannelUpdate struct {
+					Signature      string `json:"signature"`
+					ChainHash      string `json:"chainHash"`
+					ShortChannelID string `json:"shortChannelId"`
+					Timestamp      struct {
+						Iso  time.Time `json:"iso"`
+						Unix int       `json:"unix"`
+					} `json:"timestamp"`
+					MessageFlags struct {
+						DontForward bool `json:"dontForward"`
+					} `json:"messageFlags"`
+					ChannelFlags struct {
+						IsEnabled bool `json:"isEnabled"`
+						IsNode1   bool `json:"isNode1"`
+					} `json:"channelFlags"`
+					CltvExpiryDelta           int   `json:"cltvExpiryDelta"`
+					HtlcMinimumMsat           int   `json:"htlcMinimumMsat"`
+					FeeBaseMsat               int   `json:"feeBaseMsat"`
+					FeeProportionalMillionths int   `json:"feeProportionalMillionths"`
+					HtlcMaximumMsat           int64 `json:"htlcMaximumMsat"`
+					TlvStream                 struct {
+						Records []interface{} `json:"records"`
+						Unknown []interface{} `json:"unknown"`
+					} `json:"tlvStream"`
+				} `json:"channelUpdate"`
+			} `json:"params"`
+		} `json:"route"`
+		Timestamp struct {
+			Iso  time.Time `json:"iso"`
+			Unix int       `json:"unix"`
+		} `json:"timestamp"`
+	} `json:"parts"`
 }
