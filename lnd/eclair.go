@@ -2,10 +2,13 @@ package lnd
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -48,7 +51,7 @@ func NewEclairClient(host, password string) *EclairClient {
 
 func (eclair *EclairClient) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
 	channels := []EclairChannel{}
-	err := eclair.Request(ctx, http.MethodPost, "/channels", nil, &channels)
+	err := eclair.Request(ctx, http.MethodPost, "/channels", "", nil, &channels)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +103,31 @@ func (eclair *EclairClient) SendPaymentSync(ctx context.Context, req *lnrpc.Send
 }
 
 func (eclair *EclairClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
-	panic("not implemented") // TODO: Implement
+	payload := url.Values{}
+	///Description:     req.Memo,
+	///DescriptionHash: string(req.DescriptionHash),
+	///AmountMsat:      req.Value,
+	///ExpireIn:        req.Expiry,
+	///paymentPreimage: hex.EncodeToString(req.RPreimage),
+	if req.Memo != "" {
+		payload.Add("description", req.Memo)
+	}
+	if len(req.DescriptionHash) != 0 {
+		payload.Add("descriptionHash", string(req.DescriptionHash))
+	}
+	payload.Add("amountMsat", strconv.Itoa(int(req.Value*1000)))
+	payload.Add("paymentPreimage", hex.EncodeToString(req.RPreimage))
+	payload.Add("expireIn", strconv.Itoa(int(req.Expiry)))
+	invoice := &EclairInvoice{}
+	err := eclair.Request(ctx, http.MethodPost, "/createinvoice", "application/x-www-form-urlencoded", payload, invoice)
+	if err != nil {
+		return nil, err
+	}
+	return &lnrpc.AddInvoiceResponse{
+		RHash:          []byte(invoice.PaymentHash),
+		PaymentRequest: invoice.Serialized,
+		AddIndex:       uint64(invoice.Timestamp),
+	}, nil
 }
 
 func (eclair *EclairClient) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
@@ -117,7 +144,7 @@ func (eclair *EclairClient) SubscribePayment(ctx context.Context, req *routerrpc
 
 func (eclair *EclairClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
 	info := EclairInfoResponse{}
-	err := eclair.Request(ctx, http.MethodPost, "/getinfo", nil, &info)
+	err := eclair.Request(ctx, http.MethodPost, "/getinfo", "", nil, &info)
 	if err != nil {
 		return nil, err
 	}
@@ -151,15 +178,18 @@ func (eclair *EclairClient) GetInfo(ctx context.Context, req *lnrpc.GetInfoReque
 	}, nil
 }
 
-func (eclair *EclairClient) Request(ctx context.Context, method, endpoint string, body io.Reader, response interface{}) error {
-	httpReq, err := http.NewRequestWithContext(ctx, method, fmt.Sprintf("%s%s", eclair.host, endpoint), body)
+func (eclair *EclairClient) Request(ctx context.Context, method, endpoint, contentType string, body url.Values, response interface{}) error {
+	httpReq, err := http.NewRequestWithContext(ctx, method, fmt.Sprintf("%s%s", eclair.host, endpoint), strings.NewReader(body.Encode()))
+	httpReq.Header.Set("Content-type", contentType)
 	httpReq.SetBasicAuth("", eclair.password)
 	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Got a bad http response status code from Eclair %d for request %s", resp.StatusCode, httpReq.URL)
+		response := map[string]interface{}{}
+		json.NewDecoder(resp.Body).Decode(&response)
+		return fmt.Errorf("Got a bad http response status code from Eclair %d for request %s. Body: %s", resp.StatusCode, httpReq.URL, response)
 	}
 	return json.NewDecoder(resp.Body).Decode(response)
 }

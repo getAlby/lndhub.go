@@ -212,3 +212,26 @@ type EclairChannel struct {
 		} `json:"channelUpdate"`
 	} `json:"data"`
 }
+
+type EclairInvoice struct {
+	Prefix             string `json:"prefix"`
+	Timestamp          int    `json:"timestamp"`
+	NodeID             string `json:"nodeId"`
+	Serialized         string `json:"serialized"`
+	Description        string `json:"description"`
+	PaymentHash        string `json:"paymentHash"`
+	PaymentMetadata    string `json:"paymentMetadata"`
+	Expiry             int    `json:"expiry"`
+	MinFinalCltvExpiry int    `json:"minFinalCltvExpiry"`
+	Amount             int    `json:"amount"`
+	Features           struct {
+		Activated struct {
+			PaymentSecret         string `json:"payment_secret"`
+			BasicMpp              string `json:"basic_mpp"`
+			OptionPaymentMetadata string `json:"option_payment_metadata"`
+			VarOnionOptin         string `json:"var_onion_optin"`
+		} `json:"activated"`
+		Unknown []interface{} `json:"unknown"`
+	} `json:"features"`
+	RoutingInfo []interface{} `json:"routingInfo"`
+}
