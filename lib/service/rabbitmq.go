@@ -5,10 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+var bufPool sync.Pool
+
+func init() {
+	bufPool = sync.Pool{
+		New: func() interface{} { return new(bytes.Buffer) },
+	}
+}
 
 func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	conn, err := amqp.Dial(svc.Config.RabbitMQUri)
@@ -16,6 +25,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 		return err
 	}
 	svc.RabbitMqConn = conn
+
 	ch, err := conn.Channel()
 	if err != nil {
 		return err
@@ -25,12 +35,18 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	err = ch.ExchangeDeclare(
 		//TODO: review exchange config
 		svc.Config.RabbitMQInvoiceExchange,
-		"topic", // type
-		true,    // durable
-		false,   // auto-deleted
-		false,   // internal
-		false,   // no-wait
-		nil,     // arguments
+		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
+		"topic",
+		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
+		// declared when there are no remaining bindings.
+		true,
+		false,
+		// Non-Internal exchange's accept direct publishing
+		false,
+		// Nowait: We set this to false as we want to wait for a server response
+		// to check wether the exchange was created succesfully
+		false,
+		nil,
 	)
 	if err != nil {
 		return err
@@ -56,14 +72,13 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Invoice, ch *amqp.Channel) {
 	key := fmt.Sprintf("%s.%s.invoice", invoice.Type, invoice.State)
 
-	//Look up the user's login to add it to the invoice
 	user, err := svc.FindUser(context.Background(), invoice.UserID)
 	if err != nil {
 		svc.Logger.Error(err)
 		return
 	}
 
-	payload := new(bytes.Buffer)
+	payload := bufPool.Get().(*bytes.Buffer)
 	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
 	if err != nil {
 		svc.Logger.Error(err)
@@ -84,5 +99,5 @@ func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Inv
 		svc.Logger.Error(err)
 		return
 	}
-	svc.Logger.Debugf("Succesfully published %s", payload.String())
+	svc.Logger.Debugf("Succesfully published invoice to rabbitmq with RHash %s", invoice.RHash)
 }
