@@ -13,17 +13,10 @@ import (
 )
 
 func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context, url string) {
-
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
-	incomingInvoices := make(chan models.Invoice)
-	outgoingInvoices := make(chan models.Invoice)
-	_, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
 	if err != nil {
-		svc.Logger.Error(err.Error())
-	}
-	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing, outgoingInvoices)
-	if err != nil {
-		svc.Logger.Error(err.Error())
+		svc.Logger.Error(err)
 	}
 	for {
 		select {
@@ -46,7 +39,42 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(WebhookInvoicePayload{
+	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
+	if err != nil {
+		svc.Logger.Error(err)
+		return
+	}
+
+	resp, err := http.Post(svc.Config.WebhookUrl, "application/json", payload)
+	if err != nil {
+		svc.Logger.Error(err)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		msg, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+		svc.Logger.Errorf("Webhook status code was %d, body: %s", resp.StatusCode, msg)
+	}
+}
+
+func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
+	incomingInvoices := make(chan models.Invoice)
+	outgoingInvoices := make(chan models.Invoice)
+	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	if err != nil {
+		return nil, nil, err
+	}
+	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing, outgoingInvoices)
+	if err != nil {
+		return nil, nil, err
+	}
+	return incomingInvoices, outgoingInvoices, nil
+}
+
+func convertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
+	return WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,
 		UserLogin:                user.Login,
@@ -66,23 +94,6 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 		ExpiresAt:                invoice.ExpiresAt.Time,
 		UpdatedAt:                invoice.UpdatedAt.Time,
 		SettledAt:                invoice.SettledAt.Time,
-	})
-	if err != nil {
-		svc.Logger.Error(err)
-		return
-	}
-
-	resp, err := http.Post(svc.Config.WebhookUrl, "application/json", payload)
-	if err != nil {
-		svc.Logger.Error(err)
-		return
-	}
-	if resp.StatusCode != http.StatusOK {
-		msg, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			svc.Logger.Error(err)
-		}
-		svc.Logger.Errorf("Webhook status code was %d, body: %s", resp.StatusCode, msg)
 	}
 }
 

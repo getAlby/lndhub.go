@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -38,15 +37,9 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	}
 
 	svc.Logger.Infof("Starting rabbitmq publisher")
-	incomingInvoices := make(chan models.Invoice)
-	outgoingInvoices := make(chan models.Invoice)
-	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
 	if err != nil {
-		svc.Logger.Error(err.Error())
-	}
-	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing, outgoingInvoices)
-	if err != nil {
-		svc.Logger.Error(err.Error())
+		svc.Logger.Error(err)
 	}
 	for {
 		select {
@@ -71,27 +64,7 @@ func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Inv
 	}
 
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(WebhookInvoicePayload{
-		ID:                       invoice.ID,
-		Type:                     invoice.Type,
-		UserLogin:                user.Login,
-		Amount:                   invoice.Amount,
-		Fee:                      invoice.Fee,
-		Memo:                     invoice.Memo,
-		DescriptionHash:          invoice.DescriptionHash,
-		PaymentRequest:           invoice.PaymentRequest,
-		DestinationPubkeyHex:     invoice.DestinationPubkeyHex,
-		DestinationCustomRecords: invoice.DestinationCustomRecords,
-		RHash:                    invoice.RHash,
-		Preimage:                 invoice.Preimage,
-		Keysend:                  invoice.Keysend,
-		State:                    invoice.State,
-		ErrorMessage:             invoice.ErrorMessage,
-		CreatedAt:                invoice.CreatedAt,
-		ExpiresAt:                invoice.ExpiresAt.Time,
-		UpdatedAt:                invoice.UpdatedAt.Time,
-		SettledAt:                invoice.SettledAt.Time,
-	})
+	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
 	if err != nil {
 		svc.Logger.Error(err)
 		return
