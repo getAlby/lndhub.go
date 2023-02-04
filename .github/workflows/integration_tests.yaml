@@ -32,6 +32,7 @@ jobs:
           env:
             RABBITMQ_DEFAULT_USER: "root"
             RABBITMQ_DEFAULT_PASS: "password"
+          options: --health-cmd "rabbitmqctl node_health_check" --health-interval 10s --health-timeout 5s --health-retries 5
       steps:
           - name: Install Go
             uses: actions/setup-go@v1
