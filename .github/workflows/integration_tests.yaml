@@ -43,5 +43,5 @@ jobs:
           - name: Run tests
             run:  go test -p 1 -v -cover -coverpkg=./... ./...
             env:
-              RABBITMQ_URI: amqp://root:password@rabbitmq:5672
+              RABBITMQ_URI: amqp://root:password@localhost:5672
 
