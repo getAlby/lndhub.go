@@ -59,6 +59,28 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 }
 
+type WebhookInvoicePayload struct {
+	ID                       int64             `json:"id"`
+	Type                     string            `json:"type"`
+	UserLogin                string            `json:"user_login"`
+	Amount                   int64             `json:"amount"`
+	Fee                      int64             `json:"fee"`
+	Memo                     string            `json:"memo"`
+	DescriptionHash          string            `json:"description_hash,omitempty"`
+	PaymentRequest           string            `json:"payment_request"`
+	DestinationPubkeyHex     string            `json:"destination_pubkey_hex"`
+	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty"`
+	RHash                    string            `json:"r_hash"`
+	Preimage                 string            `json:"preimage"`
+	Keysend                  bool              `json:"keysend"`
+	State                    string            `json:"state"`
+	ErrorMessage             string            `json:"error_message,omitempty"`
+	CreatedAt                time.Time         `json:"created_at"`
+	ExpiresAt                time.Time         `json:"expires_at"`
+	UpdatedAt                time.Time         `json:"updated_at"`
+	SettledAt                time.Time         `json:"settled_at"`
+}
+
 func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
 	incomingInvoices := make(chan models.Invoice)
 	outgoingInvoices := make(chan models.Invoice)
@@ -95,26 +117,4 @@ func convertPayload(invoice models.Invoice, user *models.User) (result WebhookIn
 		UpdatedAt:                invoice.UpdatedAt.Time,
 		SettledAt:                invoice.SettledAt.Time,
 	}
-}
-
-type WebhookInvoicePayload struct {
-	ID                       int64             `json:"id"`
-	Type                     string            `json:"type"`
-	UserLogin                string            `json:"user_login"`
-	Amount                   int64             `json:"amount"`
-	Fee                      int64             `json:"fee"`
-	Memo                     string            `json:"memo"`
-	DescriptionHash          string            `json:"description_hash,omitempty"`
-	PaymentRequest           string            `json:"payment_request"`
-	DestinationPubkeyHex     string            `json:"destination_pubkey_hex"`
-	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty"`
-	RHash                    string            `json:"r_hash"`
-	Preimage                 string            `json:"preimage"`
-	Keysend                  bool              `json:"keysend"`
-	State                    string            `json:"state"`
-	ErrorMessage             string            `json:"error_message,omitempty"`
-	CreatedAt                time.Time         `json:"created_at"`
-	ExpiresAt                time.Time         `json:"expires_at"`
-	UpdatedAt                time.Time         `json:"updated_at"`
-	SettledAt                time.Time         `json:"settled_at"`
 }
