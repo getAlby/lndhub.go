@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"testing"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -53,7 +54,18 @@ func (suite *GrpcTestSuite) SetupSuite() {
 	suite.invoiceUpdateSubCancelFn = cancel
 	go svc.InvoiceUpdateSubscription(ctx)
 
-	go svc.StartGrpcServer(ctx)
+	//start grpc server
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", svc.Config.GRPCPort))
+	if err != nil {
+		svc.Logger.Fatalf("Failed to start grpc server: %v", err)
+	}
+	grpcServer := svc.NewGrpcServer(ctx)
+	go func() {
+		err = grpcServer.Serve(lis)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+	}()
 
 	go StartGrpcClient(ctx, svc.Config.GRPCPort, suite.invoiceChan)
 
