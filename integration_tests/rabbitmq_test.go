@@ -88,7 +88,7 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 
 	m, err := ch.Consume(
 		q.Name,
-		"",
+		"#.#.invoice",
 		true,
 		false,
 		false,
