@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"time"
 
 	"github.com/getAlby/lndhub.go/db"
@@ -44,7 +45,8 @@ const (
 )
 
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
-	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
+	//dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
+	dbUri := "postgresql://postgres:root@localhost:5432/lndhub?sslmode=disable"
 	c := &service.Config{
 		DatabaseUri:           dbUri,
 		JWTSecret:             []byte("SECRET"),
@@ -53,6 +55,13 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		LNDAddress:            mockLNDAddress,
 		LNDMacaroonHex:        mockLNDMacaroonHex,
 	}
+
+	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
+	if ok {
+		c.RabbitMQUri = rabbitmqUri
+		c.RabbitMQInvoiceExchange = "test_lndhub_invoices"
+	}
+
 	dbConn, err := db.Open(c.DatabaseUri)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
