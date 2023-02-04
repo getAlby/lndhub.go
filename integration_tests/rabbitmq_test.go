@@ -11,6 +11,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 type RabbitMQTestSuite struct {
@@ -95,4 +96,8 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice(t *testing.T) {
 	json.NewDecoder(r).Decode(&recievedInvoice)
 
 	assert.Equal(t, invoice.RHash, recievedInvoice.RHash)
+}
+
+func TestRabbitMQTestSuite(t *testing.T) {
+	suite.Run(t, new(RabbitMQTestSuite))
 }
