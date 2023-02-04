@@ -185,6 +185,12 @@ func main() {
 		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
 		defer cancelWebhook()
 	}
+	//Start rabbit publisher
+	if svc.Config.RabbitMQUri != "" {
+		rabbitCtx, cancelRabbit := context.WithCancel(context.Background())
+		go svc.StartRabbitMqPublisher(rabbitCtx)
+		defer cancelRabbit()
+	}
 
 	if svc.Config.EnableGRPC {
 		//start grpc server
