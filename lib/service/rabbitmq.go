@@ -11,12 +11,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-var bufPool sync.Pool
-
-func init() {
-	bufPool = sync.Pool{
-		New: func() interface{} { return new(bytes.Buffer) },
-	}
+var bufPool sync.Pool = sync.Pool{
+	New: func() interface{} { return new(bytes.Buffer) },
 }
 
 func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
@@ -33,7 +29,8 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	defer ch.Close()
 
 	err = ch.ExchangeDeclare(
-		//TODO: review exchange config
+		// TODO: review the whole exchange setup. For the time being we simply declare a single exchange and start pushing to it.
+		// Towards the future however this might become a more involved setup.
 		svc.Config.RabbitMQInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
 		"topic",
