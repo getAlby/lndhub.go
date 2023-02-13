@@ -366,7 +366,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	if err != nil {
 		return nil, err
 	}
-	expiry := time.Hour * 24 // invoice expires in 24h
+	expiry := time.Hour * 24  * 7 // invoice expires in 1 week
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:            common.InvoiceTypeIncoming,
