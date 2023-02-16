@@ -78,7 +78,7 @@ func main() {
 	logger := lib.Logger(c.LogFilePath)
 
 	// Open a DB connection based on the configured DATABASE_URI
-	dbConn, err := db.Open(c.DatabaseUri)
+	dbConn, err := db.Open(c)
 	if err != nil {
 		logger.Fatalf("Error initializing db connection: %v", err)
 	}
