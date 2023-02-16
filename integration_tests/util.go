@@ -46,12 +46,15 @@ const (
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
 	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
-		DatabaseUri:           dbUri,
-		JWTSecret:             []byte("SECRET"),
-		JWTAccessTokenExpiry:  3600,
-		JWTRefreshTokenExpiry: 3600,
-		LNDAddress:            mockLNDAddress,
-		LNDMacaroonHex:        mockLNDMacaroonHex,
+		DatabaseUri:             dbUri,
+		DatabaseMaxConns:        1,
+		DatabaseMaxIdleConns:    1,
+		DatabaseConnMaxLifetime: 10,
+		JWTSecret:               []byte("SECRET"),
+		JWTAccessTokenExpiry:    3600,
+		JWTRefreshTokenExpiry:   3600,
+		LNDAddress:              mockLNDAddress,
+		LNDMacaroonHex:          mockLNDMacaroonHex,
 	}
 	dbConn, err := db.Open(c)
 	if err != nil {
