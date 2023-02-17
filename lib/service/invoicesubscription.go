@@ -221,11 +221,11 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.S
 	// Note: expired invoices will not be settled anymore, so we don't care about those
 	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL AND invoice.expires_at >= (now() - interval '14 hours')").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
 	// IF we found an invoice we use that index to start the subscription
-	// if we didn't find any there might be a serious issue and we want to crash
-	// TODO: exclude no rows in result set error (that's allright)
-	if err != nil {
-		sentry.CaptureException(err)
-		svc.Logger.Fatal(err)
+	// if we get an error there might be a serious issue here
+	// and we are at risk of missing paid invoices, so we should not continue
+	// if we just didn't find any unsettled invoices that's allright though
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
 	}
 	svc.Logger.Infof("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
 	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
@@ -240,14 +240,16 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Context was canceled")
+			return context.Canceled
 		default:
 			// receive the next invoice update
 			rawInvoice, err := invoiceSubscriptionStream.Recv()
+			// in case of an error, we want to return and restart LNDhub
+			// in order to try and reconnect the gRPC subscription
 			if err != nil {
 				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
 				sentry.CaptureException(err)
-				continue
+				return err
 			}
 
 			// Ignore updates for open invoices
