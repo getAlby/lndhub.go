@@ -170,12 +170,8 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		sentry.CaptureException(err)
-		return nil, &responses.ErrorResponse{
-			Error:   true,
-			Code:    10,
-			Message: err.Error(),
-		}
+		controller.svc.Logger.Error(err)
+		return nil, &responses.GeneralServerError
 	}
 	if !ok {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)

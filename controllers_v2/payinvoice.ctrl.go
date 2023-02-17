@@ -81,19 +81,17 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
-
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
-	if err != nil {
-		return err
-	}
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		sentry.CaptureException(err)
-		return c.JSON(http.StatusInternalServerError, err)
+		return err
 	}
 	if !ok {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
 		return c.JSON(http.StatusInternalServerError, responses.NotEnoughBalanceError)
+	}
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
+	if err != nil {
+		return err
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
