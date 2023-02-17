@@ -164,7 +164,7 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	errorResp := suite.createPayInvoiceReqError(tooMuch.PayReq, suite.aliceToken)
 	assert.Equal(suite.T(), responses.NotEnoughBalanceError.Code, errorResp.Code)
 
-	//make sure that the "too much invoice isn't there"
+	//make sure that the "tooMuch" invoice isn't there
 	req := httptest.NewRequest(http.MethodGet, "/checkpayment/"+tooMuch.RHash, nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
 	rec := httptest.NewRecorder()
