@@ -225,6 +225,7 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.S
 	// and we are at risk of missing paid invoices, so we should not continue
 	// if we just didn't find any unsettled invoices that's allright though
 	if err != nil && err != sql.ErrNoRows {
+		sentry.CaptureException(err)
 		return nil, err
 	}
 	// subtract 1 (read invoiceSubscriptionOptions.Addindex docs)
