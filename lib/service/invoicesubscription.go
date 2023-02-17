@@ -221,11 +221,11 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.S
 	// Note: expired invoices will not be settled anymore, so we don't care about those
 	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL AND invoice.expires_at >= (now() - interval '14 hours')").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
 	// IF we found an invoice we use that index to start the subscription
-	if err == nil {
-		invoiceSubscriptionOptions = lnrpc.InvoiceSubscription{AddIndex: invoice.AddIndex - 1} // -1 because we want updates for that invoice already
-	} else {
-		svc.Logger.Error(err)
+	// if we didn't find any there might be a serious issue and we want to crash
+	// TODO: exclude no rows in result set error (that's allright)
+	if err != nil {
 		sentry.CaptureException(err)
+		svc.Logger.Fatal(err)
 	}
 	svc.Logger.Infof("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
 	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
