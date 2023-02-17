@@ -103,7 +103,7 @@ func (svc *LndhubService) BalanceCheck(ctx context.Context, lnpayReq *lnd.LNPayR
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
 	}
-	return currentBalance > minimumBalance, nil
+	return currentBalance >= minimumBalance, nil
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
