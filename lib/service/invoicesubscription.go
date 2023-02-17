@@ -227,6 +227,8 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.S
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
+	// subtract 1 (read invoiceSubscriptionOptions.Addindex docs)
+	invoiceSubscriptionOptions.AddIndex = invoice.AddIndex - 1
 	svc.Logger.Infof("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
 	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
 }

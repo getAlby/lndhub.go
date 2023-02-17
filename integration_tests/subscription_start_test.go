@@ -125,7 +125,7 @@ func (mock *lndSubscriptionStartMockClient) SubscribeInvoices(ctx context.Contex
 	return mock, nil
 }
 
-//wait forever
+// wait forever
 func (mock *lndSubscriptionStartMockClient) Recv() (*lnrpc.Invoice, error) {
 	select {}
 }
