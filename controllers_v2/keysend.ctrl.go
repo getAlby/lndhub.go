@@ -168,27 +168,24 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 			HttpStatusCode: 400,
 		}
 	}
+	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
+	if err != nil {
+		sentry.CaptureException(err)
+		return nil, &responses.ErrorResponse{
+			Error:   true,
+			Code:    10,
+			Message: err.Error(),
+		}
+	}
+	if !ok {
+		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
+		return nil, &responses.NotEnoughBalanceError
+	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		controller.svc.Logger.Error(err)
 		return nil, &responses.GeneralServerError
 	}
-
-	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
-	if err != nil {
-		controller.svc.Logger.Error(err)
-		return nil, &responses.GeneralServerError
-	}
-
-	minimumBalance := invoice.Amount
-	if controller.svc.Config.FeeReserve {
-		minimumBalance += controller.svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
-	}
-	if currentBalance < minimumBalance {
-		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
-		return nil, &responses.NotEnoughBalanceError
-	}
-
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 
 	for key, value := range customRecords {
