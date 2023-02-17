@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/security"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/uptrace/bun"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
@@ -89,6 +91,30 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 		return &user, err
 	}
 	return &user, nil
+}
+
+func (svc *LndhubService) BalanceCheck(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (ok bool, err error) {
+	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
+	if err != nil {
+		return false, err
+	}
+
+	minimumBalance := lnpayReq.PayReq.NumSatoshis
+	if svc.Config.FeeReserve {
+		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
+	}
+	return currentBalance > minimumBalance, nil
+}
+
+func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
+	if destination == svc.IdentityPubkey {
+		return 0
+	}
+	limit := int64(10)
+	if amount > 1000 {
+		limit = int64(math.Ceil(float64(amount)*float64(0.01)) + 1)
+	}
+	return limit
 }
 
 func (svc *LndhubService) CurrentUserBalance(ctx context.Context, userId int64) (int64, error) {

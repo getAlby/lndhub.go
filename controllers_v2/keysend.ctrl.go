@@ -182,7 +182,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 
 	minimumBalance := invoice.Amount
 	if controller.svc.Config.FeeReserve {
-		minimumBalance += invoice.CalcFeeLimit(controller.svc.IdentityPubkey)
+		minimumBalance += controller.svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
 	}
 	if currentBalance < minimumBalance {
 		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
