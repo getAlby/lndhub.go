@@ -6,7 +6,7 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 )
 
-const DefaultChannelBufSize = 20
+const DefaultChannelBufSize = 50
 
 type Pubsub struct {
 	mu   sync.RWMutex
