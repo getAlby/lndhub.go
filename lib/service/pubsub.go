@@ -19,7 +19,7 @@ func NewPubsub() *Pubsub {
 	return ps
 }
 
-func (ps *Pubsub) Subscribe(topic string) (chan models.Invoice, string, error) {
+func (ps *Pubsub) Subscribe(topic string, ch chan models.Invoice) (subId string, err error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	if ps.subs[topic] == nil {
@@ -28,13 +28,11 @@ func (ps *Pubsub) Subscribe(topic string) (chan models.Invoice, string, error) {
 	//re-use preimage code for a uuid
 	preImageHex, err := makePreimageHex()
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
-	subId := string(preImageHex)
-
-	ch := make(chan models.Invoice, DefaultChannelBufSize)
+	subId = string(preImageHex)
 	ps.subs[topic][subId] = ch
-	return ch, subId, nil
+	return subId, nil
 }
 
 func (ps *Pubsub) Unsubscribe(id string, topic string) {

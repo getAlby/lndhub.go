@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/gorilla/websocket"
@@ -38,7 +39,8 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	}
 	defer ws.Close()
 	//start subscription
-	invoiceChan, subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10))
+	invoiceChan := make(chan models.Invoice, service.DefaultChannelBufSize)
+	subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
 	if err != nil {
 		controller.svc.Logger.Error(err)
 		return err
