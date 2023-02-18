@@ -73,7 +73,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 }
 
 func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Invoice, ch *amqp.Channel) {
-	key := fmt.Sprintf("%s.%s.invoice", invoice.Type, invoice.State)
+	key := fmt.Sprintf("invoice.%s.%s", invoice.Type, invoice.State)
 
 	user, err := svc.FindUser(context.Background(), invoice.UserID)
 	if err != nil {
