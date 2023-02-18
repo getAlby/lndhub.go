@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
-	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/gorilla/websocket"
@@ -32,7 +31,6 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	if err != nil {
 		return err
 	}
-	invoiceChan := make(chan models.Invoice)
 	ticker := time.NewTicker(30 * time.Second)
 	ws, done, err := createWebsocketUpgrader(c)
 	if err != nil {
@@ -40,7 +38,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	}
 	defer ws.Close()
 	//start subscription
-	subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
+	invoiceChan, subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10))
 	if err != nil {
 		controller.svc.Logger.Error(err)
 		return err
@@ -97,7 +95,7 @@ SocketLoop:
 	return nil
 }
 
-//open the websocket and start listening for close messages in a goroutine
+// open the websocket and start listening for close messages in a goroutine
 func createWebsocketUpgrader(c echo.Context) (conn *websocket.Conn, done chan struct{}, err error) {
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }

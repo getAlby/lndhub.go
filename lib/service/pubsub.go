@@ -6,6 +6,9 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 )
 
+// This should give enough space to allow for some spike in traffic without flooding memory to much.
+const DefaultChannelBufSize = 50
+
 type Pubsub struct {
 	mu   sync.RWMutex
 	subs map[string]map[string]chan models.Invoice
@@ -17,7 +20,7 @@ func NewPubsub() *Pubsub {
 	return ps
 }
 
-func (ps *Pubsub) Subscribe(topic string, ch chan models.Invoice) (subId string, err error) {
+func (ps *Pubsub) Subscribe(topic string) (chan models.Invoice, string, error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	if ps.subs[topic] == nil {
@@ -26,11 +29,12 @@ func (ps *Pubsub) Subscribe(topic string, ch chan models.Invoice) (subId string,
 	//re-use preimage code for a uuid
 	preImageHex, err := makePreimageHex()
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	subId = string(preImageHex)
+	subId := string(preImageHex)
+	ch := make(chan models.Invoice, DefaultChannelBufSize)
 	ps.subs[topic][subId] = ch
-	return subId, nil
+	return ch, subId, nil
 }
 
 func (ps *Pubsub) Unsubscribe(id string, topic string) {

@@ -15,13 +15,11 @@ import (
 func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context, url string) {
 
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
-	incomingInvoices := make(chan models.Invoice)
-	outgoingInvoices := make(chan models.Invoice)
-	_, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
 	if err != nil {
 		svc.Logger.Error(err.Error())
 	}
-	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing, outgoingInvoices)
+	outgoingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing)
 	if err != nil {
 		svc.Logger.Error(err.Error())
 	}
