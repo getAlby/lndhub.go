@@ -40,7 +40,7 @@ type Config struct {
 	MaxSendAmount           int64   `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance       int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
 	RabbitMQUri             string  `envconfig:"RABBITMQ_URI"`
-	RabbitMQInvoiceExchange string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoices"`
+	RabbitMQInvoiceExchange string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
 	Branding                BrandingConfig
 }
 
