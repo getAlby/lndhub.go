@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,6 +18,8 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 )
+
+var AlreadyProcessedKeysendError = errors.New("Already processed keysend payment")
 
 func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) (result *models.Invoice, err error) {
 	//Find the payee user
@@ -63,7 +66,7 @@ func (svc *LndhubService) HandleKeysendPayment(ctx context.Context, rawInvoice *
 		return err
 	}
 	if count != 0 {
-		return fmt.Errorf("Already processed keysend payment %s", rHashStr)
+		return AlreadyProcessedKeysendError
 	}
 
 	//construct the invoice
@@ -256,7 +259,7 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 			}
 
 			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
-			if processingError != nil {
+			if processingError != nil && processingError != AlreadyProcessedKeysendError {
 				svc.Logger.Error(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 				sentry.CaptureException(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 			}
