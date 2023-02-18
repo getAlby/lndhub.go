@@ -81,28 +81,18 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
-
+	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
+		return c.JSON(http.StatusInternalServerError, responses.NotEnoughBalanceError)
+	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
 		return err
 	}
-
-	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
-	if err != nil {
-		controller.svc.DB.NewDelete().Where("id = ?", invoice.ID).Exec(c.Request().Context())
-		return err
-	}
-
-	minimumBalance := invoice.Amount
-	if controller.svc.Config.FeeReserve {
-		minimumBalance += invoice.CalcFeeLimit(controller.svc.IdentityPubkey)
-	}
-	if currentBalance < minimumBalance {
-		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
-		controller.svc.DB.NewDelete().Model(&invoice).Where("id = ?", invoice.ID).Exec(c.Request().Context())
-		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
-	}
-
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)

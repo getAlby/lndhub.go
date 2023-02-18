@@ -79,25 +79,18 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		})
 	}
 
+	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
+		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
+	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return err
 	}
-
-	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
-	if err != nil {
-		return err
-	}
-
-	minimumBalance := invoice.Amount
-	if controller.svc.Config.FeeReserve {
-		minimumBalance += invoice.CalcFeeLimit(controller.svc.IdentityPubkey)
-	}
-	if currentBalance < minimumBalance {
-		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
-		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
-	}
-
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 	for key, value := range reqBody.CustomRecords {
 		intKey, err := strconv.Atoi(key)

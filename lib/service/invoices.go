@@ -117,7 +117,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.Invoice) (SendPaymentResponse, error) {
 	sendPaymentResponse := SendPaymentResponse{}
 
-	sendPaymentRequest, err := createLnRpcSendRequest(invoice)
+	sendPaymentRequest, err := svc.createLnRpcSendRequest(invoice)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -143,11 +143,11 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 	return sendPaymentResponse, nil
 }
 
-func createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
+func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
 	feeLimit := lnrpc.FeeLimit{
 		Limit: &lnrpc.FeeLimit_Fixed{
 			//if we get here, the destination is never ourselves, so we can use a dummy
-			Fixed: invoice.CalcFeeLimit("dummy"),
+			Fixed: svc.CalcFeeLimit("dummy", invoice.Amount),
 		},
 	}
 

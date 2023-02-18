@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -40,17 +39,6 @@ func (i *Invoice) BeforeAppendModel(ctx context.Context, query bun.Query) error 
 		i.UpdatedAt = bun.NullTime{Time: time.Now()}
 	}
 	return nil
-}
-
-func (i *Invoice) CalcFeeLimit(identityPubkey string) int64 {
-	if i.DestinationPubkeyHex == identityPubkey {
-		return 0
-	}
-	limit := int64(10)
-	if i.Amount > 1000 {
-		limit = int64(math.Ceil(float64(i.Amount)*float64(0.01)) + 1)
-	}
-	return limit
 }
 
 var _ bun.BeforeAppendModelHook = (*Invoice)(nil)

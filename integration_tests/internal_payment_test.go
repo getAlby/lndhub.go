@@ -75,6 +75,7 @@ func (suite *PaymentTestSuite) SetupSuite() {
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)
 	suite.echo.GET("/gettxs", controllers.NewGetTXSController(suite.service).GetTXS)
 	suite.echo.POST("/keysend", controllers.NewKeySendController(suite.service).KeySend)
+	suite.echo.GET("/checkpayment/:payment_hash", controllers.NewCheckPaymentController(suite.service).CheckPayment)
 }
 
 func (suite *PaymentTestSuite) TearDownSuite() {
@@ -163,6 +164,13 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	errorResp := suite.createPayInvoiceReqError(tooMuch.PayReq, suite.aliceToken)
 	assert.Equal(suite.T(), responses.NotEnoughBalanceError.Code, errorResp.Code)
 
+	//make sure that the "tooMuch" invoice isn't there
+	req := httptest.NewRequest(http.MethodGet, "/checkpayment/"+tooMuch.RHash, nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	rec := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+
 	transactonEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
 	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), aliceId)
 	assert.Equal(suite.T(), 3, len(transactonEntriesAlice))
@@ -181,13 +189,13 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	//generate 0 amount invoice
 	zeroAmt := suite.createAddInvoiceReq(0, "integration test internal payment bob 0 amount", suite.bobToken)
 	toPayForZeroAmt := 10
-	rec := httptest.NewRecorder()
+	rec = httptest.NewRecorder()
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
 		Invoice: zeroAmt.PayReq,
 		Amount:  toPayForZeroAmt,
 	}))
-	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req = httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
 	suite.echo.ServeHTTP(rec, req)
