@@ -25,6 +25,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
