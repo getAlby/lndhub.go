@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sync"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
@@ -22,13 +23,19 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 	}
 	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
+	var wg sync.WaitGroup
 	for _, inv := range pendingPayments {
+		wg.Add(1)
 		//spawn goroutines
 		//https://go.dev/doc/faq#closures_and_goroutines
 		inv := inv
 		svc.Logger.Infof("Spawning tracker for payment with hash %s", inv.RHash)
-		go svc.TrackOutgoingPaymentstatus(ctx, &inv)
+		go func() {
+			svc.TrackOutgoingPaymentstatus(ctx, &inv)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 	return nil
 }
 

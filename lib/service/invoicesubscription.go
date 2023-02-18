@@ -243,11 +243,6 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 			if err != nil {
 				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
 				sentry.CaptureException(err)
-				// TODO: close the stream somehoe before retrying?
-				// Wait 30 seconds and try to reconnect
-				// TODO: implement some backoff
-				time.Sleep(30 * time.Second)
-				invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
 				continue
 			}
 
@@ -256,7 +251,7 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 			// Processing open invoices here could cause a race condition:
 			// We could get this notification faster than we finish the AddInvoice call
 			if rawInvoice.State == lnrpc.Invoice_OPEN {
-				svc.Logger.Infof("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
+				svc.Logger.Debugf("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
 				continue
 			}
 

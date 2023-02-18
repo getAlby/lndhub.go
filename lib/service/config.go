@@ -7,6 +7,9 @@ import (
 
 type Config struct {
 	DatabaseUri             string  `envconfig:"DATABASE_URI" required:"true"`
+	DatabaseMaxConns        int     `envconfig:"DATABASE_MAX_CONNS" default:"10"`
+	DatabaseMaxIdleConns    int     `envconfig:"DATABASE_MAX_IDLE_CONNS" default:"5"`
+	DatabaseConnMaxLifetime int     `envconfig:"DATABASE_CONN_MAX_LIFETIME" default:"1800"` // 30 minutes
 	SentryDSN               string  `envconfig:"SENTRY_DSN"`
 	SentryTracesSampleRate  float64 `envconfig:"SENTRY_TRACES_SAMPLE_RATE"`
 	LogFilePath             string  `envconfig:"LOG_FILE_PATH"`

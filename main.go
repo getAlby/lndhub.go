@@ -5,9 +5,11 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	cache "github.com/SporkHubr/echo-http-cache"
@@ -34,6 +36,7 @@ import (
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
 )
 
 //go:embed templates/index.html
@@ -75,19 +78,20 @@ func main() {
 	logger := lib.Logger(c.LogFilePath)
 
 	// Open a DB connection based on the configured DATABASE_URI
-	dbConn, err := db.Open(c.DatabaseUri)
+	dbConn, err := db.Open(c)
 	if err != nil {
 		logger.Fatalf("Error initializing db connection: %v", err)
 	}
 
 	// Migrate the DB
-	ctx := context.Background()
+	//Todo: use timeout for startupcontext
+	startupCtx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
-	err = migrator.Init(ctx)
+	err = migrator.Init(startupCtx)
 	if err != nil {
 		logger.Fatalf("Error initializing db migrator: %v", err)
 	}
-	_, err = migrator.Migrate(ctx)
+	_, err = migrator.Migrate(startupCtx)
 	if err != nil {
 		logger.Fatalf("Error migrating database: %v", err)
 	}
@@ -139,7 +143,7 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
-	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
@@ -169,21 +173,39 @@ func main() {
 	docs.SwaggerInfo.Host = c.Host
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
+	var backgroundWg sync.WaitGroup
+	backGroundCtx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	backgroundWg.Add(1)
+	go func() {
+		err = svc.InvoiceUpdateSubscription(backGroundCtx)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+		svc.Logger.Info("Invoice routine done")
+		backgroundWg.Done()
+	}()
 
 	// Check the status of all pending outgoing payments
 	// A goroutine will be spawned for each one
-	err = svc.CheckAllPendingOutgoingPayments(context.Background())
-	if err != nil {
-		svc.Logger.Error(err)
-	}
+	backgroundWg.Add(1)
+	go func() {
+		err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+		svc.Logger.Info("Pending payment check routines done")
+		backgroundWg.Done()
+	}()
 
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {
-		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
-		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
-		defer cancelWebhook()
+		backgroundWg.Add(1)
+		go func() {
+			svc.StartWebhookSubscribtion(backGroundCtx, svc.Config.WebhookUrl)
+			svc.Logger.Info("Webhook routine done")
+			backgroundWg.Done()
+		}()
 	}
 	//Start rabbit publisher
 	if svc.Config.RabbitMQUri != "" {
@@ -192,11 +214,21 @@ func main() {
 		defer cancelRabbit()
 	}
 
+	var grpcServer *grpc.Server
 	if svc.Config.EnableGRPC {
 		//start grpc server
-		grpcContext, grpcCancel := context.WithCancel(context.Background())
-		go svc.StartGrpcServer(grpcContext)
-		defer grpcCancel()
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", svc.Config.GRPCPort))
+		if err != nil {
+			svc.Logger.Fatalf("Failed to start grpc server: %v", err)
+		}
+		grpcServer = svc.NewGrpcServer(startupCtx)
+		go func() {
+			svc.Logger.Infof("Starting grpc server at port %d", svc.Config.GRPCPort)
+			err = grpcServer.Serve(lis)
+			if err != nil {
+				svc.Logger.Error(err)
+			}
+		}()
 	}
 
 	//Start Prometheus server if necessary
@@ -224,11 +256,7 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
-	// Use a buffered channel to avoid missing signals as recommended for signal.Notify
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
+	<-backGroundCtx.Done()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := e.Shutdown(ctx); err != nil {
@@ -239,7 +267,13 @@ func main() {
 			e.Logger.Fatal(err)
 		}
 	}
-
+	if c.EnableGRPC {
+		grpcServer.Stop()
+		svc.Logger.Info("GRPC server exited.")
+	}
+	//Wait for graceful shutdown of background routines
+	backgroundWg.Wait()
+	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {

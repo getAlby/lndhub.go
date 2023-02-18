@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"net"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -13,21 +11,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (svc *LndhubService) StartGrpcServer(ctx context.Context) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", svc.Config.GRPCPort))
-	if err != nil {
-		svc.Logger.Fatalf("Failed to start grpc server: %v", err)
-	}
+func (svc *LndhubService) NewGrpcServer(ctx context.Context) *grpc.Server {
 	s := grpc.NewServer()
 	grpcServer, err := NewGrpcServer(svc, ctx)
 	if err != nil {
 		svc.Logger.Fatalf("Failed to init grpc server, %s", err.Error())
 	}
 	lndhubrpc.RegisterInvoiceSubscriptionServer(s, grpcServer)
-	svc.Logger.Infof("gRPC server started at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		svc.Logger.Fatalf("failed to serve: %v", err)
-	}
+	return s
 }
 
 // server is used to implement helloworld.GreeterServer.
