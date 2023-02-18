@@ -19,12 +19,12 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	// It is recommended that, when possible, publishers and consumers
 	// use separate connections so that consumers are isolated from potential
 	// flow control messures that may be applied to publishing connections.
-	// We therefore start a single publishing connection here.
+	// We therefore start a single publishing connection here instead of storing
+	// one on the service object.
 	conn, err := amqp.Dial(svc.Config.RabbitMQUri)
 	if err != nil {
 		return err
 	}
-	svc.RabbitMqConn = conn
 
 	ch, err := conn.Channel()
 	if err != nil {

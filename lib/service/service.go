@@ -12,8 +12,6 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/crypto/bcrypt"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -25,7 +23,6 @@ type LndhubService struct {
 	Logger         *lecho.Logger
 	IdentityPubkey string
 	InvoicePubSub  *Pubsub
-	RabbitMqConn   *amqp.Connection
 }
 
 func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
