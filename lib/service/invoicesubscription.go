@@ -19,7 +19,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-var AlreadyProcessedKeysendError = errors.New("Already processed keysend payment")
+var AlreadyProcessedKeysendError = errors.New("already processed keysend payment")
 
 func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) (result *models.Invoice, err error) {
 	//Find the payee user
