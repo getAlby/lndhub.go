@@ -99,12 +99,12 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 
 	msg := <-m
 
-	var recievedInvoice models.Invoice
+	var receivedInvoice models.Invoice
 	r := bytes.NewReader(msg.Body)
-	err = json.NewDecoder(r).Decode(&recievedInvoice)
+	err = json.NewDecoder(r).Decode(&receivedInvoice)
 	assert.NoError(suite.T(), err)
 
-	assert.Equal(suite.T(), invoice.RHash, recievedInvoice.RHash)
+	assert.Equal(suite.T(), invoice.RHash, receivedInvoice.RHash)
 }
 
 func (suite *RabbitMQTestSuite) TearDownSuite() {
