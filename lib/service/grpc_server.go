@@ -36,8 +36,7 @@ func NewGrpcServer(svc *LndhubService, ctx context.Context) (*Server, error) {
 }
 
 func (s *Server) SubsribeInvoices(req *lndhubrpc.SubsribeInvoicesRequest, srv lndhubrpc.InvoiceSubscription_SubsribeInvoicesServer) error {
-	incomingInvoices := make(chan models.Invoice)
-	_, err := s.svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
+	incomingInvoices, _, err := s.svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
 	if err != nil {
 		return err
 	}
