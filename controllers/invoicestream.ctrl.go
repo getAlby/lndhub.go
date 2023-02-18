@@ -39,7 +39,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	}
 	defer ws.Close()
 	//start subscription
-	invoiceChan := make(chan models.Invoice, service.DefaultChannelBufSize)
+	invoiceChan := make(chan models.Invoice)
 	subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
 	if err != nil {
 		controller.svc.Logger.Error(err)

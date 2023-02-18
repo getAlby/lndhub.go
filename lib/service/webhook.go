@@ -82,8 +82,8 @@ type WebhookInvoicePayload struct {
 }
 
 func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
-	incomingInvoices := make(chan models.Invoice, DefaultChannelBufSize)
-	outgoingInvoices := make(chan models.Invoice, DefaultChannelBufSize)
+	incomingInvoices := make(chan models.Invoice)
+	outgoingInvoices := make(chan models.Invoice)
 	_, err = svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming, incomingInvoices)
 	if err != nil {
 		return nil, nil, err
