@@ -33,7 +33,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	defer ch.Close()
 
 	err = ch.ExchangeDeclare(
-		// TODO: review the whole exchange setup. For the time being we simply declare a single exchange and start pushing to it.
+		// For the time being we simply declare a single exchange and start pushing to it.
 		// Towards the future however this might become a more involved setup.
 		svc.Config.RabbitMQInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
@@ -54,6 +54,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	}
 
 	svc.Logger.Infof("Starting rabbitmq publisher")
+
 	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
 	if err != nil {
 		svc.Logger.Error(err)
