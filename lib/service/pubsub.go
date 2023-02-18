@@ -6,6 +6,8 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 )
 
+const DefaultChannelBufSize = 50
+
 type Pubsub struct {
 	mu   sync.RWMutex
 	subs map[string]map[string]chan models.Invoice
