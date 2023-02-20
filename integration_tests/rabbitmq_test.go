@@ -25,6 +25,7 @@ import (
 type RabbitMQTestSuite struct {
 	TestSuite
 	mlnd                     *MockLND
+	externalLnd              *MockLND
 	invoiceUpdateSubCancelFn context.CancelFunc
 	userToken                string
 	svc                      *service.LndhubService
@@ -33,12 +34,17 @@ type RabbitMQTestSuite struct {
 
 func (suite *RabbitMQTestSuite) SetupSuite() {
 	mlnd := newDefaultMockLND()
+	//needs different pubkey
+	//to allow for "external" payments
+	externalLnd, err := NewMockLND("1234567890abcdef1234", 0, make(chan (*lnrpc.Invoice)))
+	assert.NoError(suite.T(), err)
 	svc, err := LndHubTestServiceInit(mlnd)
 	if err != nil {
 		log.Fatalf("could not initialize test service: %v", err)
 	}
 
 	suite.mlnd = mlnd
+	suite.externalLnd = externalLnd
 	suite.testQueueName = "test_invoice"
 
 	_, userTokens, err := createUsers(svc, 1)
@@ -60,7 +66,10 @@ func (suite *RabbitMQTestSuite) SetupSuite() {
 	suite.echo.Use(tokens.Middleware(suite.svc.Config.JWTSecret))
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.svc).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.svc).PayInvoice)
-	go svc.StartRabbitMqPublisher(ctx)
+	go func() {
+		err = svc.StartRabbitMqPublisher(ctx)
+		assert.NoError(suite.T(), err)
+	}()
 }
 
 func (suite *RabbitMQTestSuite) TestPublishInvoice() {
@@ -91,7 +100,7 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 
 	m, err := ch.Consume(
 		q.Name,
-		"#.#.invoice",
+		"invoice.*.*",
 		true,
 		false,
 		false,
@@ -113,7 +122,9 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 	//check if outgoing invoices also get published
 	outgoingInvoiceValue := 500
 	outgoingInvoiceDescription := "test rabbit outgoing invoice"
-	outgoingInv, err := suite.mlnd.AddInvoice(context.Background(), &lnrpc.Invoice{Value: int64(outgoingInvoiceValue), Memo: outgoingInvoiceDescription})
+	preimage, err := makePreimageHex()
+	assert.NoError(suite.T(), err)
+	outgoingInv, err := suite.externalLnd.AddInvoice(context.Background(), &lnrpc.Invoice{Value: int64(outgoingInvoiceValue), Memo: outgoingInvoiceDescription, RPreimage: preimage})
 	assert.NoError(suite.T(), err)
 	//pay invoice
 	suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
@@ -126,9 +137,8 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 	err = json.NewDecoder(r).Decode(&receivedPayment)
 	assert.NoError(suite.T(), err)
 
-	assert.Equal(suite.T(), outgoingInv.RHash, receivedPayment.RHash)
 	assert.Equal(suite.T(), common.InvoiceTypeOutgoing, receivedPayment.Type)
-	assert.Equal(suite.T(), outgoingInvoiceValue, receivedPayment.Amount)
+	assert.Equal(suite.T(), int64(outgoingInvoiceValue), receivedPayment.Amount)
 	assert.Equal(suite.T(), outgoingInvoiceDescription, receivedPayment.Memo)
 
 }
