@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getsentry/sentry-go"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -65,27 +66,33 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 		case <-ctx.Done():
 			return context.Canceled
 		case incoming := <-incomingInvoices:
-			svc.publishInvoice(ctx, incoming, ch)
+			err = svc.publishInvoice(ctx, incoming, ch)
+			if err != nil {
+				svc.Logger.Error(err)
+				sentry.CaptureException(err)
+			}
 		case outgoing := <-outgoingInvoices:
-			svc.publishInvoice(ctx, outgoing, ch)
+			err = svc.publishInvoice(ctx, outgoing, ch)
+			if err != nil {
+				svc.Logger.Error(err)
+				sentry.CaptureException(err)
+			}
 		}
 	}
 }
 
-func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Invoice, ch *amqp.Channel) {
+func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Invoice, ch *amqp.Channel) error {
 	key := fmt.Sprintf("invoice.%s.%s", invoice.Type, invoice.State)
 
 	user, err := svc.FindUser(context.Background(), invoice.UserID)
 	if err != nil {
-		svc.Logger.Error(err)
-		return
+		return err
 	}
 
 	payload := bufPool.Get().(*bytes.Buffer)
 	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
 	if err != nil {
-		svc.Logger.Error(err)
-		return
+		return err
 	}
 
 	err = ch.PublishWithContext(ctx,
@@ -99,8 +106,8 @@ func (svc *LndhubService) publishInvoice(ctx context.Context, invoice models.Inv
 		},
 	)
 	if err != nil {
-		svc.Logger.Error(err)
-		return
+		return err
 	}
 	svc.Logger.Debugf("Succesfully published invoice to rabbitmq with RHash %s", invoice.RHash)
+	return nil
 }

@@ -216,6 +216,7 @@ func main() {
 				svc.Logger.Error(err)
 				sentry.CaptureException(err)
 			}
+			svc.Logger.Info("Rabbit routine done")
 			backgroundWg.Done()
 		}()
 	}
