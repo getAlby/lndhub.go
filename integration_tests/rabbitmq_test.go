@@ -111,7 +111,9 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 	assert.Equal(suite.T(), common.InvoiceTypeIncoming, receivedInvoice.Type)
 
 	//check if outgoing invoices also get published
-	outgoingInv, err := suite.mlnd.AddInvoice(context.Background(), &lnrpc.Invoice{Value: 500})
+	outgoingInvoiceValue := 500
+	outgoingInvoiceDescription := "test rabbit outgoing invoice"
+	outgoingInv, err := suite.mlnd.AddInvoice(context.Background(), &lnrpc.Invoice{Value: int64(outgoingInvoiceValue), Memo: outgoingInvoiceDescription})
 	assert.NoError(suite.T(), err)
 	//pay invoice
 	suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
@@ -126,6 +128,8 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 
 	assert.Equal(suite.T(), outgoingInv.RHash, receivedPayment.RHash)
 	assert.Equal(suite.T(), common.InvoiceTypeOutgoing, receivedPayment.Type)
+	assert.Equal(suite.T(), outgoingInvoiceValue, receivedPayment.Amount)
+	assert.Equal(suite.T(), outgoingInvoiceDescription, receivedPayment.Memo)
 
 }
 
