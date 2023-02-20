@@ -25,6 +25,14 @@ jobs:
             --health-interval 10s
             --health-timeout 5s
             --health-retries 5
+        rabbitmq:
+          image: rabbitmq:3.11.8
+          ports:
+            - 5672:5672
+          env:
+            RABBITMQ_DEFAULT_USER: "root"
+            RABBITMQ_DEFAULT_PASS: "password"
+          options: --health-cmd "rabbitmqctl node_health_check" --health-interval 10s --health-timeout 5s --health-retries 5
       steps:
           - name: Install Go
             uses: actions/setup-go@v1
@@ -34,3 +42,6 @@ jobs:
             uses: actions/checkout@v2
           - name: Run tests
             run:  go test -p 1 -v -cover -coverpkg=./... ./...
+            env:
+              RABBITMQ_URI: amqp://root:password@localhost:5672
+

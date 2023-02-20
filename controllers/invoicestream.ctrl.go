@@ -97,7 +97,7 @@ SocketLoop:
 	return nil
 }
 
-//open the websocket and start listening for close messages in a goroutine
+// open the websocket and start listening for close messages in a goroutine
 func createWebsocketUpgrader(c echo.Context) (conn *websocket.Conn, done chan struct{}, err error) {
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
