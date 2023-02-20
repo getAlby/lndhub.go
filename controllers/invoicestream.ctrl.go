@@ -32,6 +32,7 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	if err != nil {
 		return err
 	}
+	invoiceChan := make(chan models.Invoice)
 	ticker := time.NewTicker(30 * time.Second)
 	ws, done, err := createWebsocketUpgrader(c)
 	if err != nil {
@@ -39,7 +40,6 @@ func (controller *InvoiceStreamController) StreamInvoices(c echo.Context) error 
 	}
 	defer ws.Close()
 	//start subscription
-	invoiceChan := make(chan models.Invoice)
 	subId, err := controller.svc.InvoicePubSub.Subscribe(strconv.FormatInt(userId, 10), invoiceChan)
 	if err != nil {
 		controller.svc.Logger.Error(err)
