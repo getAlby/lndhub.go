@@ -63,7 +63,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context canceled")
+			return context.Canceled
 		case incoming := <-incomingInvoices:
 			svc.publishInvoice(ctx, incoming, ch)
 		case outgoing := <-outgoingInvoices:

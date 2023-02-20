@@ -209,9 +209,15 @@ func main() {
 	}
 	//Start rabbit publisher
 	if svc.Config.RabbitMQUri != "" {
-		rabbitCtx, cancelRabbit := context.WithCancel(context.Background())
-		go svc.StartRabbitMqPublisher(rabbitCtx)
-		defer cancelRabbit()
+		backgroundWg.Add(1)
+		go func() {
+			err = svc.StartRabbitMqPublisher(backGroundCtx)
+			if err != nil {
+				svc.Logger.Error(err)
+				sentry.CaptureException(err)
+			}
+			backgroundWg.Done()
+		}()
 	}
 
 	var grpcServer *grpc.Server
