@@ -12,7 +12,7 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 )
 
-func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context, url string) {
+func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url string) {
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
 	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
 	if err != nil {

@@ -202,7 +202,7 @@ func main() {
 	if svc.Config.WebhookUrl != "" {
 		backgroundWg.Add(1)
 		go func() {
-			svc.StartWebhookSubscribtion(backGroundCtx, svc.Config.WebhookUrl)
+			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
 			svc.Logger.Info("Webhook routine done")
 			backgroundWg.Done()
 		}()
