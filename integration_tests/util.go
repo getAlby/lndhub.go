@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"time"
 
 	"github.com/getAlby/lndhub.go/db"
@@ -56,6 +57,13 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		LNDAddress:              mockLNDAddress,
 		LNDMacaroonHex:          mockLNDMacaroonHex,
 	}
+
+	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
+	if ok {
+		c.RabbitMQUri = rabbitmqUri
+		c.RabbitMQInvoiceExchange = "test_lndhub_invoices"
+	}
+
 	dbConn, err := db.Open(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)

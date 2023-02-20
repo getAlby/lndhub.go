@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -12,16 +12,11 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 )
 
-func (svc *LndhubService) StartWebhookSubscribtion(ctx context.Context, url string) {
-
+func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url string) {
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
-	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
+	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
 	if err != nil {
-		svc.Logger.Error(err.Error())
-	}
-	outgoingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing)
-	if err != nil {
-		svc.Logger.Error(err.Error())
+		svc.Logger.Error(err)
 	}
 	for {
 		select {
@@ -44,27 +39,7 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(WebhookInvoicePayload{
-		ID:                       invoice.ID,
-		Type:                     invoice.Type,
-		UserLogin:                user.Login,
-		Amount:                   invoice.Amount,
-		Fee:                      invoice.Fee,
-		Memo:                     invoice.Memo,
-		DescriptionHash:          invoice.DescriptionHash,
-		PaymentRequest:           invoice.PaymentRequest,
-		DestinationPubkeyHex:     invoice.DestinationPubkeyHex,
-		DestinationCustomRecords: invoice.DestinationCustomRecords,
-		RHash:                    invoice.RHash,
-		Preimage:                 invoice.Preimage,
-		Keysend:                  invoice.Keysend,
-		State:                    invoice.State,
-		ErrorMessage:             invoice.ErrorMessage,
-		CreatedAt:                invoice.CreatedAt,
-		ExpiresAt:                invoice.ExpiresAt.Time,
-		UpdatedAt:                invoice.UpdatedAt.Time,
-		SettledAt:                invoice.SettledAt.Time,
-	})
+	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
 	if err != nil {
 		svc.Logger.Error(err)
 		return
@@ -76,7 +51,7 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 		return
 	}
 	if resp.StatusCode != http.StatusOK {
-		msg, err := ioutil.ReadAll(resp.Body)
+		msg, err := io.ReadAll(resp.Body)
 		if err != nil {
 			svc.Logger.Error(err)
 		}
@@ -104,4 +79,40 @@ type WebhookInvoicePayload struct {
 	ExpiresAt                time.Time         `json:"expires_at"`
 	UpdatedAt                time.Time         `json:"updated_at"`
 	SettledAt                time.Time         `json:"settled_at"`
+}
+
+func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
+	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
+	if err != nil {
+		return nil, nil, err
+	}
+	outgoingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeOutgoing)
+	if err != nil {
+		return nil, nil, err
+	}
+	return incomingInvoices, outgoingInvoices, nil
+}
+
+func convertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
+	return WebhookInvoicePayload{
+		ID:                       invoice.ID,
+		Type:                     invoice.Type,
+		UserLogin:                user.Login,
+		Amount:                   invoice.Amount,
+		Fee:                      invoice.Fee,
+		Memo:                     invoice.Memo,
+		DescriptionHash:          invoice.DescriptionHash,
+		PaymentRequest:           invoice.PaymentRequest,
+		DestinationPubkeyHex:     invoice.DestinationPubkeyHex,
+		DestinationCustomRecords: invoice.DestinationCustomRecords,
+		RHash:                    invoice.RHash,
+		Preimage:                 invoice.Preimage,
+		Keysend:                  invoice.Keysend,
+		State:                    invoice.State,
+		ErrorMessage:             invoice.ErrorMessage,
+		CreatedAt:                invoice.CreatedAt,
+		ExpiresAt:                invoice.ExpiresAt.Time,
+		UpdatedAt:                invoice.UpdatedAt.Time,
+		SettledAt:                invoice.SettledAt.Time,
+	}
 }

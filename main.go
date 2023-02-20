@@ -202,8 +202,21 @@ func main() {
 	if svc.Config.WebhookUrl != "" {
 		backgroundWg.Add(1)
 		go func() {
-			svc.StartWebhookSubscribtion(backGroundCtx, svc.Config.WebhookUrl)
+			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
 			svc.Logger.Info("Webhook routine done")
+			backgroundWg.Done()
+		}()
+	}
+	//Start rabbit publisher
+	if svc.Config.RabbitMQUri != "" {
+		backgroundWg.Add(1)
+		go func() {
+			err = svc.StartRabbitMqPublisher(backGroundCtx)
+			if err != nil {
+				svc.Logger.Error(err)
+				sentry.CaptureException(err)
+			}
+			svc.Logger.Info("Rabbit routine done")
 			backgroundWg.Done()
 		}()
 	}
