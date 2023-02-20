@@ -7,6 +7,7 @@ import (
 	"log"
 	"testing"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
@@ -15,6 +16,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -57,6 +59,7 @@ func (suite *RabbitMQTestSuite) SetupSuite() {
 	suite.echo = e
 	suite.echo.Use(tokens.Middleware(suite.svc.Config.JWTSecret))
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.svc).AddInvoice)
+	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.svc).PayInvoice)
 	go svc.StartRabbitMqPublisher(ctx)
 }
 
@@ -105,6 +108,25 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 	assert.NoError(suite.T(), err)
 
 	assert.Equal(suite.T(), invoice.RHash, receivedInvoice.RHash)
+	assert.Equal(suite.T(), common.InvoiceTypeIncoming, receivedInvoice.Type)
+
+	//check if outgoing invoices also get published
+	outgoingInv, err := suite.mlnd.AddInvoice(context.Background(), &lnrpc.Invoice{Value: 500})
+	assert.NoError(suite.T(), err)
+	//pay invoice
+	suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
+		Invoice: outgoingInv.PaymentRequest,
+	}, suite.userToken)
+	msg = <-m
+
+	var receivedPayment models.Invoice
+	r = bytes.NewReader(msg.Body)
+	err = json.NewDecoder(r).Decode(&receivedPayment)
+	assert.NoError(suite.T(), err)
+
+	assert.Equal(suite.T(), outgoingInv.RHash, receivedPayment.RHash)
+	assert.Equal(suite.T(), common.InvoiceTypeOutgoing, receivedPayment.Type)
+
 }
 
 func (suite *RabbitMQTestSuite) TearDownSuite() {
