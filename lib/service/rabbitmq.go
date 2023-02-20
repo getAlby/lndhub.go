@@ -59,7 +59,7 @@ func (svc *LndhubService) StartRabbitMqPublisher(ctx context.Context) error {
 
 	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
 	if err != nil {
-		svc.Logger.Error(err)
+		return err
 	}
 	for {
 		select {
