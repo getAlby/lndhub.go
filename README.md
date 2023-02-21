@@ -82,7 +82,7 @@ lncli bakemacaroon --save_to=lndhub.macaroon info:read invoices:read invoices:wr
 ## Developing
 
 ```shell
-go run main.go
+go run .
 ```
 
 ### Building
