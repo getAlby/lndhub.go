@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -90,6 +92,10 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
 		return err
+	}
+	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
+		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 	for key, value := range reqBody.CustomRecords {
