@@ -38,6 +38,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 //go:embed templates/index.html
@@ -63,6 +64,7 @@ var staticContent embed.FS
 // @tokenUrl                             /auth
 // @schemes                              https http
 func main() {
+
 	c := &service.Config{}
 
 	// Load configruation from environment variables
@@ -96,7 +98,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error migrating database: %v", err)
 	}
-
 	// Setup exception tracking with Sentry if configured
 	// sentry init needs to happen before the echo middlewares are added
 	if c.SentryDSN != "" {
@@ -118,7 +119,10 @@ func main() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	if os.Getenv("DD_AGENT_HOST") != "" {
+		tracer.Start(tracer.WithAgentAddr(os.Getenv("DD_AGENT_HOST")))
+		defer tracer.Stop()
 		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
+
 	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
