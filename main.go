@@ -118,11 +118,11 @@ func main() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
-	if os.Getenv("DD_AGENT_HOST") != "" {
-		tracer.Start(tracer.WithAgentAddr(os.Getenv("DD_AGENT_HOST")))
+	//if Datadog is configured, add datadog middleware
+	if c.DatadogAgentUrl != "" {
+		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
 		defer tracer.Stop()
 		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
-
 	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
