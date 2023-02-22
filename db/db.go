@@ -11,6 +11,7 @@ import (
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
+	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )
 
 func Open(config *service.Config) (*bun.DB, error) {
@@ -18,10 +19,15 @@ func Open(config *service.Config) (*bun.DB, error) {
 	dsn := config.DatabaseUri
 	switch {
 	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "unix://"):
-		dbConn := sql.OpenDB(
-			pgdriver.NewConnector(
-				pgdriver.WithDSN(dsn),
-				pgdriver.WithTimeout(time.Duration(config.DatabaseTimeout)*time.Second)))
+		var dbConn *sql.DB
+		connector := pgdriver.NewConnector(pgdriver.WithDSN(dsn), pgdriver.WithTimeout(time.Duration(config.DatabaseTimeout)*time.Second))
+		//if Datadog is configured, send sql traces there
+		if config.DatadogAgentUrl != "" {
+			sqltrace.Register("postgres", pgdriver.Driver{}, sqltrace.WithServiceName("lndhub.go"))
+			dbConn = sqltrace.OpenDB(connector)
+		} else {
+			dbConn = sql.OpenDB(connector)
+		}
 		db = bun.NewDB(dbConn, pgdialect.New())
 		db.SetMaxOpenConns(config.DatabaseMaxConns)
 		db.SetMaxIdleConns(config.DatabaseMaxIdleConns)

@@ -12,6 +12,7 @@ type Config struct {
 	DatabaseConnMaxLifetime int     `envconfig:"DATABASE_CONN_MAX_LIFETIME" default:"1800"` // 30 minutes
 	DatabaseTimeout         int     `envconfig:"DATABASE_TIMEOUT" default:"60"`             // 60 seconds
 	SentryDSN               string  `envconfig:"SENTRY_DSN"`
+	DatadogAgentUrl         string  `envconfig:"DATADOG_AGENT_URL"`
 	SentryTracesSampleRate  float64 `envconfig:"SENTRY_TRACES_SAMPLE_RATE"`
 	LogFilePath             string  `envconfig:"LOG_FILE_PATH"`
 	JWTSecret               []byte  `envconfig:"JWT_SECRET" required:"true"`
