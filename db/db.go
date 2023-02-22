@@ -20,12 +20,13 @@ func Open(config *service.Config) (*bun.DB, error) {
 	switch {
 	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "unix://"):
 		var dbConn *sql.DB
+		connector := pgdriver.NewConnector(pgdriver.WithDSN(dsn), pgdriver.WithTimeout(time.Duration(config.DatabaseTimeout)*time.Second))
 		//if Datadog is configured, send sql traces there
 		if config.DatadogAgentUrl != "" {
 			sqltrace.Register("postgres", pgdriver.Driver{}, sqltrace.WithServiceName("lndhub.go"))
-			dbConn = sqltrace.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+			dbConn = sqltrace.OpenDB(connector)
 		} else {
-			dbConn = sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+			dbConn = sql.OpenDB(connector)
 		}
 		db = bun.NewDB(dbConn, pgdialect.New())
 		db.SetMaxOpenConns(config.DatabaseMaxConns)
