@@ -37,6 +37,7 @@ import (
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
 )
 
 //go:embed templates/index.html
@@ -116,7 +117,9 @@ func main() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
-	e.Use(Middleware(WithServiceName("my-web-app")))
+	if os.Getenv("DD_AGENT_HOST") != "" {
+		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
+	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
