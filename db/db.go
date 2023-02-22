@@ -18,7 +18,10 @@ func Open(config *service.Config) (*bun.DB, error) {
 	dsn := config.DatabaseUri
 	switch {
 	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "unix://"):
-		dbConn := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+		dbConn := sql.OpenDB(
+			pgdriver.NewConnector(
+				pgdriver.WithDSN(dsn),
+				pgdriver.WithTimeout(time.Duration(config.DatabaseTimeout)*time.Second)))
 		db = bun.NewDB(dbConn, pgdialect.New())
 		db.SetMaxOpenConns(config.DatabaseMaxConns)
 		db.SetMaxIdleConns(config.DatabaseMaxIdleConns)

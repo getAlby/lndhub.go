@@ -179,8 +179,9 @@ func main() {
 	backgroundWg.Add(1)
 	go func() {
 		err = svc.InvoiceUpdateSubscription(backGroundCtx)
-		if err != nil {
-			svc.Logger.Error(err)
+		if err != nil && err != context.Canceled {
+			// in case of an error in this routine, we want to restart LNDhub
+			svc.Logger.Fatal(err)
 		}
 		svc.Logger.Info("Invoice routine done")
 		backgroundWg.Done()
