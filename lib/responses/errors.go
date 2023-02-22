@@ -36,6 +36,13 @@ var BadAuthError = ErrorResponse{
 	HttpStatusCode: 401,
 }
 
+var IncorrectNetworkError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "incorrect network",
+	HttpStatusCode: 400,
+}
+
 var InvoiceExpiredError = ErrorResponse{
 	Error:          true,
 	Code:           2,
