@@ -1,7 +1,6 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
+	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )
 
 func Open(config *service.Config) (*bun.DB, error) {
@@ -18,7 +18,8 @@ func Open(config *service.Config) (*bun.DB, error) {
 	dsn := config.DatabaseUri
 	switch {
 	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "unix://"):
-		dbConn := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+		sqltrace.Register("postgres", pgdriver.Driver{})
+		dbConn := sqltrace.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
 		db = bun.NewDB(dbConn, pgdialect.New())
 		db.SetMaxOpenConns(config.DatabaseMaxConns)
 		db.SetMaxIdleConns(config.DatabaseMaxIdleConns)
