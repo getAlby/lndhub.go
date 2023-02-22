@@ -88,8 +88,7 @@ func (suite *KeySendTestSuite) TestKeysendPayment() {
 	//wait a bit for the callback event to hit
 	time.Sleep(10 * time.Millisecond)
 
-	suite.createKeySendReq(int64(externalSatRequested), "key send test", "03abcdef123456789a", suite.aliceToken)
-
+	suite.createKeySendReq(int64(externalSatRequested), "key send test", "123456789012345678901234567890123456789012345678901234567890abcdef", suite.aliceToken)
 	// check that balance was reduced
 	userId := getUserIdFromToken(suite.aliceToken)
 	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
@@ -128,15 +127,15 @@ func (suite *KeySendTestSuite) TestMultiKeysend() {
 		Keysends: []v2controllers.KeySendRequestBody{
 			{
 				Amount:      150,
-				Destination: "03abcdef123456789a",
+				Destination: "123456789012345678901234567890123456789012345678901234567890abcdef",
 			},
 			{
 				Amount:      100,
-				Destination: "03abcdef123456789a",
+				Destination: "123456789012345678901234567890123456789012345678901234567890abcdef",
 			},
 			{
 				Amount:      50,
-				Destination: "03abcdef123456789a",
+				Destination: "123456789012345678901234567890123456789012345678901234567890abcdef",
 			},
 		},
 	}))
