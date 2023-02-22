@@ -36,6 +36,13 @@ var BadAuthError = ErrorResponse{
 	HttpStatusCode: 401,
 }
 
+var InvoiceExpiredError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "invoice expired",
+	HttpStatusCode: 400,
+}
+
 var NotEnoughBalanceError = ErrorResponse{
 	Error:          true,
 	Code:           2,

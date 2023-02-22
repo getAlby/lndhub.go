@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -65,6 +66,11 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
 	}
+	if (decodedPaymentRequest.Timestamp + decodedPaymentRequest.Expiry) < time.Now().Unix() {
+		c.Logger().Errorf("Payment request expired")
+		return c.JSON(http.StatusBadRequest, responses.InvoiceExpiredError)
+	}
+
 	if decodedPaymentRequest.NumSatoshis == 0 {
 		amt, err := controller.svc.ParseInt(reqBody.Amount)
 		if err != nil || amt <= 0 {
