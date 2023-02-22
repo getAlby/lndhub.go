@@ -116,6 +116,7 @@ func main() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
+	e.Use(Middleware(WithServiceName("my-web-app")))
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
