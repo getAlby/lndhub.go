@@ -5,7 +5,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"io/ioutil"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -28,11 +30,29 @@ type LNDoptions struct {
 	CertHex      string
 	MacaroonFile string
 	MacaroonHex  string
+
+	RabbitMQUri                string
+	RabbitMQLndInvoiceExchange string
 }
 
 type LNDWrapper struct {
 	client       lnrpc.LightningClient
 	routerClient routerrpc.RouterClient
+
+	options LNDoptions
+}
+
+type SubscribeInvoiceWrapperRabbitMQ struct {
+	rawInvoiceChan <-chan amqp.Delivery
+}
+
+func (s *SubscribeInvoiceWrapperRabbitMQ) Recv() (*lnrpc.Invoice, error) {
+	delivery := <-s.rawInvoiceChan
+
+	var invoice lnrpc.Invoice
+	err := json.Unmarshal(delivery.Body, &invoice)
+
+	return &invoice, err
 }
 
 func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
@@ -96,6 +116,7 @@ func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 	return &LNDWrapper{
 		client:       lnrpc.NewLightningClient(conn),
 		routerClient: routerrpc.NewRouterClient(conn),
+		options:      lndOptions,
 	}, nil
 }
 
@@ -112,6 +133,34 @@ func (wrapper *LNDWrapper) AddInvoice(ctx context.Context, req *lnrpc.Invoice, o
 }
 
 func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
+	if wrapper.options.RabbitMQUri != "" {
+
+		conn, err := amqp.Dial(wrapper.options.RabbitMQUri)
+		if err != nil {
+			return nil, err
+		}
+
+		ch, err := conn.Channel()
+		if err != nil {
+			return nil, err
+		}
+
+		queueName := "lndhub.lnd_invoice"
+		err = ch.QueueBind(
+			queueName,
+			"#",
+			wrapper.options.RabbitMQLndInvoiceExchange,
+			false,
+			nil,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		deliveryChan, err := ch.Consume(queueName, "", true, false, false, false, nil)
+
+		return &SubscribeInvoiceWrapperRabbitMQ{rawInvoiceChan: deliveryChan}, err
+	}
 	return wrapper.client.SubscribeInvoices(ctx, req, options...)
 }
 

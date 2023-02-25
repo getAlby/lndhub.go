@@ -147,6 +147,9 @@ func main() {
 		MacaroonHex:  c.LNDMacaroonHex,
 		CertFile:     c.LNDCertFile,
 		CertHex:      c.LNDCertHex,
+
+		RabbitMQUri:                c.RabbitMQUri,
+		RabbitMQLndInvoiceExchange: c.RabbitMQLndInvoiceExchange,
 	})
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
