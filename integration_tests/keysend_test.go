@@ -109,7 +109,8 @@ func (suite *KeySendTestSuite) TestKeysendPaymentNonExistentDestination() {
 	//wait a bit for the callback event to hit
 	time.Sleep(100 * time.Millisecond)
 
-	suite.createKeySendReqError(int64(externalSatRequested), "key send test", "12345", suite.aliceToken)
+	errResponse := suite.createKeySendReqError(int64(externalSatRequested), "key send test", "12345", suite.aliceToken)
+	assert.Equal(suite.T(), "invalid destination pubkey", errResponse.Message)
 }
 
 func (suite *KeySendTestSuite) TestMultiKeysend() {
