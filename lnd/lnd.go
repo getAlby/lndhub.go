@@ -39,21 +39,26 @@ type LNDoptions struct {
 type LNDWrapper struct {
 	client       lnrpc.LightningClient
 	routerClient routerrpc.RouterClient
+	amqpConn     *amqp.Connection
 
 	options LNDoptions
 }
 
 type SubscribeInvoiceWrapperRabbitMQ struct {
+	ctx            context.Context
 	rawInvoiceChan <-chan amqp.Delivery
 }
 
 func (s *SubscribeInvoiceWrapperRabbitMQ) Recv() (*lnrpc.Invoice, error) {
-	delivery := <-s.rawInvoiceChan
+	select {
+	case <-s.ctx.Done():
+		return nil, context.Canceled
+	case delivery := <-s.rawInvoiceChan:
+		var invoice lnrpc.Invoice
+		err := json.Unmarshal(delivery.Body, &invoice)
+		return &invoice, err
+	}
 
-	var invoice lnrpc.Invoice
-	err := json.Unmarshal(delivery.Body, &invoice)
-
-	return &invoice, err
 }
 
 func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
@@ -113,10 +118,18 @@ func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 	if err != nil {
 		return nil, err
 	}
+	var amqpConn *amqp.Connection
+	if lndOptions.RabbitMQUri != "" {
+		amqpConn, err = amqp.Dial(lndOptions.RabbitMQUri)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return &LNDWrapper{
 		client:       lnrpc.NewLightningClient(conn),
 		routerClient: routerrpc.NewRouterClient(conn),
+		amqpConn:     amqpConn,
 		options:      lndOptions,
 	}, nil
 }
@@ -134,18 +147,11 @@ func (wrapper *LNDWrapper) AddInvoice(ctx context.Context, req *lnrpc.Invoice, o
 }
 
 func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
-	if wrapper.options.RabbitMQUri != "" {
-
-		conn, err := amqp.Dial(wrapper.options.RabbitMQUri)
+	if wrapper.amqpConn != nil {
+		ch, err := wrapper.amqpConn.Channel()
 		if err != nil {
 			return nil, err
 		}
-
-		ch, err := conn.Channel()
-		if err != nil {
-			return nil, err
-		}
-
 		queueName := "lndhub.lnd_invoice"
 		q, err := ch.QueueDeclare(
 			queueName,
@@ -171,7 +177,10 @@ func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.Inv
 
 		deliveryChan, err := ch.Consume(queueName, "", true, false, false, false, nil)
 
-		return &SubscribeInvoiceWrapperRabbitMQ{rawInvoiceChan: deliveryChan}, err
+		return &SubscribeInvoiceWrapperRabbitMQ{
+			ctx:            ctx,
+			rawInvoiceChan: deliveryChan,
+		}, err
 	}
 	return wrapper.client.SubscribeInvoices(ctx, req, options...)
 }
