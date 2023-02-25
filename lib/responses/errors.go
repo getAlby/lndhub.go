@@ -43,6 +43,13 @@ var IncorrectNetworkError = ErrorResponse{
 	HttpStatusCode: 400,
 }
 
+var InvalidDestinationError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "invalid destination pubkey",
+	HttpStatusCode: 400,
+}
+
 var InvoiceExpiredError = ErrorResponse{
 	Error:          true,
 	Code:           2,

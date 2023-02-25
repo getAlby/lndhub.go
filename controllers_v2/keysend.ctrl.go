@@ -186,7 +186,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
 		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
-		return nil, &responses.BadArgumentsError
+		return nil, &responses.InvalidDestinationError
 	}
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 
