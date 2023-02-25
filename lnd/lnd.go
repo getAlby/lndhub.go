@@ -7,8 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"io/ioutil"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -146,8 +147,19 @@ func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.Inv
 		}
 
 		queueName := "lndhub.lnd_invoice"
-		err = ch.QueueBind(
+		q, err := ch.QueueDeclare(
 			queueName,
+			false, // durable
+			false, // delete when unused
+			true,  // exclusive
+			false, // no-wait
+			nil,   // arguments
+		)
+		if err != nil {
+			return nil, err
+		}
+		err = ch.QueueBind(
+			q.Name,
 			"#",
 			wrapper.options.RabbitMQLndInvoiceExchange,
 			false,
