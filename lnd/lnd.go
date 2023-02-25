@@ -56,9 +56,9 @@ func (s *SubscribeInvoiceWrapperRabbitMQ) Recv() (*lnrpc.Invoice, error) {
 	case delivery := <-s.rawInvoiceChan:
 		var invoice lnrpc.Invoice
 		err := json.Unmarshal(delivery.Body, &invoice)
+
 		return &invoice, err
 	}
-
 }
 
 func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
@@ -152,23 +152,26 @@ func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.Inv
 		if err != nil {
 			return nil, err
 		}
+
 		queueName := "lndhub.lnd_invoice"
+
 		q, err := ch.QueueDeclare(
 			queueName,
 			false, // durable
 			false, // delete when unused
 			true,  // exclusive
-			false, // no-wait
+			false, // wait for server to ack
 			nil,   // arguments
 		)
 		if err != nil {
 			return nil, err
 		}
+
 		err = ch.QueueBind(
 			q.Name,
-			"#",
-			wrapper.options.RabbitMQLndInvoiceExchange,
-			false,
+			"#", // routing key
+			wrapper.options.RabbitMQLndInvoiceExchange, // exchange
+			false, // wait for server to ack
 			nil,
 		)
 		if err != nil {
