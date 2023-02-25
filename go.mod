@@ -194,7 +194,7 @@ require (
 	github.com/labstack/echo-contrib v0.13.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/swaggo/echo-swagger v1.3.5
-	github.com/swaggo/swag v1.8.9
+	github.com/swaggo/swag v1.8.10
 	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.5.0 // indirect
