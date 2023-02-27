@@ -1,10 +1,12 @@
 package v2controllers
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -181,6 +183,10 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	if err != nil {
 		controller.svc.Logger.Error(err)
 		return nil, &responses.GeneralServerError
+	}
+	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
+		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
+		return nil, &responses.InvalidDestinationError
 	}
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 

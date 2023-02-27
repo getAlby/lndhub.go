@@ -3,6 +3,7 @@ package v2controllers
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -65,8 +66,11 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
+		if strings.Contains(err.Error(),"invoice not for current active network") {
+			c.Logger().Errorf("Incorrect network user_id:%v error: %v", userID, err)
+			return c.JSON(http.StatusBadRequest, responses.IncorrectNetworkError)
+		}
 		c.Logger().Errorf("Invalid payment request user_id:%v error: %v", userID, err)
-		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -74,6 +78,11 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
 	}
+	if (decodedPaymentRequest.Timestamp + decodedPaymentRequest.Expiry) < time.Now().Unix() {
+		c.Logger().Errorf("Payment request expired")
+		return c.JSON(http.StatusBadRequest, responses.InvoiceExpiredError)
+	}
+
 	if decodedPaymentRequest.NumSatoshis == 0 {
 		amt, err := controller.svc.ParseInt(reqBody.Amount)
 		if err != nil || amt <= 0 {
