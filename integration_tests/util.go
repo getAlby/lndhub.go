@@ -61,7 +61,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
 	if ok {
 		c.RabbitMQUri = rabbitmqUri
-		c.RabbitMQInvoiceExchange = "test_lndhub_invoices"
+		c.RabbitMQLndhubInvoiceExchange = "test_lndhub_invoices"
 	}
 
 	dbConn, err := db.Open(c)

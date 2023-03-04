@@ -91,7 +91,7 @@ func (suite *RabbitMQTestSuite) TestPublishInvoice() {
 	)
 	assert.NoError(suite.T(), err)
 
-	err = ch.QueueBind(q.Name, "#", suite.svc.Config.RabbitMQInvoiceExchange, false, nil)
+	err = ch.QueueBind(q.Name, "#", suite.svc.Config.RabbitMQLndhubInvoiceExchange, false, nil)
 	assert.NoError(suite.T(), err)
 
 	invoice := suite.createAddInvoiceReq(1000, "integration test rabbitmq", suite.userToken)
@@ -155,7 +155,7 @@ func (suite *RabbitMQTestSuite) TearDownSuite() {
 	_, err = ch.QueueDelete(suite.testQueueName, false, false, false)
 	assert.NoError(suite.T(), err)
 
-	err = ch.ExchangeDelete(suite.svc.Config.RabbitMQInvoiceExchange, true, false)
+	err = ch.ExchangeDelete(suite.svc.Config.RabbitMQLndhubInvoiceExchange, true, false)
 	assert.NoError(suite.T(), err)
 }
 

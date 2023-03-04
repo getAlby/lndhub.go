@@ -14,7 +14,7 @@ import (
 
 func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url string) {
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
-	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
+	incomingInvoices, outgoingInvoices, err := svc.SubscribeIncomingOutgoingInvoices()
 	if err != nil {
 		svc.Logger.Error(err)
 	}
@@ -81,7 +81,7 @@ type WebhookInvoicePayload struct {
 	SettledAt                time.Time         `json:"settled_at"`
 }
 
-func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
+func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
 	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
 	if err != nil {
 		return nil, nil, err
