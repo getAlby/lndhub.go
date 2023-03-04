@@ -56,7 +56,6 @@ func (s *SubscribeInvoiceWrapperRabbitMQ) Recv() (*lnrpc.Invoice, error) {
 	case delivery := <-s.rawInvoiceChan:
 		var invoice lnrpc.Invoice
 		err := json.Unmarshal(delivery.Body, &invoice)
-
 		return &invoice, err
 	}
 }

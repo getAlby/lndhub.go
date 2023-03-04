@@ -250,12 +250,13 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 		default:
 			// receive the next invoice update
 			rawInvoice, err := invoiceSubscriptionStream.Recv()
-			// in case of an error, we want to return and restart LNDhub
-			// in order to try and reconnect the gRPC subscription
 			if err != nil {
 				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+
+				// Log the exception to sentry but continue trying to get invoices.
+				// No reason to kill the whole lndhub.go process if this fails.
 				sentry.CaptureException(err)
-				return err
+				continue
 			}
 
 			// Ignore updates for open invoices
