@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"os"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
@@ -95,7 +95,7 @@ func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 		}
 		macaroonData = macBytes
 	} else if lndOptions.MacaroonFile != "" {
-		macBytes, err := ioutil.ReadFile(lndOptions.MacaroonFile)
+		macBytes, err := os.ReadFile(lndOptions.MacaroonFile)
 		if err != nil {
 			return nil, err
 		}
