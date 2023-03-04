@@ -55,7 +55,13 @@ func (s *SubscribeInvoiceWrapperRabbitMQ) Recv() (*lnrpc.Invoice, error) {
 		return nil, context.Canceled
 	case delivery := <-s.rawInvoiceChan:
 		var invoice lnrpc.Invoice
+
 		err := json.Unmarshal(delivery.Body, &invoice)
+		if err != nil {
+			delivery.Nack(false, false)
+		}
+
+		delivery.Ack(false)
 		return &invoice, err
 	}
 }
@@ -177,7 +183,13 @@ func (wrapper *LNDWrapper) SubscribeInvoices(ctx context.Context, req *lnrpc.Inv
 			return nil, err
 		}
 
-		deliveryChan, err := ch.Consume(queueName, "", true, false, false, false, nil)
+		deliveryChan, err := ch.Consume(queueName, "",
+			false, // Do not auto ack. We do this when handling the delivery
+			false, // Not exclusive
+			false, // Not even supported
+			false, // Wait for server
+			nil,
+		)
 
 		return &SubscribeInvoiceWrapperRabbitMQ{
 			ctx:            ctx,
