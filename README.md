@@ -93,6 +93,24 @@ To build an `lndhub` executable, run the following commands:
 make
 ```
 
+### Linting
+
+We run a golangci-lint action in our pipeline to check for static linting issues.
+If you want to run this yourself run the following command.
+
+```bash
+golangci-lint run ./...
+```
+
+To install golangci-lint check [this](https://golangci-lint.run/usage/install/#local-installation) page.
+
+Mac users can use `brew`
+
+```bash
+brew install golangci-lint
+brew upgrade golangci-lint
+```
+
 ### Development LND setup
 
 To run your own local lightning network and LND you can use [Lightning Polar](https://lightningpolar.com/) which helps you to spin up local LND instances.
