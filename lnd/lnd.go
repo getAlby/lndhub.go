@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-
 	"io/ioutil"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
