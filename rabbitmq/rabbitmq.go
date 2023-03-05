@@ -1,20 +1,32 @@
 package rabbitmq
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/gommon/log"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/ziflex/lecho/v3"
+	"io"
 	"os"
+	"sync"
+)
+
+var bufPool = sync.Pool{
+	New: func() interface{} { return new(bytes.Buffer) },
+}
+
+const (
+	contentTypeJSON = "application/json"
 )
 
 type Client interface {
 	SubscribeToLndInvoices(context.Context, InvoiceHandler) error
-	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc) error
+	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeWebhookInvoicePayloadFunc) error
 	Close() error
 }
 
@@ -25,7 +37,7 @@ type DefaultClient struct {
 	// use separate connections so that consumers are isolated from potential
 	// flow control measures that may be applied to publishing connections.
 	consumeChannel *amqp.Channel
-	produceChannel *amqp.Channel
+	publishChannel *amqp.Channel
 
 	logger *lecho.Logger
 
@@ -80,7 +92,7 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 		conn: conn,
 
 		consumeChannel: consumeChannel,
-		produceChannel: produceChannel,
+		publishChannel: produceChannel,
 
 		logger: lecho.New(
 			os.Stdout,
@@ -186,9 +198,10 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 }
 
 type SubscribeToInvoicesFunc = func() (in chan models.Invoice, out chan models.Invoice, err error)
+type EncodeWebhookInvoicePayloadFunc = func(ctx context.Context, w io.Writer, invoice models.Invoice) error
 
-func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc) error {
-	err := client.produceChannel.ExchangeDeclare(
+func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc, payloadFunc EncodeWebhookInvoicePayloadFunc) error {
+	err := client.publishChannel.ExchangeDeclare(
 		client.lndInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
 		"topic",
@@ -219,13 +232,13 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 		case <-ctx.Done():
 			return context.Canceled
 		case incomingInvoice := <-in:
-			err = client.publishToLndhubExchange(ctx, incomingInvoice)
+			err = client.publishToLndhubExchange(ctx, incomingInvoice, payloadFunc)
 			if err != nil {
 				client.logger.Error(err)
 				sentry.CaptureException(err)
 			}
 		case outgoing := <-out:
-			err = client.publishToLndhubExchange(ctx, outgoing)
+			err = client.publishToLndhubExchange(ctx, outgoing, payloadFunc)
 			if err != nil {
 				client.logger.Error(err)
 				sentry.CaptureException(err)
@@ -234,6 +247,30 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 	}
 }
 
-func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoice models.Invoice) error {
+func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoice models.Invoice, payloadFunc EncodeWebhookInvoicePayloadFunc) error {
+	payload := bufPool.Get().(*bytes.Buffer)
+	err := payloadFunc(ctx, payload, invoice)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("invoice.%s.%s", invoice.Type, invoice.State)
+
+	err = client.publishChannel.PublishWithContext(ctx,
+		client.lndhubInvoiceExchange,
+		key,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: contentTypeJSON,
+			Body:        payload.Bytes(),
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	client.logger.Debugf("Successfully published invoice to rabbitmq with RHash %s", invoice.RHash)
+
 	return nil
 }

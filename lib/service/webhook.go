@@ -39,7 +39,7 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
+	err = json.NewEncoder(payload).Encode(ConvertPayload(invoice, user))
 	if err != nil {
 		svc.Logger.Error(err)
 		return
@@ -93,7 +93,7 @@ func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoin
 	return incomingInvoices, outgoingInvoices, nil
 }
 
-func convertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
+func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
 	return WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,

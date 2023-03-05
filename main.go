@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -254,7 +257,22 @@ func main() {
 	if svc.RabbitMQClient != nil {
 		backgroundWg.Add(1)
 		go func() {
-			err = svc.RabbitMQClient.StartPublishInvoices(backGroundCtx, svc.SubscribeIncomingOutgoingInvoices)
+			err = svc.RabbitMQClient.StartPublishInvoices(backGroundCtx,
+				svc.SubscribeIncomingOutgoingInvoices,
+				func(ctx context.Context, w io.Writer, invoice models.Invoice) error {
+					user, err := svc.FindUser(ctx, invoice.UserID)
+					if err != nil {
+						return err
+					}
+
+					err = json.NewEncoder(w).Encode(service.ConvertPayload(invoice, user))
+					if err != nil {
+						return err
+					}
+
+					return nil
+				},
+			)
 			if err != nil {
 				svc.Logger.Error(err)
 				sentry.CaptureException(err)
