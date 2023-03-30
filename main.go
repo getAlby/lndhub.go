@@ -126,9 +126,8 @@ func main() {
 	}
 	e.Use(middleware.Recover())
 
-	// Absolute limits
+	// Absolute body limit
 	e.Use(middleware.BodyLimit("250K"))
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	e.Logger = logger
 	e.Use(middleware.RequestID())

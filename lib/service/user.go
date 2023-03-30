@@ -34,7 +34,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 		user.Login = string(randLoginBytes)
 	}
 
-	// login must me unique across nickname column as well
+	// login must be unique across nickname column as well
 	existingUser, err := svc.FindUserByNickname(ctx, user.Login)
 	if err == nil && existingUser.Login != user.Login {
 		return nil, fmt.Errorf(responses.LoginTakenError.Message)
