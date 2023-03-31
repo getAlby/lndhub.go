@@ -29,8 +29,8 @@ type Config struct {
 	Port                             int     `envconfig:"PORT" default:"3000"`
 	EnableGRPC                       bool    `envconfig:"ENABLE_GRPC" default:"false"`
 	GRPCPort                         int     `envconfig:"GRPC_PORT" default:"10009"`
-	DefaultRateLimit         PerMin  int     `envconfig:"DEFAULT_RATE_LIMIT_PER_MIN" default:"240"`
-	DefaultRateLimitPerSec  int     `envconfig:"DEFAULT_RATE_LIMIT_PER_SEC" default:"4"`
+	DefaultRateLimitPerMin           int     `envconfig:"DEFAULT_RATE_LIMIT_PER_MIN" default:"240"`
+	DefaultRateLimitPerSec           int     `envconfig:"DEFAULT_RATE_LIMIT_PER_SEC" default:"4"`
 	StrictRateLimitPerMin            int     `envconfig:"STRICT_RATE_LIMIT_PER_MIN" default:"120"`
 	StrictRateLimitPerSec            int     `envconfig:"STRICT_RATE_LIMIT_PER_SEC" default:"2"`
 	EnablePrometheus                 bool    `envconfig:"ENABLE_PROMETHEUS" default:"false"`
@@ -44,6 +44,7 @@ type Config struct {
 	MaxAccountBalance                int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
 	RabbitMQUri                      string  `envconfig:"RABBITMQ_URI"`
 	RabbitMQLndhubInvoiceExchange    string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
+	LnurlDomain                      string  `envconfig:"LNURL_DOMAIN" default:"ln.example.com"`
 	RabbitMQLndInvoiceExchange       string  `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
 	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
 	SubscriptionConsumerType         string  `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`
