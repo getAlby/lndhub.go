@@ -193,6 +193,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 		return err
 	}
 
+	client.logger.Info("Starting RabbitMQ consumer loop")
 	for {
 		select {
 		case <-ctx.Done():
