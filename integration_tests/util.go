@@ -16,6 +16,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getAlby/lndhub.go/rabbitmq"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -59,9 +60,19 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 	}
 
 	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
+	var rabbitmqClient rabbitmq.Client
 	if ok {
 		c.RabbitMQUri = rabbitmqUri
-		c.RabbitMQInvoiceExchange = "test_lndhub_invoices"
+		c.RabbitMQLndhubInvoiceExchange = "test_lndhub_invoices"
+		c.RabbitMQLndInvoiceExchange = "test_lnd_invoices"
+		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
+			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
+			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dbConn, err := db.Open(c)
@@ -82,10 +93,11 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 
 	logger := lib.Logger(c.LogFilePath)
 	svc = &service.LndhubService{
-		Config:    c,
-		DB:        dbConn,
-		LndClient: lndClientMock,
-		Logger:    logger,
+		Config:         c,
+		DB:             dbConn,
+		LndClient:      lndClientMock,
+		Logger:         logger,
+		RabbitMQClient: rabbitmqClient,
 	}
 	getInfo, err := lndClientMock.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {

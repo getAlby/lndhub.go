@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/getAlby/lndhub.go/rabbitmq"
+
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
 	"github.com/getAlby/lndhub.go/controllers"
@@ -157,10 +159,29 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
+	// If no RABBITMQ_URI was provided we will not attempt to create a client
+	// No rabbitmq features will be available in this case.
+	var rabbitmqClient rabbitmq.Client
+	if c.RabbitMQUri != "" {
+		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+			rabbitmq.WithLogger(logger),
+			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
+			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
+			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+		)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		// close the connection gently at the end of the runtime
+		defer rabbitmqClient.Close()
+	}
+
 	svc := &service.LndhubService{
 		Config:         c,
 		DB:             dbConn,
 		LndClient:      lndClient,
+		RabbitMQClient: rabbitmqClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
@@ -186,11 +207,25 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	backgroundWg.Add(1)
 	go func() {
-		err = svc.InvoiceUpdateSubscription(backGroundCtx)
-		if err != nil && err != context.Canceled {
-			// in case of an error in this routine, we want to restart LNDhub
-			svc.Logger.Fatal(err)
+		switch svc.Config.SubscriptionConsumerType {
+		case "rabbitmq":
+			err = svc.RabbitMQClient.SubscribeToLndInvoices(backGroundCtx, svc.ProcessInvoiceUpdate)
+			if err != nil && err != context.Canceled {
+				// in case of an error in this routine, we want to restart LNDhub
+				svc.Logger.Fatal(err)
+			}
+
+		case "grpc":
+			err = svc.InvoiceUpdateSubscription(backGroundCtx)
+			if err != nil && err != context.Canceled {
+				// in case of an error in this routine, we want to restart LNDhub
+				svc.Logger.Fatal(err)
+			}
+
+		default:
+			svc.Logger.Fatalf("Unrecognized subscription consumer type %s", svc.Config.SubscriptionConsumerType)
 		}
+
 		svc.Logger.Info("Invoice routine done")
 		backgroundWg.Done()
 	}()
@@ -217,15 +252,19 @@ func main() {
 		}()
 	}
 	//Start rabbit publisher
-	if svc.Config.RabbitMQUri != "" {
+	if svc.RabbitMQClient != nil {
 		backgroundWg.Add(1)
 		go func() {
-			err = svc.StartRabbitMqPublisher(backGroundCtx)
+			err = svc.RabbitMQClient.StartPublishInvoices(backGroundCtx,
+				svc.SubscribeIncomingOutgoingInvoices,
+				svc.EncodeInvoiceWithUserLogin,
+			)
 			if err != nil {
 				svc.Logger.Error(err)
 				sentry.CaptureException(err)
 			}
-			svc.Logger.Info("Rabbit routine done")
+
+			svc.Logger.Info("Rabbit invoice publisher done")
 			backgroundWg.Done()
 		}()
 	}

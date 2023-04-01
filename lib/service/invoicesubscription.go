@@ -93,6 +93,9 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	if rawInvoice.IsKeysend {
 		err := svc.HandleKeysendPayment(ctx, rawInvoice)
 		if err != nil {
+			if err == AlreadyProcessedKeysendError {
+				return nil
+			}
 			return err
 		}
 	}

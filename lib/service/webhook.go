@@ -14,7 +14,7 @@ import (
 
 func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url string) {
 	svc.Logger.Infof("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
-	incomingInvoices, outgoingInvoices, err := svc.subscribeIncomingOutgoingInvoices()
+	incomingInvoices, outgoingInvoices, err := svc.SubscribeIncomingOutgoingInvoices()
 	if err != nil {
 		svc.Logger.Error(err)
 	}
@@ -39,7 +39,7 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(convertPayload(invoice, user))
+	err = json.NewEncoder(payload).Encode(ConvertPayload(invoice, user))
 	if err != nil {
 		svc.Logger.Error(err)
 		return
@@ -81,7 +81,7 @@ type WebhookInvoicePayload struct {
 	SettledAt                time.Time         `json:"settled_at"`
 }
 
-func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
+func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
 	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
 	if err != nil {
 		return nil, nil, err
@@ -93,7 +93,21 @@ func (svc *LndhubService) subscribeIncomingOutgoingInvoices() (incoming, outgoin
 	return incomingInvoices, outgoingInvoices, nil
 }
 
-func convertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
+func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.Writer, invoice models.Invoice) error {
+	user, err := svc.FindUser(ctx, invoice.UserID)
+	if err != nil {
+		return err
+	}
+
+	err = json.NewEncoder(w).Encode(ConvertPayload(invoice, user))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
 	return WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,
