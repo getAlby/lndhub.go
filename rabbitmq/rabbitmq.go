@@ -35,8 +35,6 @@ type (
 	EncodeWebhookInvoicePayloadFunc = func(ctx context.Context, w io.Writer, invoice models.Invoice) error
 )
 
-// InvoiceHandler is a closure that defined what to do with an invoice once it's been consumed from the rabbitmq topic
-
 type Client interface {
 	SubscribeToLndInvoices(context.Context, InvoiceHandler) error
 	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeWebhookInvoicePayloadFunc) error
@@ -130,6 +128,25 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 func (client *DefaultClient) Close() error { return client.conn.Close() }
 
 func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler InvoiceHandler) error {
+	err := client.publishChannel.ExchangeDeclare(
+		client.lndInvoiceExchange,
+		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
+		"topic",
+		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
+		// declared when there are no remaining bindings.
+		true,
+		false,
+		// Non-Internal exchange's accept direct publishing
+		false,
+		// Nowait: We set this to false as we want to wait for a server response
+		// to check whether the exchange was created succesfully
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
 	queue, err := client.consumeChannel.QueueDeclare(
 		client.lndInvoiceConsumerQueueName,
 		// Durable and Non-Auto-Deleted queues will survive server restarts and remain
@@ -222,7 +239,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 
 func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc, payloadFunc EncodeWebhookInvoicePayloadFunc) error {
 	err := client.publishChannel.ExchangeDeclare(
-		client.lndInvoiceExchange,
+		client.lndHubInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
 		"topic",
 		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
@@ -287,6 +304,7 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 		},
 	)
 	if err != nil {
+		captureErr(client.logger, err)
 		return err
 	}
 
