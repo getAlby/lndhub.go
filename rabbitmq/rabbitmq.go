@@ -114,7 +114,7 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 			lecho.WithTimestamp(),
 		),
 
-		lndInvoiceConsumerQueueName: "lndhub_invoice_consumer",
+		lndInvoiceConsumerQueueName: "lnd_invoice_consumer",
 		lndInvoiceExchange:          "lnd_invoice",
 		lndHubInvoiceExchange:       "lndhub_invoice",
 	}
