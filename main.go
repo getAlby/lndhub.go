@@ -161,14 +161,14 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
-	// If not RABBITMQ_URI was provided we will not attempt to create a client
+	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
 	if c.RabbitMQUri != "" {
 		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
 			rabbitmq.WithLogger(logger),
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
-			rabbitmq.WithLndhubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
+			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
 		)
 		if err != nil {
