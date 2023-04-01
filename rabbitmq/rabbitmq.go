@@ -5,15 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"sync"
+
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/gommon/log"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/ziflex/lecho/v3"
-	"io"
-	"os"
-	"sync"
 )
 
 // bufPool is a classic buffer pool pattern that allows more clever reuse of heap memory.
@@ -30,14 +31,14 @@ const (
 )
 
 type (
-	InvoiceHandler                  = func(ctx context.Context, invoice *lnrpc.Invoice) error
-	SubscribeToInvoicesFunc         = func() (in chan models.Invoice, out chan models.Invoice, err error)
-	EncodeWebhookInvoicePayloadFunc = func(ctx context.Context, w io.Writer, invoice models.Invoice) error
+	InvoiceHandler           = func(ctx context.Context, invoice *lnrpc.Invoice) error
+	SubscribeToInvoicesFunc  = func() (in chan models.Invoice, out chan models.Invoice, err error)
+	EncodeInvoicePayloadFunc = func(ctx context.Context, w io.Writer, invoice models.Invoice) error
 )
 
 type Client interface {
 	SubscribeToLndInvoices(context.Context, InvoiceHandler) error
-	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeWebhookInvoicePayloadFunc) error
+	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeInvoicePayloadFunc) error
 	// Close will close all connections to rabbitmq
 	Close() error
 }
@@ -237,7 +238,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 	}
 }
 
-func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc, payloadFunc EncodeWebhookInvoicePayloadFunc) error {
+func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc, payloadFunc EncodeInvoicePayloadFunc) error {
 	err := client.publishChannel.ExchangeDeclare(
 		client.lndHubInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
@@ -284,7 +285,7 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 	}
 }
 
-func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoice models.Invoice, payloadFunc EncodeWebhookInvoicePayloadFunc) error {
+func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoice models.Invoice, payloadFunc EncodeInvoicePayloadFunc) error {
 	payload := bufPool.Get().(*bytes.Buffer)
 	err := payloadFunc(ctx, payload, invoice)
 	if err != nil {

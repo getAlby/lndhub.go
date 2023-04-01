@@ -3,11 +3,7 @@ package main
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
-	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/rabbitmq"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -15,6 +11,8 @@ import (
 	"os/signal"
 	"sync"
 	"time"
+
+	"github.com/getAlby/lndhub.go/rabbitmq"
 
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
@@ -259,19 +257,7 @@ func main() {
 		go func() {
 			err = svc.RabbitMQClient.StartPublishInvoices(backGroundCtx,
 				svc.SubscribeIncomingOutgoingInvoices,
-				func(ctx context.Context, w io.Writer, invoice models.Invoice) error {
-					user, err := svc.FindUser(ctx, invoice.UserID)
-					if err != nil {
-						return err
-					}
-
-					err = json.NewEncoder(w).Encode(service.ConvertPayload(invoice, user))
-					if err != nil {
-						return err
-					}
-
-					return nil
-				},
+				svc.EncodeInvoiceWithUserLogin,
 			)
 			if err != nil {
 				svc.Logger.Error(err)

@@ -93,6 +93,20 @@ func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoin
 	return incomingInvoices, outgoingInvoices, nil
 }
 
+func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.Writer, invoice models.Invoice) error {
+	user, err := svc.FindUser(ctx, invoice.UserID)
+	if err != nil {
+		return err
+	}
+
+	err = json.NewEncoder(w).Encode(ConvertPayload(invoice, user))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
 	return WebhookInvoicePayload{
 		ID:                       invoice.ID,
