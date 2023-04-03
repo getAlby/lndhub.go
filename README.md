@@ -55,6 +55,13 @@ vim .env # edit your config
 + `MAX_RECEIVE_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) for which an invoice can be created
 + `MAX_SEND_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) of an invoice that can be paid
 + `MAX_ACCOUNT_BALANCE`: (default: 0 = no limit) Set maximum balance (in satoshi) for each account
++ `DEFAULT_RATE_LIMIT_PER_MIN`: (default: 240) Number of request per minute for regular endpoints
++ `DEFAULT_RATE_LIMIT_PER_SEC`: (default: 4) Number of request per second for regular endpoints
++ `STRICT_RATE_LIMIT_PER_MIN`: (default: 120) Number of request per minute for critical endpoints
++ `STRICT_RATE_LIMIT_PER_SEC`: (default: 2) Number of request per second for critical endpoints
++ `ENABLE_GRPC`: (default: false) True to enable the gRPC interface
++ `GRPC_PORT`: (default: 10009) The port Where the gRPC interface is exposed on
++ `LNURL_DOMAIN`: (default: "ln.example.com") Domain to expose the lnurl server
 
 ### Macaroon
 
