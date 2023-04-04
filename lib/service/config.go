@@ -52,12 +52,12 @@ type Config struct {
 }
 
 type BrandingConfig struct {
-	Title   string        `envconfig:"BRANDING_TITLE" default:"LndHub.go - Alby Lightning"`
-	Desc    string        `envconfig:"BRANDING_DESC" default:"Alby server for the Lightning Network"`
-	Url     string        `envconfig:"BRANDING_URL" default:"https://ln.getalby.com"`
-	Logo    string        `envconfig:"BRANDING_LOGO" default:"/static/img/alby.svg"`
+	Title   string        `envconfig:"BRANDING_TITLE" default:"LndHub.go - Mintter Lightning"`
+	Desc    string        `envconfig:"BRANDING_DESC" default:"Mintter server for the Lightning Network"`
+	Url     string        `envconfig:"BRANDING_URL" default:"https://ln.mintter.com"`
+	Logo    string        `envconfig:"BRANDING_LOGO" default:"/static/img/mintter.svg"`
 	Favicon string        `envconfig:"BRANDING_FAVICON" default:"/static/img/favicon.png"`
-	Footer  FooterLinkMap `envconfig:"BRANDING_FOOTER" default:"about=https://getalby.com;community=https://t.me/getAlby"`
+	Footer  FooterLinkMap `envconfig:"BRANDING_FOOTER" default:"about=https://mintter.com;community=https://discord.gg/mcUnKENdKX"`
 }
 
 // envconfig map decoder uses colon (:) as the default separator

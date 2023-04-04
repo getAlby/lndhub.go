@@ -5,7 +5,7 @@
 Wrapper for Lightning Network Daemon (lnd) ⚡
 
 It provides separate accounts for end users.
-Live deployment at [ln.getalby.com](https://ln.getalby.com).
+Live deployment at [ln.mintter.com](https://ln.mintter.com).
 
 ### [LndHub](https://github.com/BlueWallet/LndHub) compatible API implemented in Go using relational database backends
 
@@ -147,7 +147,7 @@ If `WEBHOOK_URL` is specified, a http POST request will be dispatched at that lo
 
 ## Keysend
 
-Both incoming and outgoing keysend payments are supported. For outgoing keysend payments, check out the [API documentation](https://ln.getalby.com/swagger/index.html#/Payment/post_keysend).
+Both incoming and outgoing keysend payments are supported. For outgoing keysend payments, check out the [API documentation](https://ln.mintter.com/swagger/index.html#/Payment/post_keysend).
 
 For incoming keysend payments, we are using a [custom TLV record with type `696969`](https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay), which should contain the hex-encoded `login` of the receiving user's account. TLV records are stored as json blobs with the invoices and are returned by the `/getuserinvoices` endpoint.
 
