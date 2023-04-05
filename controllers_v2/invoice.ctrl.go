@@ -3,8 +3,10 @@ package v2controllers
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -142,9 +144,15 @@ type AddInvoiceResponseBody struct {
 type GetInvoicesResponseBody struct {
 	Invoices []Invoice `json:"invoices"`
 }
+
 type InvoiceResponseBody struct {
 	Payreq string   `json:"pr"`
 	Routes []string `json:"routes"`
+}
+
+type PaymentMetadata struct {
+	DocumentID string             `json:"document_id"`
+	Authors    map[string]float64 `json:"authors"`
 }
 
 // AddInvoice godoc
@@ -173,7 +181,8 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
+	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s, documentID: %s, authors: %s",
+		userID, body.Description, body.Amount, body.DescriptionHash)
 
 	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)
 	if err != nil {
@@ -223,7 +232,33 @@ func (controller *InvoiceController) Invoice(c echo.Context) error {
 		c.Logger().Errorf("Max receive amount exceeded for user_id:%v (amount:%v)", user.ID, amt_msat/1000)
 		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 	}
-
+	paymentMeta := PaymentMetadata{Authors: map[string]float64{}}
+	if c.QueryParams().Has("account_id") {
+		for _, slice := range c.QueryParams()["account_id"] {
+			authorSlice := strings.Split(slice, ",")
+			if len(authorSlice) != 2 {
+				c.Logger().Debugf("account_id param must be in the format<acc_id>,<floatauthorship>, got %s", slice)
+				return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+			}
+			authorship, err := strconv.ParseFloat(authorSlice[1], 64)
+			if err != nil {
+				c.Logger().Debugf("Could not parse authorship from account_id: %v", c.QueryParams()["account_id"])
+				return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+			}
+			paymentMeta.Authors[authorSlice[0]] = authorship
+		}
+	}
+	if c.QueryParams().Has("document_id") {
+		paymentMeta.DocumentID = c.QueryParam("document_id")
+	}
+	records := []byte{}
+	if paymentMeta.DocumentID != "" {
+		records, err = json.Marshal(paymentMeta)
+		if err != nil {
+			c.Logger().Debugf("Could not parse to json: %v", paymentMeta)
+			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+		}
+	}
 	var descriptionhash_string string = ""
 	var memo string = ""
 	if c.QueryParams().Has("memo") {
@@ -235,7 +270,7 @@ func (controller *InvoiceController) Invoice(c echo.Context) error {
 	}
 
 	c.Logger().Infof("Adding invoice: user_id:%v value:%v description_hash:%s memo:%s", user.ID, amt_msat/1000, descriptionhash_string, memo)
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, memo, descriptionhash_string)
+	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), user.ID, amt_msat/1000, memo, descriptionhash_string, records...)
 	if err != nil {
 		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", user.ID, err)
 		sentry.CaptureException(err)

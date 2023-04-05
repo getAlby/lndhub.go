@@ -361,21 +361,30 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 	return &invoice, nil
 }
 
-func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
+func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string, splits ...byte) (*models.Invoice, error) {
 	preimage, err := makePreimageHex()
 	if err != nil {
 		return nil, err
 	}
 	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
+	customRecords := map[uint64][]byte{}
+	if len(splits) > 0 {
+		if len(splits) > MAX_CUSTOM_RECORD_SIZE {
+			return nil, fmt.Errorf("Max custom records size is %d, but %d were given", MAX_CUSTOM_RECORD_SIZE, len(splits))
+		}
+		customRecords[TLV_SPLIT_ID] = splits
+	}
+
 	invoice := models.Invoice{
-		Type:            common.InvoiceTypeIncoming,
-		UserID:          userID,
-		Amount:          amount,
-		Memo:            memo,
-		DescriptionHash: descriptionHashStr,
-		State:           common.InvoiceStateInitialized,
-		ExpiresAt:       bun.NullTime{Time: time.Now().Add(expiry)},
+		Type:                     common.InvoiceTypeIncoming,
+		UserID:                   userID,
+		Amount:                   amount,
+		Memo:                     memo,
+		DescriptionHash:          descriptionHashStr,
+		State:                    common.InvoiceStateInitialized,
+		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
+		DestinationCustomRecords: customRecords,
 	}
 
 	// Save invoice - we save the invoice early to have a record in case the LN call fails

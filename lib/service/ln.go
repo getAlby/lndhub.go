@@ -12,7 +12,9 @@ const (
 	TLV_WHATSAT_MESSAGE   = 34349334
 	TLV_RECORD_NAME       = 128100
 
-	TLV_WALLET_ID = 696969 //cfr. https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay
+	MAX_CUSTOM_RECORD_SIZE = 900
+	TLV_SPLIT_ID           = 543467923
+	TLV_WALLET_ID          = 696969 //cfr. https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md#field-696969---lnpay
 )
 
 func (svc *LndhubService) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {
