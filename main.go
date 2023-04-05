@@ -16,7 +16,6 @@ import (
 
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
-	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/docs"
@@ -193,10 +192,6 @@ func main() {
 
 	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
 	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
-
-	//invoice streaming
-	//Authentication should be done through the query param because this is a websocket
-	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host
