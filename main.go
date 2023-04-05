@@ -5,7 +5,6 @@ import (
 	"embed"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -38,7 +37,6 @@ import (
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
 	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -266,23 +264,6 @@ func main() {
 
 			svc.Logger.Info("Rabbit invoice publisher done")
 			backgroundWg.Done()
-		}()
-	}
-
-	var grpcServer *grpc.Server
-	if svc.Config.EnableGRPC {
-		//start grpc server
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", svc.Config.GRPCPort))
-		if err != nil {
-			svc.Logger.Fatalf("Failed to start grpc server: %v", err)
-		}
-		grpcServer = svc.NewGrpcServer(startupCtx)
-		go func() {
-			svc.Logger.Infof("Starting grpc server at port %d", svc.Config.GRPCPort)
-			err = grpcServer.Serve(lis)
-			if err != nil {
-				svc.Logger.Error(err)
-			}
 		}()
 	}
 
