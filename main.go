@@ -303,10 +303,6 @@ func main() {
 			e.Logger.Fatal(err)
 		}
 	}
-	if c.EnableGRPC {
-		grpcServer.Stop()
-		svc.Logger.Info("GRPC server exited.")
-	}
 	//Wait for graceful shutdown of background routines
 	backgroundWg.Wait()
 	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
