@@ -205,6 +205,7 @@ func main() {
 			err = svc.RabbitMQClient.SubscribeToLndInvoices(backGroundCtx, svc.ProcessInvoiceUpdate)
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
+				sentry.CaptureException(err)
 				svc.Logger.Fatal(err)
 			}
 
