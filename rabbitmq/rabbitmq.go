@@ -198,7 +198,10 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 		select {
 		case <-ctx.Done():
 			return context.Canceled
-		case delivery := <-deliveryChan:
+		case delivery, ok := <-deliveryChan:
+			if !ok {
+				return fmt.Errorf("Disconnected from RabbitMQ")
+			}
 			var invoice lnrpc.Invoice
 
 			err := json.Unmarshal(delivery.Body, &invoice)
