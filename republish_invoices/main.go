@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/rabbitmq"
 	"github.com/joho/godotenv"
@@ -24,18 +24,19 @@ func main() {
 	if err != nil {
 		fmt.Println("Failed to load .env file")
 	}
+	logger := lib.Logger(c.LogFilePath)
 	startDate, endDate, err := loadStartAndEndIdFromEnv()
 	if err != nil {
-		log.Fatalf("Could not load start and end id from env %v", err)
+		logger.Fatalf("Could not load start and end id from env %v", err)
 	}
 	err = envconfig.Process("", c)
 	if err != nil {
-		log.Fatalf("Error loading environment variables: %v", err)
+		logger.Fatalf("Error loading environment variables: %v", err)
 	}
 	// Open a DB connection based on the configured DATABASE_URI
 	dbConn, err := db.Open(c)
 	if err != nil {
-		log.Fatalf("Error initializing db connection: %v", err)
+		logger.Fatalf("Error initializing db connection: %v", err)
 	}
 	rabbitmqClient, err := rabbitmq.Dial(c.RabbitMQUri,
 		rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
@@ -43,7 +44,7 @@ func main() {
 		rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
 	)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	// close the connection gently at the end of the runtime
@@ -52,27 +53,30 @@ func main() {
 	result := []models.Invoice{}
 	err = dbConn.NewSelect().Model(&result).Where("settled_at > ?", startDate).Where("settled_at < ?", endDate).Scan(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	logrus.Infof("Found %d invoices", len(result))
 	svc := &service.LndhubService{
 		Config:         c,
 		DB:             dbConn,
+		Logger:         logger,
 		RabbitMQClient: rabbitmqClient,
 		InvoicePubSub:  service.NewPubsub(),
 	}
 	dryRun := os.Getenv("DRY_RUN") == "true"
+	errCount := 0
 	for _, inv := range result {
-		logrus.Infof("Publishing invoice with hash %s", inv.RHash)
+		logger.Infof("Publishing invoice with hash %s", inv.RHash)
 		if dryRun {
 			continue
 		}
 		err = svc.RabbitMQClient.PublishToLndhubExchange(context.Background(), inv, svc.EncodeInvoiceWithUserLogin)
 		if err != nil {
-			logrus.Error(err)
+			errCount += 1
+			logger.Error(err)
 		}
 	}
-	logrus.Infof("Published %d invoices", len(result))
+	logger.Infof("Published %d invoices, # errors %d", len(result), errCount)
 
 }
 
