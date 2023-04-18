@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		fmt.Println("Failed to load .env file")
 	}
-	startId, endId, err := loadStartAndEndIdFromEnv()
+	startDate, endDate, err := loadStartAndEndIdFromEnv()
 	if err != nil {
 		log.Fatalf("Could not load start and end id from env %v", err)
 	}
@@ -50,7 +50,7 @@ func main() {
 	defer rabbitmqClient.Close()
 
 	result := []models.Invoice{}
-	err = dbConn.NewSelect().Model(&result).Where("id > ?", startId).Where("id < ?", endId).Scan(context.Background())
+	err = dbConn.NewSelect().Model(&result).Where("settled_at > ?", startDate).Where("settled_at < ?", endDate).Scan(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -75,14 +75,11 @@ func main() {
 
 }
 
-func loadStartAndEndIdFromEnv() (start, end int, err error) {
-	start, err = strconv.Atoi(os.Getenv("START_ID"))
+func loadStartAndEndIdFromEnv() (start, end time.Time, err error) {
+	start, err = time.Parse(time.RFC3339, os.Getenv("START_DATE"))
 	if err != nil {
-		return 0, 0, err
+		return
 	}
-	end, err = strconv.Atoi(os.Getenv("END_ID"))
-	if err != nil {
-		return 0, 0, err
-	}
-	return start, end, nil
+	end, err = time.Parse(time.RFC3339, os.Getenv("END_DATE"))
+	return
 }
