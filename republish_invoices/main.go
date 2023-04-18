@@ -72,6 +72,7 @@ func main() {
 			logrus.Error(err)
 		}
 	}
+	logrus.Infof("Published %d invoices", len(result))
 
 }
 
