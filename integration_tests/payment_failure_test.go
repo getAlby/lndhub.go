@@ -1,9 +1,13 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -84,12 +88,42 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	//wait a bit for the callback event to hit
 	time.Sleep(10 * time.Millisecond)
 
-	//create external invoice
+	//test an expired invoice
 	externalInvoice := lnrpc.Invoice{
+		Memo:  "integration tests: external pay from alice",
+		Value: int64(externalSatRequested),
+		Expiry: 1,
+	}
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+
+	assert.NoError(suite.T(), err)
+
+	//wait for the invoice to expire
+	time.Sleep(2 * time.Second)
+
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+		Amount:  10,
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
+	suite.echo.ServeHTTP(rec, req)
+
+	errorResponse := &responses.ErrorResponse{}
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResponse))
+	assert.Equal(suite.T(), "invoice expired", errorResponse.Message)
+
+	//create external invoice
+	externalInvoice = lnrpc.Invoice{
 		Memo:  "integration tests: external pay from user",
 		Value: int64(externalSatRequested),
 	}
-	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	invoice, err = suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//pay external from user, mock will fail immediately
 	_ = suite.createPayInvoiceReqError(invoice.PaymentRequest, suite.userToken)

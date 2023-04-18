@@ -3,6 +3,7 @@ package v2controllers
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -65,8 +66,11 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
+		if strings.Contains(err.Error(),"invoice not for current active network") {
+			c.Logger().Errorf("Incorrect network user_id:%v error: %v", userID, err)
+			return c.JSON(http.StatusBadRequest, responses.IncorrectNetworkError)
+		}
 		c.Logger().Errorf("Invalid payment request user_id:%v error: %v", userID, err)
-		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -74,6 +78,11 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
 	}
+	if (decodedPaymentRequest.Timestamp + decodedPaymentRequest.Expiry) < time.Now().Unix() {
+		c.Logger().Errorf("Payment request expired")
+		return c.JSON(http.StatusBadRequest, responses.InvoiceExpiredError)
+	}
+
 	if decodedPaymentRequest.NumSatoshis == 0 {
 		amt, err := controller.svc.ParseInt(reqBody.Amount)
 		if err != nil || amt <= 0 {
@@ -81,28 +90,18 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
-
+	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
+		return c.JSON(http.StatusInternalServerError, responses.NotEnoughBalanceError)
+	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
 		return err
 	}
-
-	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
-	if err != nil {
-		controller.svc.DB.NewDelete().Where("id = ?", invoice.ID).Exec(c.Request().Context())
-		return err
-	}
-
-	minimumBalance := invoice.Amount
-	if controller.svc.Config.FeeReserve {
-		minimumBalance += invoice.CalcFeeLimit(controller.svc.IdentityPubkey)
-	}
-	if currentBalance < minimumBalance {
-		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
-		controller.svc.DB.NewDelete().Model(&invoice).Where("id = ?", invoice.ID).Exec(c.Request().Context())
-		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
-	}
-
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)

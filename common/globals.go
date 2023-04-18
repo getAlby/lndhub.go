@@ -15,4 +15,6 @@ const (
 	AccountTypeCurrent  = "current"
 	AccountTypeOutgoing = "outgoing"
 	AccountTypeFees     = "fees"
+
+	DestinationPubkeyHexSize = 66
 )

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,6 +18,8 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 )
+
+var AlreadyProcessedKeysendError = errors.New("already processed keysend payment")
 
 func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) (result *models.Invoice, err error) {
 	//Find the payee user
@@ -63,7 +66,7 @@ func (svc *LndhubService) HandleKeysendPayment(ctx context.Context, rawInvoice *
 		return err
 	}
 	if count != 0 {
-		return fmt.Errorf("Already processed keysend payment %s", rHashStr)
+		return AlreadyProcessedKeysendError
 	}
 
 	//construct the invoice
@@ -90,6 +93,9 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	if rawInvoice.IsKeysend {
 		err := svc.HandleKeysendPayment(ctx, rawInvoice)
 		if err != nil {
+			if err == AlreadyProcessedKeysendError {
+				return nil
+			}
 			return err
 		}
 	}
@@ -217,12 +223,19 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.S
 	var invoice models.Invoice
 	invoiceSubscriptionOptions := lnrpc.InvoiceSubscription{}
 	// Find the oldest NOT settled AND NOT expired invoice with an add_index
-	//  Note: expired invoices will not be settled anymore, so we don't care about those
-	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL AND invoice.expires_at >= now()").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
+	// Build in a safety buffer of 14h to account for lndhub downtime
+	// Note: expired invoices will not be settled anymore, so we don't care about those
+	err := svc.DB.NewSelect().Model(&invoice).Where("invoice.settled_at IS NULL AND invoice.add_index IS NOT NULL AND invoice.expires_at >= (now() - interval '14 hours')").OrderExpr("invoice.id ASC").Limit(1).Scan(ctx)
 	// IF we found an invoice we use that index to start the subscription
-	if err == nil {
-		invoiceSubscriptionOptions = lnrpc.InvoiceSubscription{AddIndex: invoice.AddIndex - 1} // -1 because we want updates for that invoice already
+	// if we get an error there might be a serious issue here
+	// and we are at risk of missing paid invoices, so we should not continue
+	// if we just didn't find any unsettled invoices that's allright though
+	if err != nil && err != sql.ErrNoRows {
+		sentry.CaptureException(err)
+		return nil, err
 	}
+	// subtract 1 (read invoiceSubscriptionOptions.Addindex docs)
+	invoiceSubscriptionOptions.AddIndex = invoice.AddIndex - 1
 	svc.Logger.Infof("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
 	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
 }
@@ -236,19 +249,16 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Context was canceled")
+			return context.Canceled
 		default:
 			// receive the next invoice update
 			rawInvoice, err := invoiceSubscriptionStream.Recv()
+			// in case of an error, we want to return and restart LNDhub
+			// in order to try and reconnect the gRPC subscription
 			if err != nil {
 				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
 				sentry.CaptureException(err)
-				// TODO: close the stream somehoe before retrying?
-				// Wait 30 seconds and try to reconnect
-				// TODO: implement some backoff
-				time.Sleep(30 * time.Second)
-				invoiceSubscriptionStream, _ = svc.ConnectInvoiceSubscription(ctx)
-				continue
+				return err
 			}
 
 			// Ignore updates for open invoices
@@ -256,12 +266,12 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 			// Processing open invoices here could cause a race condition:
 			// We could get this notification faster than we finish the AddInvoice call
 			if rawInvoice.State == lnrpc.Invoice_OPEN {
-				svc.Logger.Infof("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
+				svc.Logger.Debugf("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
 				continue
 			}
 
 			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
-			if processingError != nil {
+			if processingError != nil && processingError != AlreadyProcessedKeysendError {
 				svc.Logger.Error(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 				sentry.CaptureException(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 			}

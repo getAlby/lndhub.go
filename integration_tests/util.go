@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"time"
 
 	"github.com/getAlby/lndhub.go/db"
@@ -15,6 +16,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getAlby/lndhub.go/rabbitmq"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -46,14 +48,34 @@ const (
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
 	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
-		DatabaseUri:           dbUri,
-		JWTSecret:             []byte("SECRET"),
-		JWTAccessTokenExpiry:  3600,
-		JWTRefreshTokenExpiry: 3600,
-		LNDAddress:            mockLNDAddress,
-		LNDMacaroonHex:        mockLNDMacaroonHex,
+		DatabaseUri:             dbUri,
+		DatabaseMaxConns:        1,
+		DatabaseMaxIdleConns:    1,
+		DatabaseConnMaxLifetime: 10,
+		JWTSecret:               []byte("SECRET"),
+		JWTAccessTokenExpiry:    3600,
+		JWTRefreshTokenExpiry:   3600,
+		LNDAddress:              mockLNDAddress,
+		LNDMacaroonHex:          mockLNDMacaroonHex,
 	}
-	dbConn, err := db.Open(c.DatabaseUri)
+
+	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
+	var rabbitmqClient rabbitmq.Client
+	if ok {
+		c.RabbitMQUri = rabbitmqUri
+		c.RabbitMQLndhubInvoiceExchange = "test_lndhub_invoices"
+		c.RabbitMQLndInvoiceExchange = "test_lnd_invoices"
+		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
+			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
+			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dbConn, err := db.Open(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -71,10 +93,11 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 
 	logger := lib.Logger(c.LogFilePath)
 	svc = &service.LndhubService{
-		Config:    c,
-		DB:        dbConn,
-		LndClient: lndClientMock,
-		Logger:    logger,
+		Config:         c,
+		DB:             dbConn,
+		LndClient:      lndClientMock,
+		Logger:         logger,
+		RabbitMQClient: rabbitmqClient,
 	}
 	getInfo, err := lndClientMock.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
@@ -87,7 +110,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 }
 
 func clearTable(svc *service.LndhubService, tableName string) error {
-	dbConn, err := db.Open(svc.Config.DatabaseUri)
+	dbConn, err := db.Open(svc.Config)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}

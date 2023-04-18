@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/getAlby/lndhub.go/rabbitmq"
 	"strconv"
 
 	"github.com/getAlby/lndhub.go/db/models"
@@ -20,6 +21,7 @@ type LndhubService struct {
 	Config         *Config
 	DB             *bun.DB
 	LndClient      lnd.LightningClientWrapper
+	RabbitMQClient rabbitmq.Client
 	Logger         *lecho.Logger
 	IdentityPubkey string
 	InvoicePubSub  *Pubsub

@@ -1,10 +1,12 @@
 package v2controllers
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -154,8 +156,13 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 		},
 		Keysend: true,
 	}
-
-	if reqBody.Destination == controller.svc.IdentityPubkey && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
+	//temporary workaround due to an inconsistency in json snake case vs camel case
+	//DeprecatedCustomRecords to be removed later
+	customRecords := reqBody.DeprecatedCustomRecords
+	if reqBody.CustomRecords != nil {
+		customRecords = reqBody.CustomRecords
+	}
+	if reqBody.Destination == controller.svc.IdentityPubkey && customRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
 		return nil, &responses.ErrorResponse{
 			Error:          true,
 			Code:           8,
@@ -163,32 +170,26 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 			HttpStatusCode: 400,
 		}
 	}
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
+	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
+		controller.svc.Logger.Error(err)
 		return nil, &responses.GeneralServerError
 	}
-
-	currentBalance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userID)
-	if err != nil {
-		return nil, &responses.GeneralServerError
-	}
-
-	minimumBalance := invoice.Amount
-	if controller.svc.Config.FeeReserve {
-		minimumBalance += invoice.CalcFeeLimit(controller.svc.IdentityPubkey)
-	}
-	if currentBalance < minimumBalance {
-		c.Logger().Errorf("User does not have enough balance invoice_id:%v user_id:%v balance:%v amount:%v", invoice.ID, userID, currentBalance, invoice.Amount)
+	if !ok {
+		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
 		return nil, &responses.NotEnoughBalanceError
 	}
-
-	invoice.DestinationCustomRecords = map[uint64][]byte{}
-	//temporary workaround due to an inconsistency in json snake case vs camel case
-	//DeprecatedCustomRecords to be removed later
-	customRecords := reqBody.DeprecatedCustomRecords
-	if reqBody.CustomRecords != nil {
-		customRecords = reqBody.CustomRecords
+	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
+	if err != nil {
+		controller.svc.Logger.Error(err)
+		return nil, &responses.GeneralServerError
 	}
+	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
+		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
+		return nil, &responses.InvalidDestinationError
+	}
+	invoice.DestinationCustomRecords = map[uint64][]byte{}
+
 	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {

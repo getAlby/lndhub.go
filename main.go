@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
+
+	"github.com/getAlby/lndhub.go/rabbitmq"
 
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
-	"github.com/getAlby/lndhub.go/controllers"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/docs"
@@ -34,6 +36,8 @@ import (
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
+	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 //go:embed templates/index.html
@@ -59,6 +63,7 @@ var staticContent embed.FS
 // @tokenUrl                             /auth
 // @schemes                              https http
 func main() {
+
 	c := &service.Config{}
 
 	// Load configruation from environment variables
@@ -75,23 +80,23 @@ func main() {
 	logger := lib.Logger(c.LogFilePath)
 
 	// Open a DB connection based on the configured DATABASE_URI
-	dbConn, err := db.Open(c.DatabaseUri)
+	dbConn, err := db.Open(c)
 	if err != nil {
 		logger.Fatalf("Error initializing db connection: %v", err)
 	}
 
 	// Migrate the DB
-	ctx := context.Background()
+	//Todo: use timeout for startupcontext
+	startupCtx := context.Background()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
-	err = migrator.Init(ctx)
+	err = migrator.Init(startupCtx)
 	if err != nil {
 		logger.Fatalf("Error initializing db migrator: %v", err)
 	}
-	_, err = migrator.Migrate(ctx)
+	_, err = migrator.Migrate(startupCtx)
 	if err != nil {
 		logger.Fatalf("Error migrating database: %v", err)
 	}
-
 	// Setup exception tracking with Sentry if configured
 	// sentry init needs to happen before the echo middlewares are added
 	if c.SentryDSN != "" {
@@ -112,6 +117,12 @@ func main() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
+	//if Datadog is configured, add datadog middleware
+	if c.DatadogAgentUrl != "" {
+		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
+		defer tracer.Stop()
+		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
+	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -133,16 +144,35 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("Error initializing LN client %s", err.Error())
 	}
-	getInfo, err := lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		e.Logger.Fatalf("Error getting node info: %v", err)
 	}
 	logger.Infof("Connected to %s: %s - %s", c.LNClientType, getInfo.Alias, getInfo.IdentityPubkey)
 
+	// If no RABBITMQ_URI was provided we will not attempt to create a client
+	// No rabbitmq features will be available in this case.
+	var rabbitmqClient rabbitmq.Client
+	if c.RabbitMQUri != "" {
+		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+			rabbitmq.WithLogger(logger),
+			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
+			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
+			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+		)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		// close the connection gently at the end of the runtime
+		defer rabbitmqClient.Close()
+	}
+
 	svc := &service.LndhubService{
 		Config:         c,
 		DB:             dbConn,
 		LndClient:      lndClient,
+		RabbitMQClient: rabbitmqClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
@@ -155,36 +185,76 @@ func main() {
 	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
 	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
 
-	//invoice streaming
-	//Authentication should be done through the query param because this is a websocket
-	e.GET("/invoices/stream", controllers.NewInvoiceStreamController(svc).StreamInvoices)
-
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
+	var backgroundWg sync.WaitGroup
+	backGroundCtx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
 	// Subscribe to LND invoice updates in the background
-	go svc.InvoiceUpdateSubscription(context.Background())
+	backgroundWg.Add(1)
+	go func() {
+		switch svc.Config.SubscriptionConsumerType {
+		case "rabbitmq":
+			err = svc.RabbitMQClient.SubscribeToLndInvoices(backGroundCtx, svc.ProcessInvoiceUpdate)
+			if err != nil && err != context.Canceled {
+				// in case of an error in this routine, we want to restart LNDhub
+				sentry.CaptureException(err)
+				svc.Logger.Fatal(err)
+			}
+
+		case "grpc":
+			err = svc.InvoiceUpdateSubscription(backGroundCtx)
+			if err != nil && err != context.Canceled {
+				// in case of an error in this routine, we want to restart LNDhub
+				svc.Logger.Fatal(err)
+			}
+
+		default:
+			svc.Logger.Fatalf("Unrecognized subscription consumer type %s", svc.Config.SubscriptionConsumerType)
+		}
+
+		svc.Logger.Info("Invoice routine done")
+		backgroundWg.Done()
+	}()
 
 	// Check the status of all pending outgoing payments
 	// A goroutine will be spawned for each one
-	err = svc.CheckAllPendingOutgoingPayments(context.Background())
-	if err != nil {
-		svc.Logger.Error(err)
-	}
+	backgroundWg.Add(1)
+	go func() {
+		err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
+		if err != nil {
+			svc.Logger.Error(err)
+		}
+		svc.Logger.Info("Pending payment check routines done")
+		backgroundWg.Done()
+	}()
 
 	//Start webhook subscription
 	if svc.Config.WebhookUrl != "" {
-		webhookCtx, cancelWebhook := context.WithCancel(context.Background())
-		go svc.StartWebhookSubscribtion(webhookCtx, svc.Config.WebhookUrl)
-		defer cancelWebhook()
+		backgroundWg.Add(1)
+		go func() {
+			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
+			svc.Logger.Info("Webhook routine done")
+			backgroundWg.Done()
+		}()
 	}
+	//Start rabbit publisher
+	if svc.RabbitMQClient != nil {
+		backgroundWg.Add(1)
+		go func() {
+			err = svc.RabbitMQClient.StartPublishInvoices(backGroundCtx,
+				svc.SubscribeIncomingOutgoingInvoices,
+				svc.EncodeInvoiceWithUserLogin,
+			)
+			if err != nil {
+				svc.Logger.Error(err)
+				sentry.CaptureException(err)
+			}
 
-	if svc.Config.EnableGRPC {
-		//start grpc server
-		grpcContext, grpcCancel := context.WithCancel(context.Background())
-		go svc.StartGrpcServer(grpcContext)
-		defer grpcCancel()
+			svc.Logger.Info("Rabbit invoice publisher done")
+			backgroundWg.Done()
+		}()
 	}
 
 	//Start Prometheus server if necessary
@@ -212,11 +282,7 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
-	// Use a buffered channel to avoid missing signals as recommended for signal.Notify
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
+	<-backGroundCtx.Done()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := e.Shutdown(ctx); err != nil {
@@ -227,7 +293,9 @@ func main() {
 			e.Logger.Fatal(err)
 		}
 	}
-
+	//Wait for graceful shutdown of background routines
+	backgroundWg.Wait()
+	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {

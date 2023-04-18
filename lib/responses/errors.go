@@ -36,6 +36,27 @@ var BadAuthError = ErrorResponse{
 	HttpStatusCode: 401,
 }
 
+var IncorrectNetworkError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "incorrect network",
+	HttpStatusCode: 400,
+}
+
+var InvalidDestinationError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "invalid destination pubkey",
+	HttpStatusCode: 400,
+}
+
+var InvoiceExpiredError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "invoice expired",
+	HttpStatusCode: 400,
+}
+
 var NotEnoughBalanceError = ErrorResponse{
 	Error:          true,
 	Code:           2,

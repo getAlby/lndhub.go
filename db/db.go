@@ -4,19 +4,34 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
+	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )
 
-func Open(dsn string) (*bun.DB, error) {
+func Open(config *service.Config) (*bun.DB, error) {
 	var db *bun.DB
+	dsn := config.DatabaseUri
 	switch {
 	case strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "unix://"):
-		dbConn := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+		var dbConn *sql.DB
+		connector := pgdriver.NewConnector(pgdriver.WithDSN(dsn), pgdriver.WithTimeout(time.Duration(config.DatabaseTimeout)*time.Second))
+		//if Datadog is configured, send sql traces there
+		if config.DatadogAgentUrl != "" {
+			sqltrace.Register("postgres", pgdriver.Driver{}, sqltrace.WithServiceName("lndhub.go"))
+			dbConn = sqltrace.OpenDB(connector)
+		} else {
+			dbConn = sql.OpenDB(connector)
+		}
 		db = bun.NewDB(dbConn, pgdialect.New())
+		db.SetMaxOpenConns(config.DatabaseMaxConns)
+		db.SetMaxIdleConns(config.DatabaseMaxIdleConns)
+		db.SetConnMaxLifetime(time.Duration(config.DatabaseConnMaxLifetime) * time.Second)
 	default:
 		return nil, fmt.Errorf("Invalid database connection string %s, only (postgres|postgresql|unix):// is supported", dsn)
 	}
