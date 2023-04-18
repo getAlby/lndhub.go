@@ -61,8 +61,12 @@ func main() {
 		RabbitMQClient: rabbitmqClient,
 		InvoicePubSub:  service.NewPubsub(),
 	}
+	dryRun := os.Getenv("DRY_RUN") == "true"
 	for _, inv := range result {
 		logrus.Infof("Publishing invoice with hash %s", inv.RHash)
+		if dryRun {
+			continue
+		}
 		err = svc.RabbitMQClient.PublishToLndhubExchange(context.Background(), inv, svc.EncodeInvoiceWithUserLogin)
 		if err != nil {
 			logrus.Error(err)
