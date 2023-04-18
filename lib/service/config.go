@@ -44,17 +44,17 @@ type Config struct {
 	MaxReceiveAmount                 int64   `envconfig:"MAX_RECEIVE_AMOUNT" default:"0"`
 	MaxSendAmount                    int64   `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance                int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
+	RabbitMQUri                      string  `envconfig:"RABBITMQ_URI"`
+	RabbitMQLndhubInvoiceExchange    string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
+	RabbitMQLndInvoiceExchange       string  `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
+	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
+	SubscriptionConsumerType         string  `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`
 	Branding                         BrandingConfig
 	DatabaseMaxConns                 int    `envconfig:"DATABASE_MAX_CONNS" default:"10"`
 	DatabaseMaxIdleConns             int    `envconfig:"DATABASE_MAX_IDLE_CONNS" default:"5"`
 	DatabaseConnMaxLifetime          int    `envconfig:"DATABASE_CONN_MAX_LIFETIME" default:"1800"` // 30 minutes
 	DatabaseTimeout                  int    `envconfig:"DATABASE_TIMEOUT" default:"60"`             // 60 seconds
 	DatadogAgentUrl                  string `envconfig:"DATADOG_AGENT_URL"`
-	RabbitMQUri                      string `envconfig:"RABBITMQ_URI"`
-	RabbitMQLndhubInvoiceExchange    string `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
-	RabbitMQLndInvoiceExchange       string `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
-	RabbitMQInvoiceConsumerQueueName string `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
-	SubscriptionConsumerType         string `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`
 }
 
 type BrandingConfig struct {
