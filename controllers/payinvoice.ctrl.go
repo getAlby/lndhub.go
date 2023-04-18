@@ -100,6 +100,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		controller.svc.DB.NewDelete().Model(&invoice).Where("id = ?", invoice.ID).Exec(c.Request().Context())
 		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
 	}
+
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
 		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)
