@@ -12,7 +12,12 @@ const (
 
 type Config struct {
 	DatabaseUri                      string  `envconfig:"DATABASE_URI" required:"true"`
+	DatabaseMaxConns                 int     `envconfig:"DATABASE_MAX_CONNS" default:"10"`
+	DatabaseMaxIdleConns             int     `envconfig:"DATABASE_MAX_IDLE_CONNS" default:"5"`
+	DatabaseConnMaxLifetime          int     `envconfig:"DATABASE_CONN_MAX_LIFETIME" default:"1800"` // 30 minutes
+	DatabaseTimeout                  int     `envconfig:"DATABASE_TIMEOUT" default:"60"`             // 60 seconds
 	SentryDSN                        string  `envconfig:"SENTRY_DSN"`
+	DatadogAgentUrl                  string  `envconfig:"DATADOG_AGENT_URL"`
 	SentryTracesSampleRate           float64 `envconfig:"SENTRY_TRACES_SAMPLE_RATE"`
 	LogFilePath                      string  `envconfig:"LOG_FILE_PATH"`
 	JWTSecret                        []byte  `envconfig:"JWT_SECRET" required:"true"`
@@ -50,11 +55,6 @@ type Config struct {
 	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
 	SubscriptionConsumerType         string  `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`
 	Branding                         BrandingConfig
-	DatabaseMaxConns                 int    `envconfig:"DATABASE_MAX_CONNS" default:"10"`
-	DatabaseMaxIdleConns             int    `envconfig:"DATABASE_MAX_IDLE_CONNS" default:"5"`
-	DatabaseConnMaxLifetime          int    `envconfig:"DATABASE_CONN_MAX_LIFETIME" default:"1800"` // 30 minutes
-	DatabaseTimeout                  int    `envconfig:"DATABASE_TIMEOUT" default:"60"`             // 60 seconds
-	DatadogAgentUrl                  string `envconfig:"DATADOG_AGENT_URL"`
 }
 
 type BrandingConfig struct {
