@@ -20,7 +20,7 @@ type Config struct {
 	JWTRefreshTokenExpiry            int     `envconfig:"JWT_REFRESH_EXPIRY" default:"604800"` // in seconds, default 7 days
 	JWTAccessTokenExpiry             int     `envconfig:"JWT_ACCESS_EXPIRY" default:"172800"`  // in seconds, default 2 days
 	LNClientType                     string  `envconfig:"LN_CLIENT_TYPE" default:"lnd"`        //lnd, eclair?
-	LNDAddress                       string  `envconfig:"LND_ADDRESS" required:"true"`
+	LNDAddress                       string  `envconfig:"LND_ADDRESS"`
 	LNDMacaroonFile                  string  `envconfig:"LND_MACAROON_FILE"`
 	LNDCertFile                      string  `envconfig:"LND_CERT_FILE"`
 	LNDMacaroonHex                   string  `envconfig:"LND_MACAROON_HEX"`
