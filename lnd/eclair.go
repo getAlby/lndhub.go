@@ -141,8 +141,12 @@ func (eclair *EclairClient) AddInvoice(ctx context.Context, req *lnrpc.Invoice, 
 	if err != nil {
 		return nil, err
 	}
+	rHash, err := hex.DecodeString(invoice.PaymentHash)
+	if err != nil {
+		return nil, err
+	}
 	return &lnrpc.AddInvoiceResponse{
-		RHash:          []byte(invoice.PaymentHash),
+		RHash:          rHash,
 		PaymentRequest: invoice.Serialized,
 		AddIndex:       uint64(invoice.Timestamp),
 	}, nil
