@@ -45,6 +45,7 @@ type Config struct {
 	RabbitMQUri                      string  `envconfig:"RABBITMQ_URI"`
 	RabbitMQLndhubInvoiceExchange    string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
 	LnurlDomain                      string  `envconfig:"LNURL_DOMAIN" default:"ln.example.com"`
+	HouseUserID                      int64   `envconfig:"LNURL_HOUSE_USER_ID" default:"0"`
 	RabbitMQLndInvoiceExchange       string  `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
 	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
 	SubscriptionConsumerType         string  `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`

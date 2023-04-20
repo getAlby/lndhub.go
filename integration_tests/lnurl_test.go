@@ -27,7 +27,7 @@ type LnurlTestSuite struct {
 	TestSuite
 	service   *service.LndhubService
 	mlnd      *MockLND
-	userLogin ExpectedCreateUserResponseBody
+	userLogin []ExpectedCreateUserResponseBody
 }
 
 func (suite *LnurlTestSuite) SetupSuite() {
@@ -38,7 +38,7 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	}
 	suite.service = svc
 	suite.mlnd = mockLND
-	users, _, err := createUsers(svc, 1)
+	users, _, err := createUsers(svc, 4)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
 	}
@@ -48,10 +48,10 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 	suite.echo = e
-	assert.Equal(suite.T(), 1, len(users))
-	suite.userLogin = users[0]
+	assert.Equal(suite.T(), 4, len(users))
+	suite.userLogin = users
 	suite.echo.GET("/v2/lnurlp/:user", v2controllers.NewLnurlController(suite.service).Lnurlp)
-	suite.echo.GET("/v2/invoice/:user", v2controllers.NewInvoiceController(suite.service).Invoice)
+	suite.echo.GET("/v2/invoice", v2controllers.NewInvoiceController(suite.service).Lud6Invoice)
 }
 
 func (suite *LnurlTestSuite) TearDownSuite() {
@@ -63,10 +63,66 @@ func (suite *LnurlTestSuite) TearDownSuite() {
 	fmt.Println("Tear down suite success")
 }
 
-func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
+// TODO: launch a gorutine that listen for payed invoices and then settle the splits associated with them (call sendInternalPayment)
+func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
+	invoiceResponse := &Lud6InvoiceResponseBody{}
+	rec := httptest.NewRecorder()
+	const fakeAcc = "bafkreibaejvf3wyblh3s4yhbrwtxto7wpcac7zkkx36cswjzjez2cbmzvu"
+	memo := "Invoicememo😀"
+	//failed user
+	req := httptest.NewRequest(http.MethodGet, "/v2/invoice?user="+fakeAcc, nil)
+	suite.echo.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	//single user + memo
+	rec2 := httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?user="+suite.userLogin[1].Login+"&memo="+memo, nil)
+	suite.echo.ServeHTTP(rec2, req)
+	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
+	decodedPayreq, err := suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
+	assert.NoError(suite.T(), err)
+	assert.EqualValues(suite.T(), 0, decodedPayreq.NumMsat)
+	assert.EqualValues(suite.T(), memo, decodedPayreq.Description)
+	//2 users + amount
+	const sliceAcc1 = 0.45
+	const sliceAcc2 = 0.53
+	const amountmsats = 12003
+	metadata := &v2controllers.PaymentMetadata{
+		Source:  "",
+		Authors: map[string]float64{suite.userLogin[1].Login: sliceAcc1, suite.userLogin[2].Login: sliceAcc2},
+	}
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?"+metadata.URL()+"&amount="+strconv.Itoa(amountmsats), nil)
+	rec3 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec3, req)
+	assert.Equal(suite.T(), http.StatusOK, rec3.Code)
+	decodedPayreq, err = suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
+	assert.NoError(suite.T(), err)
+	assert.EqualValues(suite.T(), amountmsats, decodedPayreq.NumMsat)
+	//3 users err
+	metadata.Authors[suite.userLogin[3].Login] = 0.1
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?"+metadata.URL(), nil)
+	rec4 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec4, req)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec4.Code)
 
+	//3 users + source
+	metadata.Authors[suite.userLogin[3].Login] = 0.02
+	metadata.Source = fakeAcc
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?"+metadata.URL(), nil)
+	rec5 := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec5, req)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec5.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
+	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
+	decodedPayreq, err = suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
+	assert.NoError(suite.T(), err)
+	assert.EqualValues(suite.T(), "", decodedPayreq.DescriptionHash)
+
+}
+
+func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	// call the lnurl endpoint
-	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Login, nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin[0].Login, nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}
@@ -83,7 +139,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:], nil)
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
-	invoiceResponse := &InvoiceResponseBody{}
+	invoiceResponse := &Lud6InvoiceResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
 	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
@@ -97,11 +153,10 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 }
 
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
-
 	// call the lnurl endpoint
 	const payreq_type = "payRequest"
 	const amt_sats = int64(1245)
-	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin.Login+"?amt="+strconv.FormatInt(amt_sats, 10), nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin[0].Login+"?amt="+strconv.FormatInt(amt_sats, 10), nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}
@@ -118,7 +173,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:], nil)
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
-	invoiceResponse := &InvoiceResponseBody{}
+	invoiceResponse := &Lud6InvoiceResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
 	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))

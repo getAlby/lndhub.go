@@ -57,7 +57,7 @@ type ExpectedBalanceResponse struct {
 	}
 }
 
-type InvoiceResponseBody struct {
+type Lud6InvoiceResponseBody struct {
 	Payreq string   `json:"pr"`
 	Routes []string `json:"routes"`
 }

@@ -36,6 +36,15 @@ type SendPaymentResponse struct {
 	Invoice            *models.Invoice
 }
 
+type Captable struct {
+	// Invoice is the invoice that has been transmitted to LND.
+	Invoice *models.Invoice
+	// LeadingUserID is the ID of the user that is going to be paid in LND.
+	LeadingUserID int64
+	// SecondaryUsers are the rest of users (Excluding the leading user). Being the keys the lndhub IDs and the value the stake (0-1) on the invoice.
+	SecondaryUsers map[int64]float64
+}
+
 func (svc *LndhubService) FindInvoiceByPaymentHash(ctx context.Context, userId int64, rHash string) (*models.Invoice, error) {
 	var invoice models.Invoice
 
@@ -152,10 +161,18 @@ func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrp
 	}
 
 	if !invoice.Keysend {
+		// TODO(juligasa): uncomment when we actually store the custom records in the real invoice. RN we
+		// only store it in the database but we don't inform LND of such custom records.
+		/*
+			if len(splits) > MAX_CUSTOM_RECORD_SIZE {
+				return nil, fmt.Errorf("max custom records size is %d, but %d were given", MAX_CUSTOM_RECORD_SIZE, len(splits))
+			}
+		*/
 		return &lnrpc.SendRequest{
 			PaymentRequest: invoice.PaymentRequest,
 			Amt:            invoice.Amount,
 			FeeLimit:       &feeLimit,
+			//DestCustomRecords: invoice.DestinationCustomRecords, #TODO(juligasa): Uncomment to actually store custom records
 		}, nil
 	}
 
@@ -361,21 +378,54 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 	return &invoice, nil
 }
 
+// If something goes wrong we should remove the lnd invoice with the same RHash. (cancel LND and remove from tables or cancel them common.InvoiceStateError,)
+// When paid the leading invoice we should call sendInternalPayment, with all of the
+// secondary and make sure it broadcasts all the split payments as well in the subscription methods (hooks).
+func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Captable) error {
+	for user, slice := range captable.SecondaryUsers {
+		if user == captable.LeadingUserID {
+			const errMsg = "Leading user cannot be in the list of secondary users"
+			svc.Logger.Debug(errMsg)
+			return fmt.Errorf("%s", errMsg)
+		}
+		internalInvoice := models.Invoice{
+			Type:                     common.InvoiceStateError,
+			UserID:                   user,
+			Amount:                   int64(float64(captable.Invoice.Amount) * slice),
+			Memo:                     captable.Invoice.Memo,
+			DescriptionHash:          captable.Invoice.DescriptionHash,
+			State:                    common.InvoiceStateInitialized,
+			ExpiresAt:                captable.Invoice.ExpiresAt,
+			DestinationCustomRecords: captable.Invoice.DestinationCustomRecords,
+			PaymentRequest:           captable.Invoice.PaymentRequest,
+			RHash:                    captable.Invoice.RHash,
+			Preimage:                 captable.Invoice.Preimage,
+			AddIndex:                 captable.Invoice.AddIndex,
+			DestinationPubkeyHex:     captable.Invoice.DestinationPubkeyHex,
+		}
+
+		if _, err := svc.DB.NewInsert().Model(&internalInvoice).Exec(ctx); err != nil {
+			return err
+		}
+		internalInvoice.State = common.InvoiceStateOpen
+	}
+	return nil
+}
+
 func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string, splits ...byte) (*models.Invoice, error) {
 	preimage, err := makePreimageHex()
 	if err != nil {
 		return nil, err
 	}
 	expiry := time.Hour * 24 // invoice expires in 24h
-	// Initialize new DB invoice
 	customRecords := map[uint64][]byte{}
 	if len(splits) > 0 {
 		if len(splits) > MAX_CUSTOM_RECORD_SIZE {
-			return nil, fmt.Errorf("Max custom records size is %d, but %d were given", MAX_CUSTOM_RECORD_SIZE, len(splits))
+			return nil, fmt.Errorf("max custom records size is %d, but %d were given", MAX_CUSTOM_RECORD_SIZE, len(splits))
 		}
 		customRecords[TLV_SPLIT_ID] = splits
 	}
-
+	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                     common.InvoiceTypeIncoming,
 		UserID:                   userID,

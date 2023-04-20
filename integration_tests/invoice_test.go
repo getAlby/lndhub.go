@@ -57,7 +57,7 @@ func (suite *InvoiceTestSuite) TearDownTest() {
 	clearTable(suite.service, "invoices")
 }
 
-func (suite *InvoiceTestSuite) TestZeroAmtTestSuite() {
+func (suite *InvoiceTestSuite) TestZeroAmtInvoice() {
 	rec := httptest.NewRecorder()
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedV2AddInvoiceRequestBody{
