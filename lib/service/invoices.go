@@ -389,17 +389,14 @@ func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Cap
 			return responses.LeadAuthorIncludedError
 		}
 		internalInvoice := models.Invoice{
-			Type:                     captable.Invoice.Type,
+			Type:                     common.InvoiceTypeSubinvoice,
 			UserID:                   user,
 			Amount:                   int64(float64(captable.Invoice.Amount) * slice),
 			Memo:                     captable.Invoice.Memo,
-			DescriptionHash:          captable.Invoice.DescriptionHash,
-			State:                    common.InvoiceStateInitialized,
+			State:                    common.InvoiceStateOpen,
 			ExpiresAt:                captable.Invoice.ExpiresAt,
 			DestinationCustomRecords: captable.Invoice.DestinationCustomRecords,
 			PaymentRequest:           captable.Invoice.PaymentRequest,
-			RHash:                    captable.Invoice.RHash,
-			Preimage:                 captable.Invoice.Preimage,
 			AddIndex:                 captable.Invoice.AddIndex,
 			DestinationPubkeyHex:     captable.Invoice.DestinationPubkeyHex,
 		}
@@ -407,7 +404,6 @@ func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Cap
 		if _, err := svc.DB.NewInsert().Model(&internalInvoice).Exec(ctx); err != nil {
 			return err
 		}
-		internalInvoice.State = common.InvoiceStateOpen
 	}
 	return nil
 }

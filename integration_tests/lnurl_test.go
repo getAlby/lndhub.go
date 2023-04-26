@@ -48,6 +48,7 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	suite.invoiceUpdateSubCancelFn = cancel
 	go svc.InvoiceUpdateSubscription(ctx)
@@ -62,7 +63,9 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice, tokensmw.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/v2/lnurlp/:user", v2controllers.NewLnurlController(suite.service).Lnurlp)
 	suite.echo.GET("/v2/invoice", v2controllers.NewInvoiceController(suite.service).Lud6Invoice)
+	suite.echo.GET("/v2/balance", v2controllers.NewBalanceController(suite.service).Balance, tokensmw.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.POST("/v2/payinvoice", v2controllers.NewPayInvoiceController(suite.service).PayInvoice, tokensmw.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.GET("/v2/invoices/incoming", v2controllers.NewInvoiceController(suite.service).GetIncomingInvoices, tokensmw.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/v2/invoices/:payment_hash", v2controllers.NewInvoiceController(suite.service).GetInvoice, tokensmw.Middleware([]byte(suite.service.Config.JWTSecret)))
 }
 
@@ -73,12 +76,17 @@ func (suite *LnurlTestSuite) TearDownSuite() {
 		fmt.Printf("Tear down suite error %v\n", err.Error())
 		return
 	}
+	err = clearTable(suite.service, "invoices")
+	if err != nil {
+		fmt.Printf("Tear down suite error %v\n", err.Error())
+		return
+	}
 	fmt.Println("Tear down suite success")
 }
 
 // TODO: launch a goroutine that listen for paid invoices and then settle the splits associated with them (call sendInternalPayment)
 func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
-	invoiceResponse := &Lud6InvoiceResponseBody{}
+	invoiceResponse := &v2controllers.Lud6InvoiceResponseBody{}
 	rec := httptest.NewRecorder()
 	const fakeAcc = "bafkreibaejvf3wyblh3s4yhbrwtxto7wpcac7zkkx36cswjzjez2cbmzvu"
 	memo := "Invoicememo😀"
@@ -140,9 +148,10 @@ func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
 }
 
 func (suite *LnurlTestSuite) TestSettleSplitPayment() {
-	payreqResponse := &Lud6InvoiceResponseBody{}
+	payreqResponse := &v2controllers.Lud6InvoiceResponseBody{}
 	invoiceResponse := &v2controllers.Invoice{}
-	payResponse := &ExpectedPayInvoiceResponseBody{}
+	invoicesResponse := &v2controllers.GetInvoicesResponseBody{}
+	payResponse := &v2controllers.PayInvoiceResponseBody{}
 	rec := httptest.NewRecorder()
 	const sliceAcc1 = 0.38
 	const sliceAcc2 = 0.58
@@ -168,30 +177,41 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
 	assert.EqualValues(suite.T(), amountmsats/1000, invoiceResponse.Amount)
 	assert.False(suite.T(), invoiceResponse.IsPaid)
+	balance := suite.getBalance(suite.userToken[0])
+	assert.EqualValues(suite.T(), 0, balance)
 
 	// Check split invoice exists and is not paid
-	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/"+decodedPayreq.PaymentHash, nil)
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[1]))
 	rec3 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec3, req)
 	assert.Equal(suite.T(), http.StatusOK, rec3.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec3.Body).Decode(invoiceResponse))
-	assert.False(suite.T(), invoiceResponse.IsPaid)
-	assert.EqualValues(suite.T(), int(sliceAcc1*amountmsats/1000), invoiceResponse.Amount)
+	assert.NoError(suite.T(), json.NewDecoder(rec3.Body).Decode(invoicesResponse))
+	for _, invoice := range invoicesResponse.Invoices {
+		assert.False(suite.T(), invoice.IsPaid)
+		assert.EqualValues(suite.T(), int(sliceAcc1*amountmsats/1000), invoice.Amount)
+	}
+	balance = suite.getBalance(suite.userToken[1])
+	assert.EqualValues(suite.T(), 0, balance)
 
 	// Check the other split invoice exists and is not paid
-	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/"+decodedPayreq.PaymentHash, nil)
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[2]))
 	rec4 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec4, req)
 	assert.Equal(suite.T(), http.StatusOK, rec4.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec4.Body).Decode(invoiceResponse))
-	assert.False(suite.T(), invoiceResponse.IsPaid)
-	assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoiceResponse.Amount)
+	assert.NoError(suite.T(), json.NewDecoder(rec4.Body).Decode(invoicesResponse))
+	for _, invoice := range invoicesResponse.Invoices {
+		assert.False(suite.T(), invoice.IsPaid)
+		assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoice.Amount)
+	}
+	balance = suite.getBalance(suite.userToken[2])
+	assert.EqualValues(suite.T(), 0, balance)
 
 	//fund payer's account
 	fundInvoiceResponse := suite.createAddInvoiceReq(amountmsats*1.1, "funding account", suite.userToken[3])
 	assert.NoError(suite.T(), suite.mlnd.mockPaidInvoice(fundInvoiceResponse, 0, false, nil))
+	time.Sleep(100 * time.Millisecond) // give time to update the balances
 	// Pay the invoice
 	rec5 := httptest.NewRecorder()
 	var buf bytes.Buffer
@@ -201,42 +221,47 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 	req = httptest.NewRequest(http.MethodPost, "/v2/payinvoice", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[3]))
-	time.Sleep(100 * time.Millisecond) // give time to update the balances
 	suite.echo.ServeHTTP(rec5, req)
-	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payResponse))
+	assert.Equal(suite.T(), http.StatusOK, rec5.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec5.Body).Decode(payResponse))
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 	assert.EqualValues(suite.T(), amountmsats/1000, payResponse.Amount)
 
 	// Check Lead invoice invoice exists and is paid
-	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/"+decodedPayreq.PaymentHash, nil)
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[0]))
 	rec6 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec6, req)
 	assert.Equal(suite.T(), http.StatusOK, rec6.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec6.Body).Decode(invoiceResponse))
-	assert.EqualValues(suite.T(), amountmsats/1000, invoiceResponse.Amount)
-	assert.True(suite.T(), invoiceResponse.IsPaid)
+	assert.NoError(suite.T(), json.NewDecoder(rec6.Body).Decode(invoicesResponse))
+	assert.EqualValues(suite.T(), amountmsats/1000, invoicesResponse.Invoices[0].Amount)
+	assert.True(suite.T(), invoicesResponse.Invoices[0].IsPaid)
+	balance = suite.getBalance(suite.userToken[0])
+	assert.EqualValues(suite.T(), (1-sliceAcc1-sliceAcc2)*amountmsats/1000, balance)
 
 	// Check split invoice exists and is paid
-	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/"+decodedPayreq.PaymentHash, nil)
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[1]))
 	rec7 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec7, req)
 	assert.Equal(suite.T(), http.StatusOK, rec7.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec7.Body).Decode(invoiceResponse))
-	assert.True(suite.T(), invoiceResponse.IsPaid)
-	assert.EqualValues(suite.T(), int(1*amountmsats/1000), invoiceResponse.Amount)
+	assert.NoError(suite.T(), json.NewDecoder(rec7.Body).Decode(invoicesResponse))
+	assert.True(suite.T(), invoicesResponse.Invoices[0].IsPaid)
+	assert.EqualValues(suite.T(), int(1*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
+	balance = suite.getBalance(suite.userToken[0])
+	assert.EqualValues(suite.T(), sliceAcc1*amountmsats/1000, balance)
 
 	// Check the other split invoice exists and is paid
-	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/"+decodedPayreq.PaymentHash, nil)
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[2]))
 	rec8 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec8, req)
 	assert.Equal(suite.T(), http.StatusOK, rec8.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec8.Body).Decode(invoiceResponse))
-	assert.False(suite.T(), invoiceResponse.IsPaid)
-	assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoiceResponse.Amount)
+	assert.NoError(suite.T(), json.NewDecoder(rec8.Body).Decode(invoicesResponse))
+	assert.False(suite.T(), invoicesResponse.Invoices[0].IsPaid)
+	assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
+	balance = suite.getBalance(suite.userToken[0])
+	assert.EqualValues(suite.T(), sliceAcc2*amountmsats/1000, balance)
 }
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	// call the lnurl endpoint
@@ -257,7 +282,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:], nil)
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
-	invoiceResponse := &Lud6InvoiceResponseBody{}
+	invoiceResponse := &v2controllers.Lud6InvoiceResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
 	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
@@ -291,7 +316,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	req = httptest.NewRequest(http.MethodGet, lnurlResponse.Callback[urlStart:], nil)
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
-	invoiceResponse := &Lud6InvoiceResponseBody{}
+	invoiceResponse := &v2controllers.Lud6InvoiceResponseBody{}
 	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
 	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
@@ -302,4 +327,15 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 
 func TestLnurlSuite(t *testing.T) {
 	suite.Run(t, new(LnurlTestSuite))
+}
+
+func (suite *LnurlTestSuite) getBalance(token string) int64 {
+	balance := &v2controllers.BalanceResponse{}
+	req := httptest.NewRequest(http.MethodGet, "/v2/balance", nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	rec := httptest.NewRecorder()
+	suite.echo.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(balance))
+	return balance.Balance
 }

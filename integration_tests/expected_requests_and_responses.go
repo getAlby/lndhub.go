@@ -57,11 +57,6 @@ type ExpectedBalanceResponse struct {
 	}
 }
 
-type Lud6InvoiceResponseBody struct {
-	Payreq string   `json:"pr"`
-	Routes []string `json:"routes"`
-}
-
 type ExpectedLnurlpResponseBody struct {
 	Callback       string `json:"callback"`
 	MaxSendable    uint64 `json:"maxSendable"`

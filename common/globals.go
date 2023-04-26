@@ -1,10 +1,11 @@
 package common
 
 const (
-	InvoiceTypeOutgoing = "outgoing"
-	InvoiceTypePaid     = "paid_invoice"
-	InvoiceTypeIncoming = "incoming"
-	InvoiceTypeUser     = "user_invoice"
+	InvoiceTypeOutgoing   = "outgoing"
+	InvoiceTypePaid       = "paid_invoice"
+	InvoiceTypeIncoming   = "incoming"
+	InvoiceTypeUser       = "user_invoice"
+	InvoiceTypeSubinvoice = "sub_invoice"
 
 	InvoiceStateSettled     = "settled"
 	InvoiceStateInitialized = "initialized"

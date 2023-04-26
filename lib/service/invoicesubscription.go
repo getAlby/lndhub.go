@@ -100,6 +100,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		}
 	}
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
+
 	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
 		common.InvoiceTypeIncoming,
 		rHashStr,
@@ -114,7 +115,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	// If the invoice is settled we save the settle date and the status otherwise we just store the lnd status
 	// Additionally to the invoice update we create a transaction entry from the user's incoming account to the user's current account
 	// This transaction entry makes the balance available for the user
-	svc.Logger.Infof("Invoice update: invoice_id:%v settled:%v value:%v state:%v", invoice.ID, rawInvoice.Settled, rawInvoice.AmtPaidSat, rawInvoice.State)
+	svc.Logger.Infof("Invoice update: invoice_id:%v value:%v state:%v", invoice.ID, rawInvoice.AmtPaidSat, rawInvoice.State)
 
 	// Get the user's current account for the transaction entry
 	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, invoice.UserID)
@@ -141,7 +142,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	}
 
 	// if the invoice is NOT settled we just update the invoice state
-	if !rawInvoice.Settled {
+	if rawInvoice.State != lnrpc.Invoice_SETTLED {
 		svc.Logger.Infof("Invoice not settled invoice_id:%v state: %s", invoice.ID, rawInvoice.State.String())
 		invoice.State = strings.ToLower(rawInvoice.State.String())
 
@@ -181,6 +182,28 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	}
 	svc.InvoicePubSub.Publish(strconv.FormatInt(invoice.UserID, 10), invoice)
 	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, invoice)
+
+	var subInvoice models.Invoice
+
+	err = svc.DB.NewSelect().Model(&subInvoice).Where("type = ? AND add_index = ? AND state <> ? AND expires_at > ?",
+		common.InvoiceTypeSubinvoice,
+		invoice.AddIndex,
+		common.InvoiceStateSettled,
+		time.Now()).Limit(1).Scan(ctx)
+
+	if err == nil && subInvoice.AddIndex == invoice.AddIndex && rawInvoice.State == lnrpc.Invoice_SETTLED {
+		svc.Logger.Infof("Subinvoice found, settling it.")
+		newRawInvoice := *rawInvoice
+		newRawInvoice.Memo = invoice.Memo
+		newRawInvoice.Value = invoice.Amount
+		rawInvoice.AmtPaidSat = invoice.Amount
+		dH, _ := hex.DecodeString(invoice.DescriptionHash)
+		newRawInvoice.DescriptionHash = dH
+		pI, _ := hex.DecodeString(invoice.Preimage)
+		newRawInvoice.DescriptionHash = dH
+		newRawInvoice.RPreimage = pI
+		return svc.ProcessInvoiceUpdate(ctx, &newRawInvoice)
+	}
 
 	return nil
 }

@@ -97,7 +97,7 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 
-	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
+	invoices, err := controller.svc.InvoicesIncomingAndInternalFor(c.Request().Context(), userId)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (controller *InvoiceController) GetInvoice(c echo.Context) error {
 	invoice, err := controller.svc.FindInvoiceByPaymentHash(c.Request().Context(), userID, rHash)
 	// Probably we did not find the invoice
 	if err != nil {
-		c.Logger().Errorf("Invalid checkpayment request user_id:%v payment_hash:%s", userID, rHash)
+		c.Logger().Errorf("Invalid invoices request user_id:%v payment_hash:%s", userID, rHash)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	responseBody := Invoice{

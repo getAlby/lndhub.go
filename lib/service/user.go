@@ -211,3 +211,16 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 	}
 	return invoices, nil
 }
+
+func (svc *LndhubService) InvoicesIncomingAndInternalFor(ctx context.Context, userId int64) ([]models.Invoice, error) {
+	var invoices []models.Invoice
+
+	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
+	query.Where("state <> ? AND (type = ? OR type = ?)", common.InvoiceStateInitialized, common.InvoiceTypeIncoming, common.InvoiceTypeSubinvoice)
+	query.OrderExpr("id DESC").Limit(100)
+	err := query.Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return invoices, nil
+}
