@@ -12,6 +12,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/gommon/random"
@@ -384,9 +385,8 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Captable) error {
 	for user, slice := range captable.SecondaryUsers {
 		if user == captable.LeadingUserID {
-			const errMsg = "Leading user cannot be in the list of secondary users"
-			svc.Logger.Debug(errMsg)
-			return fmt.Errorf("%s", errMsg)
+			svc.Logger.Debug(responses.LeadAuthorIncludedError.Error())
+			return responses.LeadAuthorIncludedError
 		}
 		internalInvoice := models.Invoice{
 			Type:                     captable.Invoice.Type,

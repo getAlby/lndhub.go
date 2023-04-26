@@ -3,6 +3,8 @@ package responses
 import (
 	"net/http"
 
+	"errors"
+
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
@@ -95,6 +97,8 @@ var NotEnoughBalanceError = ErrorResponse{
 	Message:        "not enough balance. Make sure you have at least 1% reserved for potential fees",
 	HttpStatusCode: 400,
 }
+
+var LeadAuthorIncludedError = errors.New("Leading user cannot be in the list of secondary users")
 
 func HTTPErrorHandler(err error, c echo.Context) {
 	if c.Response().Committed {

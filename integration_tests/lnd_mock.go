@@ -101,7 +101,7 @@ func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 		},
 		FallbackAddr: nil,
 	}
-	zpay32.Expiry(time.Duration(req.Expiry))(invoice)
+	zpay32.Expiry(time.Duration(req.Expiry * int64(time.Second)))(invoice)
 	copy(invoice.PaymentHash[:], pHash.Sum(nil))
 	copy(invoice.PaymentAddr[:], req.PaymentAddr)
 	if len(req.DescriptionHash) != 0 {

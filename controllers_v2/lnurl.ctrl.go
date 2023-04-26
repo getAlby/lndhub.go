@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -149,8 +150,11 @@ func (controller *InvoiceController) Lud6Invoice(c echo.Context) error {
 	captable.Invoice = invoice
 	if err := controller.svc.SplitIncomingPayment(c.Request().Context(), captable); err != nil {
 		c.Logger().Errorf("Error splitting invoice: %v", err)
-		sentry.CaptureException(err)
-		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+		if !errors.Is(err, responses.LeadAuthorIncludedError) {
+			sentry.CaptureException(err)
+			return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+		}
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 	}
 	return c.JSON(http.StatusOK, &responseBody)
 
