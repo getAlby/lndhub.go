@@ -311,7 +311,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Errorf("Could not update successful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
 	}
 
 	// Get the user's fee account for the transaction entry, current account is already there in parent entry
@@ -389,7 +389,7 @@ func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Cap
 			return fmt.Errorf("%s", errMsg)
 		}
 		internalInvoice := models.Invoice{
-			Type:                     common.InvoiceStateError,
+			Type:                     captable.Invoice.Type,
 			UserID:                   user,
 			Amount:                   int64(float64(captable.Invoice.Amount) * slice),
 			Memo:                     captable.Invoice.Memo,

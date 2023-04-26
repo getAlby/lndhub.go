@@ -109,7 +109,11 @@ Alternatively you can also use the [Alby simnetwork](https://github.com/getAlby/
 
 ## Database
 
-LndHub.go requires a PostgreSQL database backend.
+LndHub.go requires a PostgreSQL database backend. In order to run the golang unitary test, 
+one can run a local database like this:
+```shell
+docker run -d --rm --name posgres -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=lndhub -v $(pwd)/dbdata:/var/lib/postgresql/data --network=host postgres
+```
 
 ## Prometheus
 

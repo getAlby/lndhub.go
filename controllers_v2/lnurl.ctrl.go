@@ -67,7 +67,7 @@ func (controller *InvoiceController) Lud6Invoice(c echo.Context) error {
 	cumulativeAuthorship := 0.0
 	var err error
 	users := []*models.User{}
-	captable := service.Captable{LeadingUserID: controller.svc.Config.HouseUserID}
+	captable := service.Captable{LeadingUserID: controller.svc.Config.HouseUserID, SecondaryUsers: map[int64]float64{}}
 
 	for _, slice := range c.QueryParams()["user"] {
 		authorSlice := strings.Split(slice, ",")
@@ -146,7 +146,7 @@ func (controller *InvoiceController) Lud6Invoice(c echo.Context) error {
 	}
 	responseBody := Lud6InvoiceResponseBody{}
 	responseBody.Payreq = invoice.PaymentRequest
-
+	captable.Invoice = invoice
 	if err := controller.svc.SplitIncomingPayment(c.Request().Context(), captable); err != nil {
 		c.Logger().Errorf("Error splitting invoice: %v", err)
 		sentry.CaptureException(err)

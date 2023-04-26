@@ -86,7 +86,7 @@ func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
 	//2 users + amount
 	const sliceAcc1 = 0.45
 	const sliceAcc2 = 0.53
-	const amountmsats = 12003
+	const amountmsats = 12000
 	metadata := &v2controllers.PaymentMetadata{
 		Source:  "",
 		Authors: map[string]float64{suite.userLogin[1].Login: sliceAcc1, suite.userLogin[2].Login: sliceAcc2},
@@ -95,6 +95,7 @@ func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
 	rec3 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec3, req)
 	assert.Equal(suite.T(), http.StatusOK, rec3.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec3.Body).Decode(invoiceResponse))
 	decodedPayreq, err = suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
 	assert.NoError(suite.T(), err)
 	assert.EqualValues(suite.T(), amountmsats, decodedPayreq.NumMsat)
@@ -111,12 +112,12 @@ func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
 	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?"+metadata.URL(), nil)
 	rec5 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec5, req)
-	assert.Equal(suite.T(), http.StatusBadRequest, rec5.Code)
-	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
+	assert.Equal(suite.T(), http.StatusOK, rec5.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec5.Body).Decode(invoiceResponse))
 	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
 	decodedPayreq, err = suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
 	assert.NoError(suite.T(), err)
-	assert.EqualValues(suite.T(), "", decodedPayreq.DescriptionHash)
+	assert.EqualValues(suite.T(), "87e04946ff05ec28174aeb6f0e19f8295304a70f45f19bb3d915dc9aa6976587", decodedPayreq.DescriptionHash)
 
 }
 
