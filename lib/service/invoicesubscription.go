@@ -166,7 +166,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 			Amount:          rawInvoice.AmtPaidSat,
 		}
 		// Save the transaction entry
-		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+		err = svc.InsertTxEntryWithRetry(ctx, &entry)
 		if err != nil {
 			tx.Rollback()
 			svc.Logger.Errorf("Could not create incoming->current transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)

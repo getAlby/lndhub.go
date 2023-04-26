@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -83,7 +84,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		DebitAccountID:  recipientDebitAccount.ID,
 		Amount:          invoice.Amount,
 	}
-	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
+	err = svc.InsertTxEntryWithRetry(ctx, &recipientEntry)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -207,7 +208,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The DB constraints make sure the user actually has enough balance for the transaction
 	// If the user does not have enough balance this call fails
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	err = svc.InsertTxEntryWithRetry(ctx, &entry)
 	if err != nil {
 		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
 		return nil, err
@@ -259,7 +260,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		DebitAccountID:  entryToRevert.CreditAccountID,
 		Amount:          invoice.Amount,
 	}
-	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+	err = svc.InsertTxEntryWithRetry(ctx, &entry)
 	if err != nil {
 		tx.Rollback()
 		sentry.CaptureException(err)
@@ -313,7 +314,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		Amount:          int64(invoice.Fee),
 		ParentID:        parentEntry.ID,
 	}
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	err = svc.InsertTxEntryWithRetry(ctx, &entry)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
@@ -426,4 +427,14 @@ const hexBytes = random.Hex
 
 func makePreimageHex() ([]byte, error) {
 	return randBytesFromStr(32, hexBytes)
+}
+
+func (svc *LndhubService) InsertTxEntryWithRetry(ctx context.Context, entry *models.TransactionEntry) (err error) {
+	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	if strings.Contains(err.Error(), "could not obtain lock on row") {
+		//todo: sleep first?
+		//try again
+		_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	}
+	return err
 }
