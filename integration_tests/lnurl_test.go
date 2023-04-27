@@ -247,8 +247,8 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 	assert.Equal(suite.T(), http.StatusOK, rec7.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec7.Body).Decode(invoicesResponse))
 	assert.True(suite.T(), invoicesResponse.Invoices[0].IsPaid)
-	assert.EqualValues(suite.T(), int(1*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
-	balance = suite.getBalance(suite.userToken[0])
+	assert.EqualValues(suite.T(), int(sliceAcc1*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
+	balance = suite.getBalance(suite.userToken[1])
 	assert.EqualValues(suite.T(), sliceAcc1*amountmsats/1000, balance)
 
 	// Check the other split invoice exists and is paid
@@ -258,9 +258,9 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 	suite.echo.ServeHTTP(rec8, req)
 	assert.Equal(suite.T(), http.StatusOK, rec8.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec8.Body).Decode(invoicesResponse))
-	assert.False(suite.T(), invoicesResponse.Invoices[0].IsPaid)
+	assert.True(suite.T(), invoicesResponse.Invoices[0].IsPaid)
 	assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
-	balance = suite.getBalance(suite.userToken[0])
+	balance = suite.getBalance(suite.userToken[2])
 	assert.EqualValues(suite.T(), sliceAcc2*amountmsats/1000, balance)
 }
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {

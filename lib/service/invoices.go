@@ -68,7 +68,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		incomingInvoice = *keysendInvoice
 	} else {
 		// find invoice
-		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("type = ? AND r_hash = ? AND state = ? ", common.InvoiceTypeIncoming, invoice.RHash, common.InvoiceStateOpen).Limit(1).Scan(ctx)
+		err := svc.DB.NewSelect().Model(&incomingInvoice).Where("(type = ? OR type = ?) AND r_hash = ? AND state = ? ", common.InvoiceTypeIncoming, common.InvoiceTypeSubinvoice, invoice.RHash, common.InvoiceStateOpen).Limit(1).Scan(ctx)
 		if err != nil {
 			// invoice not found or already settled
 			// TODO: logging
@@ -100,24 +100,79 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 
 	// For internal invoices we know the preimage and we use that as a response
 	// This allows wallets to get the correct preimage for a payment request even though NO lightning transaction was involved
-	preimage, _ := hex.DecodeString(incomingInvoice.Preimage)
-	sendPaymentResponse.PaymentPreimageStr = incomingInvoice.Preimage
-	sendPaymentResponse.PaymentPreimage = preimage
-	sendPaymentResponse.Invoice = &incomingInvoice
-	paymentHash, _ := hex.DecodeString(incomingInvoice.RHash)
-	sendPaymentResponse.PaymentHashStr = incomingInvoice.RHash
-	sendPaymentResponse.PaymentHash = paymentHash
-	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: incomingInvoice.Amount, TotalFees: 0}
-
+	if incomingInvoice.Type == common.InvoiceTypeIncoming { // we don't want to return the sub_invoices
+		preimage, _ := hex.DecodeString(incomingInvoice.Preimage)
+		sendPaymentResponse.PaymentPreimageStr = incomingInvoice.Preimage
+		sendPaymentResponse.PaymentPreimage = preimage
+		sendPaymentResponse.Invoice = &incomingInvoice
+		paymentHash, _ := hex.DecodeString(incomingInvoice.RHash)
+		sendPaymentResponse.PaymentHashStr = incomingInvoice.RHash
+		sendPaymentResponse.PaymentHash = paymentHash
+		sendPaymentResponse.PaymentRoute = &Route{TotalAmt: incomingInvoice.Amount, TotalFees: 0}
+	}
 	incomingInvoice.Internal = true // mark incoming invoice as internal, just for documentation/debugging
 	incomingInvoice.State = common.InvoiceStateSettled
 	incomingInvoice.SettledAt = schema.NullTime{Time: time.Now()}
 	incomingInvoice.Amount = invoice.Amount // set just in case of 0 amount invoice
+
 	_, err = svc.DB.NewUpdate().Model(&incomingInvoice).WherePK().Exec(ctx)
 	if err != nil {
 		// could not save the invoice of the recipient
 		return sendPaymentResponse, err
 	}
+
+	var subInvoice models.Invoice
+	err = svc.DB.NewSelect().Model(&subInvoice).Where("type = ? AND preimage = ? AND add_index = ? AND state <> ? AND expires_at > ?",
+		common.InvoiceTypeSubinvoice,
+		incomingInvoice.Preimage,
+		incomingInvoice.AddIndex,
+		common.InvoiceStateSettled,
+		time.Now()).Limit(1).Scan(ctx)
+
+	if err == nil && subInvoice.AddIndex == incomingInvoice.AddIndex && incomingInvoice.State == common.InvoiceStateSettled {
+		svc.Logger.Infof("Internal Payment subinvoice found, settling it.")
+		// We update the rhash because we are going to find it later by rhash and we did
+		// not copy the rhash when splitting the invoice (in order not to be prematurely discovered)
+		subInvoice.RHash = incomingInvoice.RHash
+		_, err = svc.DB.NewUpdate().Model(&subInvoice).WherePK().Exec(ctx)
+		if err != nil {
+			svc.Logger.Infof("Could not settle sub invoice %s", err.Error())
+		}
+		_, err = svc.SendInternalPayment(ctx, &subInvoice)
+		if err == nil {
+			// We decrease payer account
+			// Get the user's current and outgoing account for the transaction entry
+			userId := subInvoice.OriginUserID
+
+			debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
+			if err != nil {
+				svc.Logger.Errorf("Could not find current account user_id:%v", userId)
+				return sendPaymentResponse, err
+			}
+			creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
+			if err != nil {
+				svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
+				return sendPaymentResponse, err
+			}
+
+			entry := models.TransactionEntry{
+				UserID:          userId,
+				InvoiceID:       subInvoice.ID,
+				CreditAccountID: creditAccount.ID,
+				DebitAccountID:  debitAccount.ID,
+				Amount:          subInvoice.Amount,
+			}
+
+			// The DB constraints make sure the user actually has enough balance for the transaction
+			// If the user does not have enough balance this call fails
+			_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+			if err != nil {
+				svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
+				return sendPaymentResponse, err
+			}
+		}
+	}
+
 	svc.InvoicePubSub.Publish(strconv.FormatInt(incomingInvoice.UserID, 10), incomingInvoice)
 	svc.InvoicePubSub.Publish(common.InvoiceTypeIncoming, incomingInvoice)
 
@@ -391,6 +446,7 @@ func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Cap
 		internalInvoice := models.Invoice{
 			Type:                     common.InvoiceTypeSubinvoice,
 			UserID:                   user,
+			OriginUserID:             captable.LeadingUserID,
 			Amount:                   int64(float64(captable.Invoice.Amount) * slice),
 			Memo:                     captable.Invoice.Memo,
 			State:                    common.InvoiceStateOpen,
@@ -398,6 +454,7 @@ func (svc *LndhubService) SplitIncomingPayment(ctx context.Context, captable Cap
 			DestinationCustomRecords: captable.Invoice.DestinationCustomRecords,
 			PaymentRequest:           captable.Invoice.PaymentRequest,
 			AddIndex:                 captable.Invoice.AddIndex,
+			Preimage:                 captable.Invoice.Preimage,
 			DestinationPubkeyHex:     captable.Invoice.DestinationPubkeyHex,
 		}
 

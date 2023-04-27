@@ -101,8 +101,9 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	}
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
 
-	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
+	err := svc.DB.NewSelect().Model(&invoice).Where("(type = ? or type = ?) AND r_hash = ? AND state <> ? AND expires_at > ?",
 		common.InvoiceTypeIncoming,
+		common.InvoiceTypeSubinvoice,
 		rHashStr,
 		common.InvoiceStateSettled,
 		time.Now()).Limit(1).Scan(ctx)
@@ -185,14 +186,15 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 
 	var subInvoice models.Invoice
 
-	err = svc.DB.NewSelect().Model(&subInvoice).Where("type = ? AND add_index = ? AND state <> ? AND expires_at > ?",
+	err = svc.DB.NewSelect().Model(&subInvoice).Where("type = ? AND preimage = ? AND add_index = ? AND state <> ? AND expires_at > ?",
 		common.InvoiceTypeSubinvoice,
+		invoice.Preimage,
 		invoice.AddIndex,
 		common.InvoiceStateSettled,
 		time.Now()).Limit(1).Scan(ctx)
 
 	if err == nil && subInvoice.AddIndex == invoice.AddIndex && rawInvoice.State == lnrpc.Invoice_SETTLED {
-		svc.Logger.Infof("Subinvoice found, settling it.")
+		svc.Logger.Infof("External Payment subinvoice found, settling it.")
 		newRawInvoice := *rawInvoice
 		newRawInvoice.Memo = invoice.Memo
 		newRawInvoice.Value = invoice.Amount
@@ -202,6 +204,39 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		pI, _ := hex.DecodeString(invoice.Preimage)
 		newRawInvoice.DescriptionHash = dH
 		newRawInvoice.RPreimage = pI
+		subInvoice.RHash = invoice.RHash
+		_, err = svc.DB.NewUpdate().Model(&subInvoice).WherePK().Exec(ctx)
+		if err != nil {
+			svc.Logger.Infof("Could not settle sub invoice %s", err.Error())
+		}
+		userId := subInvoice.OriginUserID
+
+		debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
+		if err != nil {
+			svc.Logger.Errorf("Could not find current account user_id:%v", userId)
+			return err
+		}
+		creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
+		if err != nil {
+			svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
+			return err
+		}
+
+		entry := models.TransactionEntry{
+			UserID:          userId,
+			InvoiceID:       subInvoice.ID,
+			CreditAccountID: creditAccount.ID,
+			DebitAccountID:  debitAccount.ID,
+			Amount:          subInvoice.Amount,
+		}
+
+		// The DB constraints make sure the user actually has enough balance for the transaction
+		// If the user does not have enough balance this call fails
+		_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+		if err != nil {
+			svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
+			return err
+		}
 		return svc.ProcessInvoiceUpdate(ctx, &newRawInvoice)
 	}
 

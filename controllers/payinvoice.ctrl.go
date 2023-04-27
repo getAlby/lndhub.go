@@ -57,7 +57,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
-		if strings.Contains(err.Error(),"invoice not for current active network") {
+		if strings.Contains(err.Error(), "invoice not for current active network") {
 			c.Logger().Errorf("Incorrect network user_id:%v error: %v", userID, err)
 			return c.JSON(http.StatusBadRequest, responses.IncorrectNetworkError)
 		}

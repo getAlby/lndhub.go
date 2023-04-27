@@ -12,6 +12,7 @@ type Invoice struct {
 	ID                       int64             `json:"id" bun:",pk,autoincrement"`
 	Type                     string            `json:"type" validate:"required"`
 	UserID                   int64             `json:"user_id" validate:"required"`
+	OriginUserID             int64             `json:"origin_user_id" bun:",nullzero"`
 	User                     *User             `json:"-" bun:"rel:belongs-to,join:user_id=id"`
 	Amount                   int64             `json:"amount" validate:"gte=0"`
 	Fee                      int64             `json:"fee" bun:",nullzero"`
