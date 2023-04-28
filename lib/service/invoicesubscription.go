@@ -101,7 +101,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	}
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
 
-	err := svc.DB.NewSelect().Model(&invoice).Where("(type = ? or type = ?) AND r_hash = ? AND state <> ? AND expires_at > ?",
+	err := svc.DB.NewSelect().Model(&invoice).Where("(type = ? OR type = ?) AND r_hash = ? AND state <> ? AND expires_at > ?",
 		common.InvoiceTypeIncoming,
 		common.InvoiceTypeSubinvoice,
 		rHashStr,
@@ -197,8 +197,8 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		svc.Logger.Infof("External Payment subinvoice found, settling it.")
 		newRawInvoice := *rawInvoice
 		newRawInvoice.Memo = invoice.Memo
-		newRawInvoice.Value = invoice.Amount
-		rawInvoice.AmtPaidSat = invoice.Amount
+		newRawInvoice.Value = subInvoice.Amount
+		newRawInvoice.AmtPaidSat = subInvoice.Amount
 		dH, _ := hex.DecodeString(invoice.DescriptionHash)
 		newRawInvoice.DescriptionHash = dH
 		pI, _ := hex.DecodeString(invoice.Preimage)
