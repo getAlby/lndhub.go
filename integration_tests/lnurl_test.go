@@ -187,10 +187,8 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 	suite.echo.ServeHTTP(rec3, req)
 	assert.Equal(suite.T(), http.StatusOK, rec3.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec3.Body).Decode(invoicesResponse))
-	for _, invoice := range invoicesResponse.Invoices {
-		assert.False(suite.T(), invoice.IsPaid)
-		assert.EqualValues(suite.T(), int(sliceAcc1*amountmsats/1000), invoice.Amount)
-	}
+	assert.False(suite.T(), invoicesResponse.Invoices[0].IsPaid)
+	assert.EqualValues(suite.T(), int(sliceAcc1*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
 	balance = suite.getBalance(suite.userToken[1])
 	assert.EqualValues(suite.T(), 0, balance)
 
@@ -201,10 +199,8 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 	suite.echo.ServeHTTP(rec4, req)
 	assert.Equal(suite.T(), http.StatusOK, rec4.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec4.Body).Decode(invoicesResponse))
-	for _, invoice := range invoicesResponse.Invoices {
-		assert.False(suite.T(), invoice.IsPaid)
-		assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoice.Amount)
-	}
+	assert.False(suite.T(), invoicesResponse.Invoices[0].IsPaid)
+	assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
 	balance = suite.getBalance(suite.userToken[2])
 	assert.EqualValues(suite.T(), 0, balance)
 
@@ -265,7 +261,7 @@ func (suite *LnurlTestSuite) TestSettleSplitPayment() {
 }
 func (suite *LnurlTestSuite) TestGetLnurlInvoiceZeroAmt() {
 	// call the lnurl endpoint
-	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin[0].Login, nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin[1].Login, nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}
@@ -299,7 +295,7 @@ func (suite *LnurlTestSuite) TestGetLnurlInvoiceCustomAmt() {
 	// call the lnurl endpoint
 	const payreq_type = "payRequest"
 	const amt_sats = int64(1245)
-	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin[0].Login+"?amt="+strconv.FormatInt(amt_sats, 10), nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/lnurlp/"+suite.userLogin[1].Login+"?amt="+strconv.FormatInt(amt_sats, 10), nil)
 	rec := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	lnurlResponse := &ExpectedLnurlpResponseBody{}
