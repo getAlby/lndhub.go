@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -68,8 +69,15 @@ func (controller *InvoiceController) Lud6Invoice(c echo.Context) error {
 	cumulativeAuthorship := 0.0
 	var err error
 	users := []*models.User{}
-	captable := service.Captable{LeadingUserID: controller.svc.Config.HouseUserID, SecondaryUsers: map[int64]float64{}}
-
+	houseUser, err := controller.svc.FindUserByLogin(c.Request().Context(), controller.svc.Config.HouseUser)
+	if err != nil {
+		c.Logger().Errorf("Failed to find house user to collect and distribute payments on behalf of authors: %v", err)
+		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+	}
+	captable := service.Captable{LeadingUserID: houseUser.ID, SecondaryUsers: map[int64]float64{}}
+	c.Request().ParseForm()
+	params := c.Request().Form
+	fmt.Println(params)
 	for _, slice := range c.QueryParams()["user"] {
 		authorSlice := strings.Split(slice, ",")
 		user, err := controller.svc.FindUserByLoginOrNickname(c.Request().Context(), authorSlice[0])

@@ -185,6 +185,10 @@ func main() {
 		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
 	}
+	// create user collecting remainder of splitting payments
+	if _, err := svc.CreateUser(context.Background(), svc.Config.HouseUser, "", ""); err != nil {
+		e.Logger.Fatalf("Error Creating House User: %v", err)
+	}
 
 	strictRateLimitPerMinMW := createRateLimitMiddleware(c.StrictRateLimitPerMin, 1*time.Minute)
 	strictRateLimitPerSecMW := createRateLimitMiddleware(c.StrictRateLimitPerSec, 1*time.Second)

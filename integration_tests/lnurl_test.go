@@ -31,6 +31,7 @@ type LnurlTestSuite struct {
 	TestSuite
 	service                  *service.LndhubService
 	mlnd                     *MockLND
+	houseToken               string
 	userLogin                []ExpectedCreateUserResponseBody
 	userToken                []string
 	invoiceUpdateSubCancelFn context.CancelFunc
@@ -50,6 +51,10 @@ func (suite *LnurlTestSuite) SetupSuite() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	suite.houseToken, _, err = svc.GenerateToken(ctx, suite.service.Config.HouseUser, mockHousePassword, "")
+	if err != nil {
+		log.Fatalf("Error generating house token: %v", err)
+	}
 	suite.invoiceUpdateSubCancelFn = cancel
 	go svc.InvoiceUpdateSubscription(ctx)
 	e := echo.New()
@@ -107,7 +112,7 @@ func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
 	//2 users + amount
 	const sliceAcc1 = 0.45
 	const sliceAcc2 = 0.53
-	const amountmsats = 12000
+	var amountmsats = 12000
 	metadata := &v2controllers.PaymentMetadata{
 		Source:  "",
 		Authors: map[string]float64{suite.userLogin[1].Login: sliceAcc1, suite.userLogin[2].Login: sliceAcc2},
@@ -140,11 +145,34 @@ func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {
 	assert.NoError(suite.T(), err)
 	assert.EqualValues(suite.T(), "87e04946ff05ec28174aeb6f0e19f8295304a70f45f19bb3d915dc9aa6976587", decodedPayreq.DescriptionHash)
 
-	//Lead user in secondary
+	//Repeated users Add up
+	const remainder = 0.03
+	amountmsats = 1000000
+	metadata = &v2controllers.PaymentMetadata{
+		Source: "",
+		Authors: map[string]float64{suite.userLogin[3].Login: remainder,
+			suite.userLogin[4].Login: sliceAcc1 - remainder,
+			suite.userLogin[5].Login: remainder,
+			suite.userLogin[6].Login: sliceAcc2 - remainder},
+	}
+	url := strings.Replace(metadata.URL(), suite.userLogin[3].Login, suite.userLogin[4].Login, -1)
+	url = strings.Replace(url, suite.userLogin[6].Login, suite.userLogin[5].Login, -1)
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?"+url, nil)
 	rec6 := httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?user="+suite.userLogin[0].Login+"&memo="+memo, nil)
 	suite.echo.ServeHTTP(rec6, req)
-	assert.Equal(suite.T(), http.StatusBadRequest, rec6.Code)
+	assert.Equal(suite.T(), http.StatusOK, rec6.Code)
+	assert.NoError(suite.T(), json.NewDecoder(rec6.Body).Decode(invoiceResponse))
+	assert.Equal(suite.T(), 0, len(invoiceResponse.Routes))
+	decodedPayreq, err = suite.mlnd.DecodeBolt11(context.Background(), invoiceResponse.Payreq)
+	assert.NoError(suite.T(), err)
+	assert.EqualValues(suite.T(), "814261a99011a3367569953de2a1673fdb1a77b20649afb52136d49eb450304f", decodedPayreq.DescriptionHash)
+
+	//Lead user in secondary
+	rec7 := httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/v2/invoice?user="+suite.service.Config.HouseUser+"&memo="+memo, nil)
+	suite.echo.ServeHTTP(rec7, req)
+	assert.Equal(suite.T(), http.StatusBadRequest, rec7.Code)
+
 }
 
 func (suite *LnurlTestSuite) TestInternalSplitPayment() {
@@ -170,14 +198,14 @@ func (suite *LnurlTestSuite) TestInternalSplitPayment() {
 
 	// Check Lead invoice invoice exists and is not paid
 	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/"+decodedPayreq.PaymentHash, nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[0]))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.houseToken))
 	rec2 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec2, req)
 	assert.Equal(suite.T(), http.StatusOK, rec2.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec2.Body).Decode(invoiceResponse))
 	assert.EqualValues(suite.T(), amountmsats/1000, invoiceResponse.Amount)
 	assert.False(suite.T(), invoiceResponse.IsPaid)
-	balance := suite.getBalance(suite.userToken[0])
+	balance := suite.getBalance(suite.houseToken)
 	assert.EqualValues(suite.T(), 0, balance)
 
 	// Check split invoice exists and is not paid
@@ -225,14 +253,14 @@ func (suite *LnurlTestSuite) TestInternalSplitPayment() {
 
 	// Check Lead invoice invoice exists and is paid
 	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[0]))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.houseToken))
 	rec6 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec6, req)
 	assert.Equal(suite.T(), http.StatusOK, rec6.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec6.Body).Decode(invoicesResponse))
 	assert.EqualValues(suite.T(), amountmsats/1000, invoicesResponse.Invoices[0].Amount)
 	assert.True(suite.T(), invoicesResponse.Invoices[0].IsPaid)
-	balance = suite.getBalance(suite.userToken[0])
+	balance = suite.getBalance(suite.houseToken)
 	assert.EqualValues(suite.T(), (1-sliceAcc1-sliceAcc2)*amountmsats/1000, balance)
 
 	// Check split invoice exists and is paid

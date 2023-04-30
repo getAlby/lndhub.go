@@ -24,6 +24,12 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 
 	user = &models.User{}
 
+	// Check first if requested house user
+	houseUser, err := svc.FindUserByLogin(ctx, login)
+	if err == nil && houseUser.Login == svc.Config.HouseUser {
+		return &models.User{ID: houseUser.ID}, nil
+	}
+
 	// generate user login/password if not provided
 	user.Login = login
 	if login == "" {
