@@ -69,7 +69,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		PayReq:  decodedPaymentRequest,
 		Keysend: false,
 	}
-	if (decodedPaymentRequest.Timestamp + decodedPaymentRequest.Expiry) < time.Now().Unix() {
+	if (decodedPaymentRequest.Timestamp + decodedPaymentRequest.Expiry/int64(time.Second)) < time.Now().Unix() {
 		c.Logger().Errorf("Payment request expired")
 		return c.JSON(http.StatusBadRequest, responses.InvoiceExpiredError)
 	}
