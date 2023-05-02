@@ -102,9 +102,13 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 		return err
 	}
 
-	response := make([]Invoice, len(invoices))
-	for i, invoice := range invoices {
-		response[i] = Invoice{
+	response := []Invoice{}
+	for _, invoice := range invoices {
+		// not allowing the to view open subinvoices because they cannot be externally settled.
+		if invoice.Type == common.InvoiceTypeSubinvoice && invoice.State != common.InvoiceStateSettled {
+			continue
+		}
+		response = append(response, Invoice{
 			PaymentHash:     invoice.RHash,
 			PaymentRequest:  invoice.PaymentRequest,
 			Description:     invoice.Memo,
@@ -120,7 +124,7 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 			IsPaid:          invoice.State == common.InvoiceStateSettled,
 			Keysend:         invoice.Keysend,
 			CustomRecords:   invoice.DestinationCustomRecords,
-		}
+		})
 	}
 	return c.JSON(http.StatusOK, &GetInvoicesResponseBody{Invoices: response})
 }
@@ -234,6 +238,10 @@ func (controller *InvoiceController) GetInvoice(c echo.Context) error {
 	// Probably we did not find the invoice
 	if err != nil {
 		c.Logger().Errorf("Invalid invoices request user_id:%v payment_hash:%s", userID, rHash)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	if invoice.Type == common.InvoiceTypeSubinvoice && invoice.State != common.InvoiceStateSettled {
+		c.Logger().Info("Cannot show an open sub invoice to the user yet")
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	responseBody := Invoice{

@@ -198,25 +198,23 @@ func (suite *LnurlTestSuite) TestInternalSplitPayment() {
 	assert.EqualValues(suite.T(), amountmsats/1000, invoiceResponse.Amount)
 	assert.False(suite.T(), invoiceResponse.IsPaid)
 
-	// Check split invoice exists and is not paid
+	// Check split invoice does not exist yet
 	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[1]))
 	rec3 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec3, req)
 	assert.Equal(suite.T(), http.StatusOK, rec3.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec3.Body).Decode(invoicesResponse))
-	assert.False(suite.T(), invoicesResponse.Invoices[0].IsPaid)
-	assert.EqualValues(suite.T(), int(sliceAcc1*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
+	assert.Len(suite.T(), invoicesResponse.Invoices, 0)
 
-	// Check the other split invoice exists and is not paid
+	// Check the other split invoice does not exist yet
 	req = httptest.NewRequest(http.MethodGet, "/v2/invoices/incoming", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken[2]))
 	rec4 := httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec4, req)
 	assert.Equal(suite.T(), http.StatusOK, rec4.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec4.Body).Decode(invoicesResponse))
-	assert.False(suite.T(), invoicesResponse.Invoices[0].IsPaid)
-	assert.EqualValues(suite.T(), int(sliceAcc2*amountmsats/1000), invoicesResponse.Invoices[0].Amount)
+	assert.Len(suite.T(), invoicesResponse.Invoices, 0)
 
 	//fund payer's account
 	fundInvoiceResponse := suite.createAddInvoiceReq(amountmsats*1.1, "funding account", suite.userToken[3])
