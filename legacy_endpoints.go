@@ -9,11 +9,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-func RegisterLegacyEndpoints(svc *service.LndhubService, e *echo.Echo, tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW, rateLimitPerMinMW, rateLimitPerSecMW echo.MiddlewareFunc) {
+func RegisterLegacyEndpoints(svc *service.LndhubService, e *echo.Echo, tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW, rateLimitPerMinMW, rateLimitPerSecMW echo.MiddlewareFunc, adminMw echo.MiddlewareFunc) {
 	// Public endpoints for account creation and authentication
 	e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	if svc.Config.AllowAccountCreation {
-		e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitPerMinMW, strictRateLimitPerSecMW)
+		e.POST("/create", controllers.NewCreateUserController(svc).CreateUser, strictRateLimitPerMinMW, strictRateLimitPerSecMW, adminMw)
 	}
 	e.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice, rateLimitPerMinMW, rateLimitPerSecMW)
 

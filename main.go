@@ -195,7 +195,7 @@ func main() {
 	regularRateLimitPerMinMW := createRateLimitMiddleware(c.DefaultRateLimitPerMin, 1*time.Minute)
 	regularRateLimitPerSecMW := createRateLimitMiddleware(c.DefaultRateLimitPerSec, 1*time.Second)
 	tokenMW := tokens.Middleware(c.JWTSecret)
-	RegisterLegacyEndpoints(svc, e, tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW, regularRateLimitPerMinMW, regularRateLimitPerSecMW)
+	RegisterLegacyEndpoints(svc, e, tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW, regularRateLimitPerMinMW, regularRateLimitPerSecMW, tokens.AdminTokenMiddleware(c.AdminToken))
 	RegisterV2Endpoints(svc, e, tokenMW, strictRateLimitPerMinMW, strictRateLimitPerSecMW, regularRateLimitPerMinMW, regularRateLimitPerSecMW, security.SignatureMiddleware())
 
 	//Swagger API spec
