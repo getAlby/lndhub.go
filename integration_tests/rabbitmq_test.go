@@ -35,7 +35,6 @@ type RabbitMQTestSuite struct {
 }
 
 func (suite *RabbitMQTestSuite) SetupSuite() {
-	suite.T().Skip()
 	mlnd := newDefaultMockLND()
 	//needs different pubkey
 	//to allow for "external" payments
