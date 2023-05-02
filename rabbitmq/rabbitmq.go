@@ -223,10 +223,10 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 			if err != nil {
 				captureErr(client.logger, err)
 
-				// If for some reason we can't handle the message we instruct rabbitmq to
-				// requeue the message in hopes of finding another consumer that can deal
-				// with this message.
-				err := delivery.Nack(false, true)
+				// If for some reason we can't handle the message we also don't requeue
+				// because this can lead to an endless loop that puts pressure on the
+				// database and logs.
+				err := delivery.Nack(false, false)
 				if err != nil {
 					captureErr(client.logger, err)
 				}
