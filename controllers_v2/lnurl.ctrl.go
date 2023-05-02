@@ -126,8 +126,12 @@ func (controller *InvoiceController) Lud6Invoice(c echo.Context) error {
 		}
 	}
 
+	if amt_msat/1000 <= 0 {
+		c.Logger().Errorf("Amount provided [%v] lower than minimum of 1000 msats", amt_msat/1000)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
 	if controller.svc.Config.MaxReceiveAmount > 0 && amt_msat/1000 > controller.svc.Config.MaxReceiveAmount {
-		c.Logger().Errorf("Max receive amount [%v] exceeded limit [%v]", amt_msat/1000, controller.svc.Config.MaxReceiveAmount)
+		c.Logger().Errorf("Provided amount [%v] exceeded max receive limit [%v]", amt_msat/1000, controller.svc.Config.MaxReceiveAmount)
 		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 	}
 
@@ -193,20 +197,22 @@ func (controller *LnurlController) Lnurlp(c echo.Context) error {
 	responseBody.MinSendable = MIN_RECEIVABLE_MSATS
 	responseBody.MaxSendable = uint64(controller.svc.Config.MaxReceiveAmount * 1000)
 	responseBody.Callback = "https://" + controller.svc.Config.LnurlDomain + "/v2/invoice?user=" + c.Param("user")
-	if c.QueryParams().Has("amt") {
-		amt, err := strconv.ParseInt(c.QueryParam("amt"), 10, 64)
-		if err != nil {
-			c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam(c.QueryParam("amt")), err)
-			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
-		}
-		if amt > controller.svc.Config.MaxReceiveAmount || amt < MIN_RECEIVABLE_MSATS {
-			c.Logger().Errorf("amt provided (%d) not in range [%d-%d] msats. %v", amt, MIN_RECEIVABLE_MSATS, controller.svc.Config.MaxReceiveAmount)
-			return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
-		}
-		responseBody.MinSendable = uint64(amt * 1000)
-		responseBody.MaxSendable = uint64(amt * 1000)
-		responseBody.Callback = responseBody.Callback + "&amount=" + strconv.FormatInt(amt*1000, 10)
+	if !c.QueryParams().Has("amt") {
+		c.Logger().Debug("Amount not provided")
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
 	}
+	amt, err := strconv.ParseInt(c.QueryParam("amt"), 10, 64)
+	if err != nil {
+		c.Logger().Errorf("Could not convert %v to uint64. %v", c.QueryParam(c.QueryParam("amt")), err)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
+	if amt > controller.svc.Config.MaxReceiveAmount || amt < MIN_RECEIVABLE_MSATS {
+		c.Logger().Errorf("amt provided (%d) not in range [%d-%d] msats. %v", amt, MIN_RECEIVABLE_MSATS, controller.svc.Config.MaxReceiveAmount)
+		return c.JSON(http.StatusBadRequest, responses.LnurlpBadArgumentsError)
+	}
+	responseBody.MinSendable = uint64(amt * 1000)
+	responseBody.MaxSendable = uint64(amt * 1000)
+	responseBody.Callback = responseBody.Callback + "&amount=" + strconv.FormatInt(amt*1000, 10)
 
 	responseBody.Metadata = lnurlDescriptionHash([]*models.User{user}, controller.svc.Config.LnurlDomain)
 	responseBody.CommentAllowed = LNURLP_COMMENT_SIZE
