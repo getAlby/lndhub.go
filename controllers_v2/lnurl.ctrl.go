@@ -56,7 +56,7 @@ type LnurlpResponseBody struct {
 // @Success      200  {object}  Lud6InvoiceResponseBody
 // @Failure      400  {object}  responses.LnurlErrorResponse
 // @Failure      500  {object}  responses.LnurlErrorResponse
-// @Router       /v2/invoice/{user} [get]
+// @Router       /v2/invoice [get]
 // @Security     OAuth2Password
 func (controller *InvoiceController) Lud6Invoice(c echo.Context) error {
 	// The user param could be userID (login) or a nickname (lnaddress)
