@@ -75,25 +75,13 @@ func (suite *LnurlTestSuite) SetupSuite() {
 }
 
 func (suite *LnurlTestSuite) TearDownTest() {
-	err := clearTable(suite.service, "invoices")
-	if err != nil {
-		fmt.Printf("Tear down test error %v\n", err.Error())
-		return
-	}
-	err = clearTable(suite.service, "transaction_entries")
-	if err != nil {
-		fmt.Printf("Tear down test error %v\n", err.Error())
-		return
-	}
+	clearTable(suite.service, "invoices")
+	clearTable(suite.service, "transaction_entries")
 	fmt.Println("Tear down test success")
 }
 func (suite *LnurlTestSuite) TearDownSuite() {
 	suite.invoiceUpdateSubCancelFn()
-	err := clearTable(suite.service, "users")
-	if err != nil {
-		fmt.Printf("Tear down suite error %v\n", err.Error())
-		return
-	}
+	clearTable(suite.service, "users")
 }
 
 func (suite *LnurlTestSuite) TestLud6InvoiceWithMetadata() {

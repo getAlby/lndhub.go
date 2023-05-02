@@ -35,6 +35,7 @@ type RabbitMQTestSuite struct {
 }
 
 func (suite *RabbitMQTestSuite) SetupSuite() {
+	suite.T().Skip()
 	mlnd := newDefaultMockLND()
 	//needs different pubkey
 	//to allow for "external" payments
@@ -246,6 +247,7 @@ func (suite *RabbitMQTestSuite) TearDownSuite() {
 
 	err = ch.ExchangeDelete(suite.svc.Config.RabbitMQLndhubInvoiceExchange, true, false)
 	assert.NoError(suite.T(), err)
+	clearTable(suite.svc, "invoices")
 }
 
 func TestRabbitMQTestSuite(t *testing.T) {

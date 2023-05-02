@@ -27,7 +27,6 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login, password, nickn
 	// Check first if requested house user
 	houseUser, err := svc.FindUserByLogin(ctx, login)
 	if err == nil && houseUser.Login == svc.Config.HouseUser {
-		svc.Logger.Debugf("House user already created at %s and modified at %s with id %d", houseUser.CreatedAt.String(), houseUser.UpdatedAt.String(), houseUser.ID)
 		return &models.User{ID: houseUser.ID}, nil
 	}
 
