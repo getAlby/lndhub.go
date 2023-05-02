@@ -210,13 +210,14 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
-	// check payment is updated as succesful
+	// check payment is updated as successful
 	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), common.InvoiceStateSettled, inv.State)
 	clearTable(suite.service, "invoices")
 	clearTable(suite.service, "transaction_entries")
 	clearTable(suite.service, "accounts")
+	clearTable(suite.service, "users")
 }
 
 func (suite *HodlInvoiceSuite) TearDownSuite() {
