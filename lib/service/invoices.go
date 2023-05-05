@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -14,7 +15,6 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
-	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
@@ -422,8 +422,11 @@ func (svc *LndhubService) DecodePaymentRequest(ctx context.Context, bolt11 strin
 	return svc.LndClient.DecodeBolt11(ctx, bolt11)
 }
 
-const hexBytes = random.Hex
-
 func makePreimageHex() ([]byte, error) {
-	return randBytesFromStr(32, hexBytes)
+	bytes := make([]byte, 32) // 32 bytes * 8 bits/byte = 256 bits
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }
