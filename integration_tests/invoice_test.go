@@ -100,7 +100,7 @@ func (suite *InvoiceTestSuite) TestPreimageEntropy() {
 		}
 	}
 	//check that we use all possible byte values
-	assert.Equal(suite.T(), 255, len(preimageChars))
+	assert.Equal(suite.T(), 256, len(preimageChars))
 }
 
 func TestInvoiceSuite(t *testing.T) {
