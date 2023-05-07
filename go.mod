@@ -15,16 +15,15 @@ require (
 	github.com/labstack/gommon v0.4.0
 	github.com/lightningnetwork/lnd v0.15.5-beta.rc2
 	github.com/rabbitmq/amqp091-go v1.6.1
+	github.com/rs/zerolog v1.29.1
 	github.com/stretchr/testify v1.8.1
 	github.com/uptrace/bun v1.1.10
 	github.com/uptrace/bun/dialect/pgdialect v1.1.10
 	github.com/uptrace/bun/driver/pgdriver v1.1.10
 	github.com/uptrace/bun/extra/bundebug v1.1.10
 	github.com/wagslane/go-password-validator v0.3.0
-	github.com/ziflex/lecho/v3 v3.3.0
 	golang.org/x/crypto v0.5.0
 	google.golang.org/grpc v1.52.0
-	google.golang.org/protobuf v1.28.1
 	gopkg.in/DataDog/dd-trace-go.v1 v1.47.0
 	gopkg.in/macaroon.v2 v2.1.0
 )
@@ -118,7 +117,7 @@ require (
 	github.com/ltcsuite/ltcd v0.22.1-beta // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -131,7 +130,6 @@ require (
 	github.com/prometheus/common v0.39.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rs/zerolog v1.28.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
@@ -171,10 +169,11 @@ require (
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/macaroon-bakery.v2 v2.3.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
@@ -190,7 +189,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/go-openapi/spec v0.20.8 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/labstack/echo-contrib v0.13.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/swaggo/echo-swagger v1.3.5

@@ -11,7 +11,7 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
 	"github.com/uptrace/bun"
-	"github.com/ziflex/lecho/v3"
+	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,7 +22,7 @@ type LndhubService struct {
 	DB             *bun.DB
 	LndClient      lnd.LightningClientWrapper
 	RabbitMQClient rabbitmq.Client
-	Logger         *lecho.Logger
+	Logger         zerolog.Logger
 	IdentityPubkey string
 	InvoicePubSub  *Pubsub
 }

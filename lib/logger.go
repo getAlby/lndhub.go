@@ -5,38 +5,26 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/labstack/gommon/log"
-	"github.com/ziflex/lecho/v3"
+	"github.com/rs/zerolog"
 )
 
-func Logger(logFilePath string) *lecho.Logger {
-	logger := lecho.New(
-		os.Stdout, // default to STDOUT
-		lecho.WithLevel(log.DEBUG),
-		lecho.WithTimestamp(),
-	)
+func Logger(logFilePath string) zerolog.Logger {
+	target := os.Stdout
+
 	// check if a log file config is set
 	if logFilePath != "" {
-		file, err := GetLoggingFile(logFilePath)
-		if err != nil {
-			logger.Errorf("failed to create logging file: %v", err)
+		extension := filepath.Ext(logFilePath)
+		path := logFilePath
+		if extension == "" {
+			path = logFilePath + time.Now().Format("-2006-01-02") + ".log"
 		}
-		logger.SetOutput(file)
+		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		target = file
 	}
 
-	return logger
-}
-
-func GetLoggingFile(path string) (*os.File, error) {
-	extension := filepath.Ext(path)
-	if extension == "" {
-		path = path + time.Now().Format("-2006-01-02") + ".log"
-	}
-
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return f, err
+	return zerolog.New(target).Level(zerolog.InfoLevel).With().Timestamp().Logger()
 }

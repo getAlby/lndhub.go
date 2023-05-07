@@ -188,12 +188,12 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// Get the user's current and outgoing account for the transaction entry
 	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
 	if err != nil {
-		svc.Logger.Errorf("Could not find current account user_id:%v", userId)
+		svc.Logger.Error().Err(err).Msgf("Could not find current account user_id:%v", userId)
 		return nil, err
 	}
 	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
 	if err != nil {
-		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
+		svc.Logger.Error().Err(err).Msgf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
 	}
 
@@ -209,7 +209,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// If the user does not have enough balance this call fails
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
+		svc.Logger.Error().Err(err).Msgf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
 		return nil, err
 	}
 
@@ -248,7 +248,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not open tx entry for updating failed payment:r_hash:%s %v", invoice.RHash, err)
+		svc.Logger.Error().Err(err).Msgf("Could not open tx entry for updating failed payment:r_hash:%s %v", invoice.RHash, err)
 		return err
 	}
 	// add transaction entry with reverted credit/debit account id
@@ -263,7 +263,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	if err != nil {
 		tx.Rollback()
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Error().Err(err).Msgf("Could not insert transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
@@ -276,12 +276,12 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	if err != nil {
 		tx.Rollback()
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not update failed payment invoice user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Error().Err(err).Msgf("Could not update failed payment invoice user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 	}
 	err = tx.Commit()
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
+		svc.Logger.Error().Err(err).Msgf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
 	return err
@@ -294,13 +294,13 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Error().Err(err).Msgf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
 	}
 
 	// Get the user's fee account for the transaction entry, current account is already there in parent entry
 	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
 	if err != nil {
-		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
+		svc.Logger.Error().Err(err).Msgf("Could not find fees account user_id:%v", invoice.UserID)
 		return err
 	}
 
@@ -316,20 +316,20 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Error().Err(err).Msgf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
 	userBalance, err := svc.CurrentUserBalance(ctx, entry.UserID)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Error().Err(err).Msgf("Could not fetch user balance user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
 	if userBalance < 0 {
 		amountMsg := fmt.Sprintf("User balance is negative transaction_entry_id:%v user_id:%v amount:%v", entry.ID, entry.UserID, userBalance)
-		svc.Logger.Info(amountMsg)
+		svc.Logger.Info().Msg(amountMsg)
 		sentry.CaptureMessage(amountMsg)
 	}
 	svc.InvoicePubSub.Publish(common.InvoiceTypeOutgoing, *invoice)

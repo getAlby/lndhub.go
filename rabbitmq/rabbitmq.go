@@ -11,10 +11,9 @@ import (
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
-	"github.com/labstack/gommon/log"
+	"github.com/rs/zerolog"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/ziflex/lecho/v3"
 )
 
 // bufPool is a classic buffer pool pattern that allows more clever reuse of heap memory.
@@ -52,7 +51,7 @@ type DefaultClient struct {
 	consumeChannel *amqp.Channel
 	publishChannel *amqp.Channel
 
-	logger *lecho.Logger
+	logger zerolog.Logger
 
 	lndInvoiceConsumerQueueName string
 	lndInvoiceExchange          string
@@ -79,7 +78,7 @@ func WithLndInvoiceConsumerQueueName(name string) ClientOption {
 	}
 }
 
-func WithLogger(logger *lecho.Logger) ClientOption {
+func WithLogger(logger zerolog.Logger) ClientOption {
 	return func(client *DefaultClient) {
 		client.logger = logger
 	}
@@ -108,11 +107,7 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 		consumeChannel: consumeChannel,
 		publishChannel: produceChannel,
 
-		logger: lecho.New(
-			os.Stdout,
-			lecho.WithLevel(log.DEBUG),
-			lecho.WithTimestamp(),
-		),
+		logger: zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().Timestamp().Logger(),
 
 		lndInvoiceConsumerQueueName: "lnd_invoice_consumer",
 		lndInvoiceExchange:          "lnd_invoice",
@@ -193,7 +188,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 		return err
 	}
 
-	client.logger.Info("Starting RabbitMQ consumer loop")
+	client.logger.Info().Msg("Starting RabbitMQ consumer loop")
 	for {
 		select {
 		case <-ctx.Done():
@@ -262,7 +257,7 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 		return err
 	}
 
-	client.logger.Info("Starting rabbitmq publisher")
+	client.logger.Info().Msg("Starting rabbitmq publisher")
 
 	in, out, err := invoicesSubscribeFunc()
 	if err != nil {
@@ -313,12 +308,12 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 		return err
 	}
 
-	client.logger.Debugf("Successfully published invoice to rabbitmq with RHash %s", invoice.RHash)
+	client.logger.Debug().Msgf("Successfully published invoice to rabbitmq with RHash %s", invoice.RHash)
 
 	return nil
 }
 
-func captureErr(logger *lecho.Logger, err error) {
-	logger.Error(err)
+func captureErr(logger zerolog.Logger, err error) {
+	logger.Error().Err(err)
 	sentry.CaptureException(err)
 }

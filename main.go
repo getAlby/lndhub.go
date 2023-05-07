@@ -32,10 +32,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/rs/zerolog"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
-	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
 	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -83,7 +81,7 @@ func main() {
 	// Open a DB connection based on the configured DATABASE_URI
 	dbConn, err := db.Open(c)
 	if err != nil {
-		logger.Fatalf("Error initializing db connection: %v", err)
+		logger.Fatal().Err(err).Msgf("Error initializing db connection: %v", err)
 	}
 
 	// Migrate the DB
@@ -92,11 +90,11 @@ func main() {
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(startupCtx)
 	if err != nil {
-		logger.Fatalf("Error initializing db migrator: %v", err)
+		logger.Fatal().Err(err).Msgf("Error initializing db migrator: %v", err)
 	}
 	_, err = migrator.Migrate(startupCtx)
 	if err != nil {
-		logger.Fatalf("Error migrating database: %v", err)
+		logger.Fatal().Err(err).Msgf("Error migrating database: %v", err)
 	}
 	// Setup exception tracking with Sentry if configured
 	// sentry init needs to happen before the echo middlewares are added
@@ -107,7 +105,7 @@ func main() {
 			EnableTracing:    c.SentryTracesSampleRate > 0,
 			TracesSampleRate: c.SentryTracesSampleRate,
 		}); err != nil {
-			logger.Errorf("sentry init error: %v", err)
+			logger.Error().Err(err).Msgf("sentry init error: %v", err)
 		}
 	}
 
@@ -128,16 +126,26 @@ func main() {
 	e.Use(middleware.BodyLimit("250K"))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	e.Logger = logger
+	//e.Logger = logger
 	e.Use(middleware.RequestID())
-	e.Use(lecho.Middleware(lecho.Config{
-		Logger: logger,
-		Enricher: func(c echo.Context, logger zerolog.Context) zerolog.Context {
-			userId := c.Get("UserID")
-			if userId != nil {
-				return logger.Str("user_id", userId.(string))
-			}
-			return logger.Str("user_id", "")
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogStatus: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			userId := c.Get("UserID").(int64)
+			logger.Info().
+				Str("URI", v.URI).
+				Int("status", v.Status).
+				Str("request_id", v.RequestID).
+				Int("status", v.Status).
+				Str("path", v.URI).
+				Int("duration", int(v.Latency)).
+				Str("referrer", v.Referer).
+				Str("user_agent", v.UserAgent).
+				Int64("user_id", userId).
+				Msgf("%s %s", v.Method, v.URI)
+
+			return nil
 		},
 	}))
 
@@ -160,9 +168,9 @@ func main() {
 	}
 	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
-		e.Logger.Fatalf("Error getting node info: %v", err)
+		logger.Fatal().Err(err).Msgf("Error getting node info: %v", err)
 	}
-	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+	logger.Info().Msgf("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
@@ -175,7 +183,7 @@ func main() {
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
 		)
 		if err != nil {
-			logger.Fatal(err)
+			logger.Fatal().Err(err).Msgf("Failed to init RabbitMQ client")
 		}
 
 		// close the connection gently at the end of the runtime
@@ -214,21 +222,21 @@ func main() {
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
 				sentry.CaptureException(err)
-				svc.Logger.Fatal(err)
+				svc.Logger.Fatal().Err(err)
 			}
 
 		case "grpc":
 			err = svc.InvoiceUpdateSubscription(backGroundCtx)
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
-				svc.Logger.Fatal(err)
+				svc.Logger.Fatal().Err(err)
 			}
 
 		default:
-			svc.Logger.Fatalf("Unrecognized subscription consumer type %s", svc.Config.SubscriptionConsumerType)
+			svc.Logger.Fatal().Err(err).Msgf("Unrecognized subscription consumer type %s", svc.Config.SubscriptionConsumerType)
 		}
 
-		svc.Logger.Info("Invoice routine done")
+		svc.Logger.Info().Msg("Invoice routine done")
 		backgroundWg.Done()
 	}()
 
@@ -238,9 +246,9 @@ func main() {
 	go func() {
 		err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
 		if err != nil {
-			svc.Logger.Error(err)
+			svc.Logger.Error().Err(err)
 		}
-		svc.Logger.Info("Pending payment check routines done")
+		svc.Logger.Info().Msg("Pending payment check routines done")
 		backgroundWg.Done()
 	}()
 
@@ -249,7 +257,7 @@ func main() {
 		backgroundWg.Add(1)
 		go func() {
 			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
-			svc.Logger.Info("Webhook routine done")
+			svc.Logger.Info().Msg("Webhook routine done")
 			backgroundWg.Done()
 		}()
 	}
@@ -262,11 +270,11 @@ func main() {
 				svc.EncodeInvoiceWithUserLogin,
 			)
 			if err != nil {
-				svc.Logger.Error(err)
+				svc.Logger.Error().Err(err)
 				sentry.CaptureException(err)
 			}
 
-			svc.Logger.Info("Rabbit invoice publisher done")
+			svc.Logger.Info().Msg("Rabbit invoice publisher done")
 			backgroundWg.Done()
 		}()
 	}
@@ -283,9 +291,9 @@ func main() {
 		// Setup metrics endpoint at another server
 		prom.SetMetricsPath(echoPrometheus)
 		go func() {
-			echoPrometheus.Logger = logger
-			echoPrometheus.Logger.Infof("Starting prometheus on port %d", svc.Config.PrometheusPort)
-			echoPrometheus.Logger.Fatal(echoPrometheus.Start(fmt.Sprintf(":%d", svc.Config.PrometheusPort)))
+			//echoPrometheus.Logger = logger
+			//echoPrometheus.Logger.Infof("Starting prometheus on port %d", svc.Config.PrometheusPort)
+			//echoPrometheus.Logger.Fatal(echoPrometheus.Start(fmt.Sprintf(":%d", svc.Config.PrometheusPort)))
 		}()
 	}
 
@@ -309,7 +317,7 @@ func main() {
 	}
 	//Wait for graceful shutdown of background routines
 	backgroundWg.Wait()
-	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
+	svc.Logger.Info().Msg("LNDhub exiting gracefully. Goodbye.")
 }
 
 func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {

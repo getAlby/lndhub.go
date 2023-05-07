@@ -125,7 +125,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 		keysend := keysend
 		res, err := controller.SingleKeySend(c, &keysend, userID)
 		if err != nil {
-			controller.svc.Logger.Errorf("Error making keysend split payment %v %s", keysend, err.Message)
+			controller.svc.Logger.Error().Msgf("Error making keysend split payment %v %s", keysend, err.Message)
 			result.Keysends = append(result.Keysends, KeySendResult{
 				Keysend: &KeySendResponseBody{
 					Destination:   keysend.Destination,
@@ -172,7 +172,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		controller.svc.Logger.Error(err)
+		controller.svc.Logger.Error().Err(err)
 		return nil, &responses.GeneralServerError
 	}
 	if !ok {
@@ -181,7 +181,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
-		controller.svc.Logger.Error(err)
+		controller.svc.Logger.Error().Err(err)
 		return nil, &responses.GeneralServerError
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {

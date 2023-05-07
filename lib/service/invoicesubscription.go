@@ -86,7 +86,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	var invoice models.Invoice
 	rHashStr := hex.EncodeToString(rawInvoice.RHash)
 
-	svc.Logger.Infof("Invoice update: r_hash:%s state:%v", rHashStr, rawInvoice.State.String())
+	svc.Logger.Info().Msgf("Invoice update: r_hash:%s state:%v", rHashStr, rawInvoice.State.String())
 
 	//Check if it's a keysend payment
 	//If it is, an invoice will be created on-the-fly
@@ -106,7 +106,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		common.InvoiceStateSettled,
 		time.Now()).Limit(1).Scan(ctx)
 	if err != nil {
-		svc.Logger.Infof("Invoice not found. Ignoring. r_hash:%s", rHashStr)
+		svc.Logger.Info().Msgf("Invoice not found. Ignoring. r_hash:%s", rHashStr)
 		return nil
 	}
 
@@ -114,35 +114,35 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	// If the invoice is settled we save the settle date and the status otherwise we just store the lnd status
 	// Additionally to the invoice update we create a transaction entry from the user's incoming account to the user's current account
 	// This transaction entry makes the balance available for the user
-	svc.Logger.Infof("Invoice update: invoice_id:%v settled:%v value:%v state:%v", invoice.ID, rawInvoice.Settled, rawInvoice.AmtPaidSat, rawInvoice.State)
+	svc.Logger.Info().Msgf("Invoice update: invoice_id:%v settled:%v value:%v state:%v", invoice.ID, rawInvoice.Settled, rawInvoice.AmtPaidSat, rawInvoice.State)
 
 	// Get the user's current account for the transaction entry
 	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, invoice.UserID)
 	if err != nil {
-		svc.Logger.Errorf("Could not find current account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Error().Err(err).Msgf("Could not find current account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
 	}
 	// Get the user's incoming account for the transaction entry
 	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, invoice.UserID)
 	if err != nil {
-		svc.Logger.Errorf("Could not find incoming account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
+		svc.Logger.Error().Err(err).Msgf("Could not find incoming account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
 	}
 
 	// Process any update in a DB transaction
 	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
-		svc.Logger.Errorf("Failed to update the invoice invoice_id:%v r_hash:%s %v", invoice.ID, rHashStr, err)
+		svc.Logger.Error().Err(err).Msgf("Failed to update the invoice invoice_id:%v r_hash:%s %v", invoice.ID, rHashStr, err)
 		return err
 	}
 
 	if rawInvoice.AmtPaidSat != invoice.Amount {
-		svc.Logger.Infof("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
+		svc.Logger.Info().Msgf("Incoming invoice amount mismatch. user_id:%v invoice_id:%v, amt:%d, amt_paid:%d.", invoice.UserID, invoice.ID, invoice.Amount, rawInvoice.AmtPaidSat)
 	}
 
 	// if the invoice is NOT settled we just update the invoice state
 	if !rawInvoice.Settled {
-		svc.Logger.Infof("Invoice not settled invoice_id:%v state: %s", invoice.ID, rawInvoice.State.String())
+		svc.Logger.Info().Msgf("Invoice not settled invoice_id:%v state: %s", invoice.ID, rawInvoice.State.String())
 		invoice.State = strings.ToLower(rawInvoice.State.String())
 
 	} else {
@@ -153,7 +153,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		_, err = tx.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
 		if err != nil {
 			tx.Rollback()
-			svc.Logger.Errorf("Could not update invoice invoice_id:%v", invoice.ID)
+			svc.Logger.Error().Err(err).Msgf("Could not update invoice invoice_id:%v", invoice.ID)
 			return err
 		}
 
@@ -169,14 +169,14 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 		if err != nil {
 			tx.Rollback()
-			svc.Logger.Errorf("Could not create incoming->current transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
+			svc.Logger.Error().Err(err).Msgf("Could not create incoming->current transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 			return err
 		}
 	}
 	// Commit the DB transaction. Done, everything worked
 	err = tx.Commit()
 	if err != nil {
-		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
+		svc.Logger.Error().Err(err).Msgf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
 	svc.InvoicePubSub.Publish(strconv.FormatInt(invoice.UserID, 10), invoice)
@@ -236,7 +236,7 @@ func (svc *LndhubService) ConnectInvoiceSubscription(ctx context.Context) (lnd.S
 	}
 	// subtract 1 (read invoiceSubscriptionOptions.Addindex docs)
 	invoiceSubscriptionOptions.AddIndex = invoice.AddIndex - 1
-	svc.Logger.Infof("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
+	svc.Logger.Info().Msgf("Starting invoice subscription from index: %v", invoiceSubscriptionOptions.AddIndex)
 	return svc.LndClient.SubscribeInvoices(ctx, &invoiceSubscriptionOptions)
 }
 
@@ -256,7 +256,7 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 			// in case of an error, we want to return and restart LNDhub
 			// in order to try and reconnect the gRPC subscription
 			if err != nil {
-				svc.Logger.Errorf("Error processing invoice update subscription: %v", err)
+				svc.Logger.Error().Err(err).Msgf("Error processing invoice update subscription: %v", err)
 				sentry.CaptureException(err)
 				return err
 			}
@@ -266,13 +266,13 @@ func (svc *LndhubService) InvoiceUpdateSubscription(ctx context.Context) error {
 			// Processing open invoices here could cause a race condition:
 			// We could get this notification faster than we finish the AddInvoice call
 			if rawInvoice.State == lnrpc.Invoice_OPEN {
-				svc.Logger.Debugf("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
+				svc.Logger.Debug().Msgf("Invoice state is open. Ignoring update. r_hash:%v", hex.EncodeToString(rawInvoice.RHash))
 				continue
 			}
 
 			processingError := svc.ProcessInvoiceUpdate(ctx, rawInvoice)
 			if processingError != nil && processingError != AlreadyProcessedKeysendError {
-				svc.Logger.Error(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
+				svc.Logger.Error().Msgf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash))
 				sentry.CaptureException(fmt.Errorf("Error %s, invoice hash %s", processingError.Error(), hex.EncodeToString(rawInvoice.RHash)))
 			}
 		}
