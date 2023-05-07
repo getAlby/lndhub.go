@@ -32,6 +32,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/rs/zerolog"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
 	"github.com/ziflex/lecho/v3"
@@ -131,6 +132,13 @@ func main() {
 	e.Use(middleware.RequestID())
 	e.Use(lecho.Middleware(lecho.Config{
 		Logger: logger,
+		Enricher: func(c echo.Context, logger zerolog.Context) zerolog.Context {
+			userId := c.Get("UserID")
+			if userId != nil {
+				return logger.Str("user_id", userId.(string))
+			}
+			return logger.Str("user_id", "")
+		},
 	}))
 
 	// Setup exception tracking with Sentry if configured
