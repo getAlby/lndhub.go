@@ -46,7 +46,7 @@ func init() {
 					--   Waiting would result in a deadlock because two parallel transactions could try to lock the same rows
 					--   NOWAIT reports an error rather than waiting for the lock to be released
 					--   This can happen when two transactions try to access the same account
-					FOR UPDATE;
+					FOR UPDATE NOWAIT;
 
 					-- If it is an incoming account return; otherwise check the balance
 					IF debit_account_type IS NULL

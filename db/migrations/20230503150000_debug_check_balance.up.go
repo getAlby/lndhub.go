@@ -53,9 +53,11 @@ func init() {
 					END IF;
 
 					-- Calculate the account balance
+					-- DEBUG: ADD SLEEP
 					SELECT INTO sum SUM(amount)
-					FROM account_ledgers
-					WHERE account_ledgers.account_id = NEW.debit_account_id;
+					FROM account_ledgers, pg_sleep(5)
+					WHERE account_ledgers.account_id = NEW.debit_account_id
+					;
 
 					-- IF the account would go negative raise an exception
 					IF sum < 0
