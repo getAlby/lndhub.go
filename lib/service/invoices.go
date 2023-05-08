@@ -207,15 +207,11 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 
 	// The DB constraints make sure the user actually has enough balance for the transaction
 	// If the user does not have enough balance this call fails
-	//debug
-	fmt.Println(time.Now(), invoice.Amount)
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
 		return nil, err
 	}
-	//debug
-	fmt.Println(time.Now(), invoice.Amount)
 
 	var paymentResponse SendPaymentResponse
 	// Check the destination pubkey if it is an internal invoice and going to our node
