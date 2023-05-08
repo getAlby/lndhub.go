@@ -14,8 +14,6 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 * No runtime dependencies (simple Go executable)
 * Extensible to add more features
 
-### Status: alpha
-
 ## Configuration
 
 All required configuration is done with environment variables and a `.env` file can be used.
