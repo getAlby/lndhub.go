@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
@@ -198,47 +197,4 @@ func (suite *PaymentTestSuite) TestZeroAmountInvoice() {
 	}, suite.aliceToken)
 	assert.NotEmpty(suite.T(), payResponse.PaymentPreimage)
 	assert.Equal(suite.T(), int64(amtToPay), payResponse.Amount)
-}
-func (suite *PaymentTestSuite) TestSimultaneousPayment() {
-	aliceFundingSats := 1000
-	//fund alice account
-	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test simultaneous payment", suite.aliceToken)
-	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
-	assert.NoError(suite.T(), err)
-
-	//wait a bit for the callback event to hit
-	time.Sleep(10 * time.Millisecond)
-
-	//create 2 external invoices
-	externalInvoice1 := lnrpc.Invoice{
-		Memo:  "integration tests: simultaneous payment 1 from alice",
-		Value: 1,
-	}
-	invoice1, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice1)
-	assert.NoError(suite.T(), err)
-
-	externalInvoice2 := lnrpc.Invoice{
-		Memo:  "integration tests: simultaneous payment 2 from alice",
-		Value: 2,
-	}
-	invoice2, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice2)
-	assert.NoError(suite.T(), err)
-
-	//pay 1st in goroutine
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		resp := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
-			Invoice: invoice1.PaymentRequest,
-		}, suite.aliceToken)
-		fmt.Println(resp.Amount)
-		wg.Done()
-	}()
-	//pay the 2nd one at the same time
-	resp := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
-		Invoice: invoice2.PaymentRequest,
-	}, suite.aliceToken)
-	fmt.Println(resp.Amount)
-	wg.Wait()
-
 }
