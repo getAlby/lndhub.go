@@ -101,7 +101,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 	}
 	getInfo, err := lndClientMock.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
-		logger.Fatalf("Error getting node info: %v", err)
+		logger.Fatal().Err(err).Msgf("Error getting node info: %v", err)
 	}
 	svc.IdentityPubkey = getInfo.IdentityPubkey
 

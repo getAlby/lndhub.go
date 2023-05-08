@@ -164,7 +164,7 @@ func main() {
 		CertHex:      c.LNDCertHex,
 	})
 	if err != nil {
-		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
+		logger.Fatal().Err(err).Msgf("Error initializing the LND connection: %v", err)
 	}
 	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
