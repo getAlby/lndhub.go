@@ -113,13 +113,16 @@ func (eclair *EclairClient) SendPaymentSync(ctx context.Context, req *lnrpc.Send
 	if resp.Type == "payment-failed" && len(resp.Failures) > 0 {
 		errString = resp.Failures[0].T
 	}
-	//todo sum all parts
+	totalFees := 0
+	for _, part := range resp.Parts {
+		totalFees += part.FeesPaid / 1000
+	}
 	return &lnrpc.SendResponse{
 		PaymentError:    errString,
 		PaymentPreimage: []byte(resp.PaymentPreimage),
 		PaymentRoute: &lnrpc.Route{
-			TotalFees: int64(resp.Parts[0].FeesPaid),
-			TotalAmt:  int64(resp.RecipientAmount) + int64(resp.Parts[0].FeesPaid),
+			TotalFees: int64(totalFees),
+			TotalAmt:  int64(resp.RecipientAmount)/1000 + int64(totalFees),
 		},
 		PaymentHash: []byte(resp.PaymentHash),
 	}, nil
