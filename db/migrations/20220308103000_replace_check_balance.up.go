@@ -34,7 +34,7 @@ func init() {
 					--   Waiting would result in a deadlock because two parallel transactions could try to lock the same rows
 					--   NOWAIT reports an error rather than waiting for the lock to be released
 					--   This can happen when two transactions try to access the same account
-					FOR UPDATE NOWAIT;
+					FOR UPDATE;
 
 					-- check if credit_account type is fees, if it's fees we don't check for negative balance constraint
 					SELECT INTO credit_account_type type
@@ -44,7 +44,7 @@ func init() {
 					--   Waiting would result in a deadlock because two parallel transactions could try to lock the same rows
 					--   NOWAIT reports an error rather than waiting for the lock to be released
 					--   This can happen when two transactions try to access the same account
-					FOR UPDATE NOWAIT;
+					FOR UPDATE;
 
 					-- If it is an debit incoming account or fees credit account return; otherwise check the balance
 					IF debit_account_type IS NULL OR credit_account_type IS NULL
