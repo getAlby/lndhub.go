@@ -150,13 +150,14 @@ func (suite *RabbitMQTestSuite) TestConsumeAndPublishInvoice() {
 
 	msg := <-m
 
-	var receivedInvoice models.Invoice
+	var receivedInvoice models.WebhookInvoicePayload
 	r := bytes.NewReader(msg.Body)
 	err = json.NewDecoder(r).Decode(&receivedInvoice)
 	assert.NoError(suite.T(), err)
 
 	assert.Equal(suite.T(), invoice.RHash, receivedInvoice.RHash)
 	assert.Equal(suite.T(), common.InvoiceTypeIncoming, receivedInvoice.Type)
+	assert.Equal(suite.T(), 1000, receivedInvoice.Balance)
 }
 
 func (suite *RabbitMQTestSuite) TestPublishInvoice() {

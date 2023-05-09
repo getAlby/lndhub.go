@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -51,29 +50,6 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 }
 
-type WebhookInvoicePayload struct {
-	ID                       int64             `json:"id"`
-	Type                     string            `json:"type"`
-	UserLogin                string            `json:"user_login"`
-	Amount                   int64             `json:"amount"`
-	Fee                      int64             `json:"fee"`
-	Balance                  int64             `json:"balance"`
-	Memo                     string            `json:"memo"`
-	DescriptionHash          string            `json:"description_hash,omitempty"`
-	PaymentRequest           string            `json:"payment_request"`
-	DestinationPubkeyHex     string            `json:"destination_pubkey_hex"`
-	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty"`
-	RHash                    string            `json:"r_hash"`
-	Preimage                 string            `json:"preimage"`
-	Keysend                  bool              `json:"keysend"`
-	State                    string            `json:"state"`
-	ErrorMessage             string            `json:"error_message,omitempty"`
-	CreatedAt                time.Time         `json:"created_at"`
-	ExpiresAt                time.Time         `json:"expires_at"`
-	UpdatedAt                time.Time         `json:"updated_at"`
-	SettledAt                time.Time         `json:"settled_at"`
-}
-
 func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
 	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
 	if err != nil {
@@ -104,8 +80,8 @@ func (svc *LndhubService) AddInvoiceMetadata(ctx context.Context, w io.Writer, i
 	return nil
 }
 
-func ConvertPayload(invoice models.Invoice, user *models.User, balance int64) (result WebhookInvoicePayload) {
-	return WebhookInvoicePayload{
+func ConvertPayload(invoice models.Invoice, user *models.User, balance int64) (result models.WebhookInvoicePayload) {
+	return models.WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,
 		UserLogin:                user.Login,
