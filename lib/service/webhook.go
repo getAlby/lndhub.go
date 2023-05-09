@@ -30,16 +30,8 @@ func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url stri
 	}
 }
 func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
-
-	//Look up the user's login to add it to the invoice
-	user, err := svc.FindUser(context.Background(), invoice.UserID)
-	if err != nil {
-		svc.Logger.Error(err)
-		return
-	}
-
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(ConvertPayload(invoice, user))
+	err := svc.EncodeInvoiceWithUserLogin(context.Background(), payload, invoice)
 	if err != nil {
 		svc.Logger.Error(err)
 		return
@@ -65,6 +57,7 @@ type WebhookInvoicePayload struct {
 	UserLogin                string            `json:"user_login"`
 	Amount                   int64             `json:"amount"`
 	Fee                      int64             `json:"fee"`
+	Balance                  int64             `json:"balance"`
 	Memo                     string            `json:"memo"`
 	DescriptionHash          string            `json:"description_hash,omitempty"`
 	PaymentRequest           string            `json:"payment_request"`
@@ -99,7 +92,11 @@ func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.W
 		return err
 	}
 
-	err = json.NewEncoder(w).Encode(ConvertPayload(invoice, user))
+	balance, err := svc.CurrentUserBalance(ctx, invoice.UserID)
+	if err != nil {
+		return err
+	}
+	err = json.NewEncoder(w).Encode(ConvertPayload(invoice, user, balance))
 	if err != nil {
 		return err
 	}
@@ -107,13 +104,14 @@ func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.W
 	return nil
 }
 
-func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
+func ConvertPayload(invoice models.Invoice, user *models.User, balance int64) (result WebhookInvoicePayload) {
 	return WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,
 		UserLogin:                user.Login,
 		Amount:                   invoice.Amount,
 		Fee:                      invoice.Fee,
+		Balance:                  balance,
 		Memo:                     invoice.Memo,
 		DescriptionHash:          invoice.DescriptionHash,
 		PaymentRequest:           invoice.PaymentRequest,
