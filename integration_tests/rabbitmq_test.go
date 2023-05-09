@@ -157,7 +157,7 @@ func (suite *RabbitMQTestSuite) TestConsumeAndPublishInvoice() {
 
 	assert.Equal(suite.T(), invoice.RHash, receivedInvoice.RHash)
 	assert.Equal(suite.T(), common.InvoiceTypeIncoming, receivedInvoice.Type)
-	assert.Equal(suite.T(), 1000, receivedInvoice.Balance)
+	assert.Equal(suite.T(), int64(1000), receivedInvoice.Balance)
 }
 
 func (suite *RabbitMQTestSuite) TestPublishInvoice() {
