@@ -68,7 +68,7 @@ func (suite *RabbitMQTestSuite) SetupSuite() {
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.svc).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.svc).PayInvoice)
 	go func() {
-		err = svc.RabbitMQClient.StartPublishInvoices(ctx, svc.SubscribeIncomingOutgoingInvoices, svc.EncodeInvoiceWithUserLogin)
+		err = svc.RabbitMQClient.StartPublishInvoices(ctx, svc.SubscribeIncomingOutgoingInvoices, svc.AddInvoiceMetadata)
 		assert.NoError(suite.T(), err)
 	}()
 }

@@ -251,7 +251,7 @@ func main() {
 		go func() {
 			err = svc.RabbitMQClient.StartPublishInvoices(backGroundCtx,
 				svc.SubscribeIncomingOutgoingInvoices,
-				svc.EncodeInvoiceWithUserLogin,
+				svc.AddInvoiceMetadata,
 			)
 			if err != nil {
 				svc.Logger.Error(err)

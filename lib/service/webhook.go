@@ -31,7 +31,7 @@ func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url stri
 }
 func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	payload := new(bytes.Buffer)
-	err := svc.EncodeInvoiceWithUserLogin(context.Background(), payload, invoice)
+	err := svc.AddInvoiceMetadata(context.Background(), payload, invoice)
 	if err != nil {
 		svc.Logger.Error(err)
 		return
@@ -86,7 +86,7 @@ func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoin
 	return incomingInvoices, outgoingInvoices, nil
 }
 
-func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.Writer, invoice models.Invoice) error {
+func (svc *LndhubService) AddInvoiceMetadata(ctx context.Context, w io.Writer, invoice models.Invoice) error {
 	user, err := svc.FindUser(ctx, invoice.UserID)
 	if err != nil {
 		return err
