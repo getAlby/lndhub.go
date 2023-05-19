@@ -125,7 +125,7 @@ func main() {
 	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(c.DefaultRateLimit)))
 
 	e.Logger = logger
 	e.Use(middleware.RequestID())
@@ -308,6 +308,13 @@ func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
 	config := middleware.RateLimiterMemoryStoreConfig{
 		Rate:  rate.Every(time.Duration(seconds) * time.Second),
 		Burst: burst,
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			identifier := ctx.get("UserID").(int64)
+			if(identifier == 0) {
+				identifer = ctx.RealIP();
+			} 
+			return identifier, nil
+		},
 	}
 	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
 }
