@@ -41,8 +41,8 @@ vim .env # edit your config
 + `HOST`: (default: "localhost:3000") Host the app should listen on
 + `PORT`: (default: 3000) Port the app should listen on
 + `DEFAULT_RATE_LIMIT`: (default: 10) Requests per second rate limit
-+ `STRICT_RATE_LIMIT`: (default: 10) Requests per burst rate limit (e.g. 1 request each 10 seconds)
-+ `BURST_RATE_LIMIT`: (default: 1) Rate limit burst
++ `STRICT_RATE_LIMIT`: (default: 10) Requests per second rate limit for resource-intensive APIs (e.g. sending a payment)
++ `BURST_RATE_LIMIT`: (default: 1) Specifies the maximum number of requests that can pass at the same moment
 + `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
 + `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
