@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"time"
 
@@ -312,12 +313,11 @@ func createRateLimitMiddleware(requestsPerSecond int, burst int) echo.Middleware
 			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(requestsPerSecond), Burst: burst},
 		),
 		IdentifierExtractor: func(ctx echo.Context) (string, error) {
-			userId := ctx.Get("UserID").(string)
-			var id string
-			if userId != "" {
-				id = userId
-			} else {
-				id = ctx.RealIP()
+			userId := ctx.Get("UserID")
+			id := ctx.RealIP()
+			if userId != nil {
+				userIdAsInt64 := ctx.Get("UserID").(int64)
+				id = strconv.FormatInt(userIdAsInt64, 10)
 			}
 
 			fmt.Printf("Current ID for rate limiting %v\n", id)
