@@ -307,11 +307,26 @@ func main() {
 }
 
 func createRateLimitMiddleware(requestsPerSecond int, burst int) echo.MiddlewareFunc {
-	config := middleware.RateLimiterMemoryStoreConfig{
-		Rate:  rate.Limit(requestsPerSecond),
-		Burst: burst,
+	config := middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(requestsPerSecond), Burst: burst},
+		),
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			userId := ctx.Get("UserID").(string)
+			var id string
+			if userId != "" {
+				id = userId
+			} else {
+				id = ctx.RealIP()
+			}
+
+			fmt.Printf("Current ID for rate limiting %v\n", id)
+
+			return id, nil
+		},
 	}
-	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
+
+	return middleware.RateLimiterWithConfig(config)
 }
 
 func createCacheClient() *cache.Client {
