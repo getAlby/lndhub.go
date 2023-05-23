@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"time"
 
@@ -125,7 +126,8 @@ func main() {
 	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
+	// set the default rate limit defining the overal max requests/second
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
 
 	e.Logger = logger
 	e.Use(middleware.RequestID())
@@ -184,8 +186,9 @@ func main() {
 		InvoicePubSub:  service.NewPubsub(),
 	}
 
+	// strict rate limit for requests for sending payments
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
+	secured := e.Group("", tokens.Middleware(c.JWTSecret))
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
 
 	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
@@ -304,12 +307,24 @@ func main() {
 	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
 }
 
-func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
-	config := middleware.RateLimiterMemoryStoreConfig{
-		Rate:  rate.Every(time.Duration(seconds) * time.Second),
-		Burst: burst,
+func createRateLimitMiddleware(requestsPerSecond int, burst int) echo.MiddlewareFunc {
+	config := middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(requestsPerSecond), Burst: burst},
+		),
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			userId := ctx.Get("UserID")
+			id := ctx.RealIP()
+			if userId != nil {
+				userIdAsInt64 := ctx.Get("UserID").(int64)
+				id = strconv.FormatInt(userIdAsInt64, 10)
+			}
+
+			return id, nil
+		},
 	}
-	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
+
+	return middleware.RateLimiterWithConfig(config)
 }
 
 func createCacheClient() *cache.Client {
