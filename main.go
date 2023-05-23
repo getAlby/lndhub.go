@@ -222,14 +222,14 @@ func main() {
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
 				sentry.CaptureException(err)
-				svc.Logger.Fatal().Err(err)
+				svc.Logger.Fatal().Err(err).Msg("")
 			}
 
 		case "grpc":
 			err = svc.InvoiceUpdateSubscription(backGroundCtx)
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
-				svc.Logger.Fatal().Err(err)
+				svc.Logger.Fatal().Err(err).Msg("")
 			}
 
 		default:
@@ -246,7 +246,7 @@ func main() {
 	go func() {
 		err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
 		if err != nil {
-			svc.Logger.Error().Err(err)
+			svc.Logger.Error().Err(err).Msg("")
 		}
 		svc.Logger.Info().Msg("Pending payment check routines done")
 		backgroundWg.Done()
@@ -270,7 +270,7 @@ func main() {
 				svc.EncodeInvoiceWithUserLogin,
 			)
 			if err != nil {
-				svc.Logger.Error().Err(err)
+				svc.Logger.Error().Err(err).Msg("")
 				sentry.CaptureException(err)
 			}
 

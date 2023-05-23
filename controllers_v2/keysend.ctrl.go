@@ -172,7 +172,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		controller.svc.Logger.Error().Err(err)
+		controller.svc.Logger.Error().Err(err).Msg("")
 		return nil, &responses.GeneralServerError
 	}
 	if !ok {
@@ -181,7 +181,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
-		controller.svc.Logger.Error().Err(err)
+		controller.svc.Logger.Error().Err(err).Msg("")
 		return nil, &responses.GeneralServerError
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {

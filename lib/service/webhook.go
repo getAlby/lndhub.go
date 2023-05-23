@@ -16,7 +16,7 @@ func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url stri
 	svc.Logger.Info().Msgf("Starting webhook subscription with webhook url %s", svc.Config.WebhookUrl)
 	incomingInvoices, outgoingInvoices, err := svc.SubscribeIncomingOutgoingInvoices()
 	if err != nil {
-		svc.Logger.Error().Err(err)
+		svc.Logger.Error().Err(err).Msg("")
 	}
 	for {
 		select {
@@ -34,26 +34,26 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	//Look up the user's login to add it to the invoice
 	user, err := svc.FindUser(context.Background(), invoice.UserID)
 	if err != nil {
-		svc.Logger.Error().Err(err)
+		svc.Logger.Error().Err(err).Msg("")
 		return
 	}
 
 	payload := new(bytes.Buffer)
 	err = json.NewEncoder(payload).Encode(ConvertPayload(invoice, user))
 	if err != nil {
-		svc.Logger.Error().Err(err)
+		svc.Logger.Error().Err(err).Msg("")
 		return
 	}
 
 	resp, err := http.Post(svc.Config.WebhookUrl, "application/json", payload)
 	if err != nil {
-		svc.Logger.Error().Err(err)
+		svc.Logger.Error().Err(err).Msg("")
 		return
 	}
 	if resp.StatusCode != http.StatusOK {
 		msg, err := io.ReadAll(resp.Body)
 		if err != nil {
-			svc.Logger.Error().Err(err)
+			svc.Logger.Error().Err(err).Msg("")
 		}
 		svc.Logger.Error().Err(err).Msgf("Webhook status code was %d, body: %s", resp.StatusCode, msg)
 	}

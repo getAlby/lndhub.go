@@ -11,9 +11,9 @@ import (
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/rs/zerolog"
 )
 
 // bufPool is a classic buffer pool pattern that allows more clever reuse of heap memory.
@@ -314,6 +314,6 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 }
 
 func captureErr(logger zerolog.Logger, err error) {
-	logger.Error().Err(err)
+	logger.Error().Err(err).Msg("")
 	sentry.CaptureException(err)
 }
