@@ -132,9 +132,9 @@ func main() {
 		LogURI:    true,
 		LogStatus: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			userId := c.Get("UserID").(int64)
 			logger.Info().
 				Str("URI", v.URI).
+				Str("Method", v.Method).
 				Int("status", v.Status).
 				Str("request_id", v.RequestID).
 				Int("status", v.Status).
@@ -142,8 +142,8 @@ func main() {
 				Int("duration", int(v.Latency)).
 				Str("referrer", v.Referer).
 				Str("user_agent", v.UserAgent).
-				Int64("user_id", userId).
-				Msgf("%s %s", v.Method, v.URI)
+				Interface("user_id", c.Get("UserID")).
+				Msg("")
 
 			return nil
 		},
