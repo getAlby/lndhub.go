@@ -320,8 +320,6 @@ func createRateLimitMiddleware(requestsPerSecond int, burst int) echo.Middleware
 				id = strconv.FormatInt(userIdAsInt64, 10)
 			}
 
-			fmt.Printf("Current ID for rate limiting %v\n", id)
-
 			return id, nil
 		},
 	}
