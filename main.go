@@ -291,9 +291,10 @@ func main() {
 		// Setup metrics endpoint at another server
 		prom.SetMetricsPath(echoPrometheus)
 		go func() {
-			//echoPrometheus.Logger = logger
-			//echoPrometheus.Logger.Infof("Starting prometheus on port %d", svc.Config.PrometheusPort)
-			//echoPrometheus.Logger.Fatal(echoPrometheus.Start(fmt.Sprintf(":%d", svc.Config.PrometheusPort)))
+			echoPrometheus.Logger.Infof("Starting prometheus on port %d", svc.Config.PrometheusPort)
+			if err := echoPrometheus.Start(fmt.Sprintf(":%v", c.PrometheusPort)); err != nil && err != http.ErrServerClosed {
+				e.Logger.Fatalf("shutting down the prometheus server %v", err)
+			}
 		}()
 	}
 
