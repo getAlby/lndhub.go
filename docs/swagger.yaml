@@ -34,8 +34,6 @@ definitions:
         type: string
       description_hash:
         type: string
-    required:
-    - amount
     type: object
   v2controllers.AddInvoiceResponseBody:
     properties:
@@ -114,6 +112,10 @@ definitions:
     properties:
       amount:
         type: integer
+      custom_records:
+        additionalProperties:
+          type: string
+        type: object
       customRecords:
         additionalProperties:
           type: string
@@ -130,6 +132,10 @@ definitions:
     properties:
       amount:
         type: integer
+      custom_records:
+        additionalProperties:
+          type: string
+        type: object
       description:
         type: string
       description_hash:
@@ -193,6 +199,28 @@ definitions:
       payment_request:
         type: string
     type: object
+  v2controllers.UpdateUserRequestBody:
+    properties:
+      deactivated:
+        type: boolean
+      id:
+        type: integer
+      login:
+        type: string
+      password:
+        type: string
+    required:
+    - id
+    type: object
+  v2controllers.UpdateUserResponseBody:
+    properties:
+      deactivated:
+        type: boolean
+      id:
+        type: integer
+      login:
+        type: string
+    type: object
 info:
   contact:
     email: hello@getalby.com
@@ -233,6 +261,36 @@ paths:
           schema:
             $ref: '#/definitions/responses.ErrorResponse'
       summary: Authenticate
+      tags:
+      - Account
+  /v2/admin/users:
+    put:
+      consumes:
+      - application/json
+      description: Update an account with a new a login, password and activation status.
+        Requires Authorization header with admin token.
+      parameters:
+      - description: Update User
+        in: body
+        name: account
+        schema:
+          $ref: '#/definitions/v2controllers.UpdateUserRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v2controllers.UpdateUserResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      summary: Update an account
       tags:
       - Account
   /v2/balance:

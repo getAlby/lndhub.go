@@ -73,6 +73,34 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 	return user, err
 }
 
+func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *string, password *string, deactivated *bool) (user *models.User, err error) {
+	user, err = svc.FindUser(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	if login != nil {
+		user.Login = *login
+	}
+	if password != nil {
+		if svc.Config.MinPasswordEntropy > 0 {
+			entropy := passwordvalidator.GetEntropy(*password)
+			if entropy < float64(svc.Config.MinPasswordEntropy) {
+				return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
+			}
+		}
+		hashedPassword := security.HashPassword(*password)
+		user.Password = hashedPassword
+	}
+	if deactivated != nil {
+		user.Deactivated = *deactivated
+	}
+	_, err = svc.DB.NewUpdate().Model(user).WherePK().Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 func (svc *LndhubService) FindUser(ctx context.Context, userId int64) (*models.User, error) {
 	var user models.User
 

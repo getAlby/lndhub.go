@@ -1,0 +1,1 @@
+alter table users add column deactivated boolean default false;
