@@ -101,9 +101,9 @@ func (suite *CreateUserTestSuite) TestAdminUpdate() {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
-	//get login, pw and id
+	//get id
 	createUserResponse := &v2controllers.CreateUserResponseBody{}
-	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&createUserResponse))
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(createUserResponse))
 	//update user with new password, login
 	var buf bytes.Buffer
 	newLogin := "new login"
@@ -120,12 +120,53 @@ func (suite *CreateUserTestSuite) TestAdminUpdate() {
 	e.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	//check if user can fetch auth token with new login/pw
-	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
-		Login:    newLogin,
-		Password: newPw,
-	}))
+	rec = fetchToken(suite.T(), newLogin, newPw, e)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	//deactivate user
-	//check that user can no longer fetch an admin token and the correct error message is shown
+	deactivated := true
+	json.NewEncoder(&buf).Encode(&v2controllers.UpdateUserRequestBody{
+		ID:          createUserResponse.ID,
+		Deactivated: &deactivated,
+	})
+	req = httptest.NewRequest(http.MethodPut, "/update", &buf)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adminToken))
+	req.Header.Set("Content-type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	//check that user can no longer fetch a token and the correct error message is shown
+	rec = fetchToken(suite.T(), newLogin, newPw, e)
+	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
+	errorResp := &responses.ErrorResponse{}
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(errorResp))
+	assert.Equal(suite.T(), responses.AccountDeactivatedError.Message, errorResp.Message)
+	//reactivate user
+	deactivated = false
+	json.NewEncoder(&buf).Encode(&v2controllers.UpdateUserRequestBody{
+		ID:          createUserResponse.ID,
+		Deactivated: &deactivated,
+	})
+	req = httptest.NewRequest(http.MethodPut, "/update", &buf)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adminToken))
+	req.Header.Set("Content-type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+	//check that user can fetch a token again
+	rec = fetchToken(suite.T(), newLogin, newPw, e)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+}
+
+func fetchToken(t *testing.T, login, pw string, e *echo.Echo) (rec *httptest.ResponseRecorder) {
+	rec = httptest.NewRecorder()
+	var authBuf bytes.Buffer
+	assert.NoError(t, json.NewEncoder(&authBuf).Encode(&ExpectedAuthRequestBody{
+		Login:    login,
+		Password: pw,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/auth", &authBuf)
+	req.Header.Set("Content-type", "application/json")
+	e.ServeHTTP(rec, req)
+	return rec
 }
 
 func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {

@@ -64,6 +64,13 @@ var NotEnoughBalanceError = ErrorResponse{
 	HttpStatusCode: 400,
 }
 
+var AccountDeactivatedError = ErrorResponse{
+	Error:          true,
+	Code:           1,
+	Message:        "Account has been suspended. Please contact support for further assistance.",
+	HttpStatusCode: 401,
+}
+
 func HTTPErrorHandler(err error, c echo.Context) {
 	if c.Response().Committed {
 		return
