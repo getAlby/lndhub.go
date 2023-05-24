@@ -20,13 +20,13 @@ func NewUpdateUserController(svc *service.LndhubService) *UpdateUserController {
 type UpdateUserResponseBody struct {
 	Login       string `json:"login"`
 	Deactivated bool   `json:"deactivated"`
-	ID          int64  `json:"id" validate:"required"`
+	ID          int64  `json:"id"`
 }
 type UpdateUserRequestBody struct {
 	Login       *string `json:"login,omitempty"`
 	Password    *string `json:"password,omitempty"`
 	Deactivated *bool   `json:"deactivated,omitempty"`
-	ID          int64   `json:"id"`
+	ID          int64   `json:"id" validate:"required"`
 }
 
 // UpdateUser godoc

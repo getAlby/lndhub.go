@@ -89,17 +89,41 @@ func (suite *CreateUserTestSuite) TestAdminUpdate() {
 	e := echo.New()
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-	controller := controllers.NewCreateUserController(suite.Service)
+	createController := v2controllers.NewCreateUserController(suite.Service)
 	updateController := v2controllers.NewUpdateUserController(suite.Service)
-	e.POST("/create", controller.CreateUser, tokens.AdminTokenMiddleware(adminToken))
-	e.POST("/update", updateController.UpdateUser, tokens.AdminTokenMiddleware(adminToken))
+	authController := controllers.NewAuthController(suite.Service)
+	e.POST("/create", createController.CreateUser, tokens.AdminTokenMiddleware(adminToken))
+	e.PUT("/update", updateController.UpdateUser, tokens.AdminTokenMiddleware(adminToken))
+	e.POST("/auth", authController.Auth)
 	req := httptest.NewRequest(http.MethodPost, "/create", bytes.NewReader([]byte{}))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adminToken))
+	req.Header.Set("Content-type", "application/json")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	//get login, pw and id
+	createUserResponse := &v2controllers.CreateUserResponseBody{}
+	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&createUserResponse))
 	//update user with new password, login
+	var buf bytes.Buffer
+	newLogin := "new login"
+	newPw := "new password"
+	json.NewEncoder(&buf).Encode(&v2controllers.UpdateUserRequestBody{
+		ID:       createUserResponse.ID,
+		Login:    &newLogin,
+		Password: &newPw,
+	})
+	req = httptest.NewRequest(http.MethodPut, "/update", &buf)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adminToken))
+	req.Header.Set("Content-type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	//check if user can fetch auth token with new login/pw
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
+		Login:    newLogin,
+		Password: newPw,
+	}))
 	//deactivate user
 	//check that user can no longer fetch an admin token and the correct error message is shown
 }
