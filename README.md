@@ -6,6 +6,7 @@ Wrapper for Lightning Network Daemon (lnd) ⚡
 
 It provides separate accounts for end users.
 Live deployment at [ln.getalby.com](https://ln.getalby.com).
+[API documentation](https://ln.getalby.com/swagger/index.html
 
 ### [LndHub](https://github.com/BlueWallet/LndHub) compatible API implemented in Go using relational database backends
 
