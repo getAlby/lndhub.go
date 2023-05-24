@@ -31,7 +31,7 @@ type UpdateUserRequestBody struct {
 
 // UpdateUser godoc
 // @Summary      Update an account
-// @Description  Update an account with a new a login, password and activation status
+// @Description  Update an account with a new a login, password and activation status. Requires Authorization header with admin token.
 // @Accept       json
 // @Produce      json
 // @Tags         Account

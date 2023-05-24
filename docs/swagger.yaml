@@ -267,7 +267,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an account with a new a login, password and activation status
+      description: Update an account with a new a login, password and activation status.
+        Requires Authorization header with admin token.
       parameters:
       - description: Update User
         in: body
@@ -534,7 +535,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new account with a login and password
+      description: Create a new account with a login and password.
       parameters:
       - description: Create User
         in: body

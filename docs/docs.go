@@ -71,7 +71,7 @@ const docTemplate = `{
         },
         "/v2/admin/users": {
             "put": {
-                "description": "Update an account with a new a login, password and activation status",
+                "description": "Update an account with a new a login, password and activation status. Requires Authorization header with admin token.",
                 "consumes": [
                     "application/json"
                 ],
@@ -495,7 +495,7 @@ const docTemplate = `{
         },
         "/v2/users": {
             "post": {
-                "description": "Create a new account with a login and password",
+                "description": "Create a new account with a login and password.",
                 "consumes": [
                     "application/json"
                 ],
