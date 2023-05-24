@@ -29,7 +29,7 @@ type CreateUserRequestBody struct {
 
 // CreateUser godoc
 // @Summary      Create an account
-// @Description  Create a new account with a login and password
+// @Description  Create a new account with a login and password. Requires Authorization header with admin token.
 // @Accept       json
 // @Produce      json
 // @Tags         Account

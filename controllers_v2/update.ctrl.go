@@ -39,7 +39,7 @@ type UpdateUserRequestBody struct {
 // @Success      200      {object}  UpdateUserResponseBody
 // @Failure      400      {object}  responses.ErrorResponse
 // @Failure      500      {object}  responses.ErrorResponse
-// @Router       /admin/users [put]
+// @Router       /v2/admin/users [put]
 func (controller *UpdateUserController) UpdateUser(c echo.Context) error {
 
 	var body UpdateUserRequestBody
