@@ -495,7 +495,7 @@ const docTemplate = `{
         },
         "/v2/users": {
             "post": {
-                "description": "Create a new account with a login and password.",
+                "description": "Create a new account with a login and password",
                 "consumes": [
                     "application/json"
                 ],

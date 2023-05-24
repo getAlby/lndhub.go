@@ -535,7 +535,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new account with a login and password.
+      description: Create a new account with a login and password
       parameters:
       - description: Create User
         in: body
