@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/getAlby/lndhub.go/controllers"
+	v2controllers "github.com/getAlby/lndhub.go/controllers_v2"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -82,6 +83,25 @@ func (suite *CreateUserTestSuite) TestAdminCreate() {
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+}
+func (suite *CreateUserTestSuite) TestAdminUpdate() {
+	adminToken := "admin_token"
+	e := echo.New()
+	e.HTTPErrorHandler = responses.HTTPErrorHandler
+	e.Validator = &lib.CustomValidator{Validator: validator.New()}
+	controller := controllers.NewCreateUserController(suite.Service)
+	updateController := v2controllers.NewUpdateUserController(suite.Service)
+	e.POST("/create", controller.CreateUser, tokens.AdminTokenMiddleware(adminToken))
+	e.POST("/update", updateController.UpdateUser, tokens.AdminTokenMiddleware(adminToken))
+	req := httptest.NewRequest(http.MethodPost, "/create", bytes.NewReader([]byte{}))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adminToken))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	//get login, pw and id
+	//update user with new password, login
+	//check if user can fetch auth token with new login/pw
+	//deactivate user
+	//check that user can no longer fetch an admin token and the correct error message is shown
 }
 
 func (suite *CreateUserTestSuite) TestCreateWithProvidedLoginAndPassword() {
