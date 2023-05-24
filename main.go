@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	"github.com/rs/zerolog"
 
 	cache "github.com/SporkHubr/echo-http-cache"
 	"github.com/SporkHubr/echo-http-cache/adapter/memory"
@@ -131,9 +132,6 @@ func main() {
 
 	e.Logger = logger
 	e.Use(middleware.RequestID())
-	e.Use(lecho.Middleware(lecho.Config{
-		Logger: logger,
-	}))
 
 	// Setup exception tracking with Sentry if configured
 	// sentry init needs to happen before the echo middlewares are added
@@ -186,13 +184,14 @@ func main() {
 		InvoicePubSub:  service.NewPubsub(),
 	}
 
+	logMw := createLoggingMiddleware(logger)
 	// strict rate limit for requests for sending payments
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret))
-	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
+	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 
-	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
-	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
+	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
+	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host
@@ -305,6 +304,15 @@ func main() {
 	//Wait for graceful shutdown of background routines
 	backgroundWg.Wait()
 	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
+}
+
+func createLoggingMiddleware(logger *lecho.Logger) echo.MiddlewareFunc {
+	return lecho.Middleware(lecho.Config{
+		Logger: logger,
+		Enricher: func(c echo.Context, logger zerolog.Context) zerolog.Context {
+			return logger.Interface("UserID", c.Get("UserID"))
+		},
+	})
 }
 
 func createRateLimitMiddleware(requestsPerSecond int, burst int) echo.MiddlewareFunc {
