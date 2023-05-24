@@ -68,6 +68,9 @@ func (controller *AuthController) Auth(c echo.Context) error {
 
 	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
 	if err != nil {
+		if err.Error() == responses.AccountDeactivatedError.Message {
+			return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
+		}
 		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
 
