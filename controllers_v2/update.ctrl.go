@@ -61,6 +61,7 @@ func (controller *UpdateUserController) UpdateUser(c echo.Context) error {
 	var ResponseBody UpdateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Deactivated = user.Deactivated
+	ResponseBody.ID = user.ID
 
 	return c.JSON(http.StatusOK, &ResponseBody)
 }
