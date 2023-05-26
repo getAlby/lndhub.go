@@ -39,6 +39,7 @@ type (
 type Client interface {
 	SubscribeToLndInvoices(context.Context, IncomingInvoiceHandler) error
 	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeOutgoingInvoiceFunc) error
+	PublishToLndhubExchange(ctx context.Context, invoice models.Invoice, payloadFunc EncodeOutgoingInvoiceFunc) error
 	// Close will close all connections to rabbitmq
 	Close() error
 }
@@ -274,13 +275,13 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 		case <-ctx.Done():
 			return context.Canceled
 		case incomingInvoice := <-in:
-			err = client.publishToLndhubExchange(ctx, incomingInvoice, payloadFunc)
+			err = client.PublishToLndhubExchange(ctx, incomingInvoice, payloadFunc)
 
 			if err != nil {
 				captureErr(client.logger, err)
 			}
 		case outgoing := <-out:
-			err = client.publishToLndhubExchange(ctx, outgoing, payloadFunc)
+			err = client.PublishToLndhubExchange(ctx, outgoing, payloadFunc)
 
 			if err != nil {
 				captureErr(client.logger, err)
@@ -289,7 +290,7 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 	}
 }
 
-func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoice models.Invoice, payloadFunc EncodeOutgoingInvoiceFunc) error {
+func (client *DefaultClient) PublishToLndhubExchange(ctx context.Context, invoice models.Invoice, payloadFunc EncodeOutgoingInvoiceFunc) error {
 	payload := bufPool.Get().(*bytes.Buffer)
 	err := payloadFunc(ctx, payload, invoice)
 	if err != nil {
