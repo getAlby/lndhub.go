@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
@@ -39,12 +41,21 @@ type (
 type Client interface {
 	SubscribeToLndInvoices(context.Context, IncomingInvoiceHandler) error
 	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeOutgoingInvoiceFunc) error
+	FinalizeInitializedPayments(context.Context) error
 	// Close will close all connections to rabbitmq
 	Close() error
 }
 
+type LndHubService interface {
+	HandleFailedPayment(context.Context, *models.Invoice, models.TransactionEntry, error) error
+	HandleSuccessfulPayment(context.Context, *models.Invoice, models.TransactionEntry) error
+	GetAllPendingPayments(context.Context) ([]models.Invoice, error)
+	GetTransactionEntryByInvoiceId(context.Context, int64) (models.TransactionEntry, error)
+}
+
 type DefaultClient struct {
-	conn *amqp.Connection
+	conn          *amqp.Connection
+	lndHubService LndHubService
 
 	// It is recommended that, when possible, publishers and consumers
 	// use separate connections so that consumers are isolated from potential
@@ -55,7 +66,9 @@ type DefaultClient struct {
 	logger *lecho.Logger
 
 	lndInvoiceConsumerQueueName string
+	lndPaymentConsumerQueueName string
 	lndInvoiceExchange          string
+	lndPaymentExchange          string
 	lndHubInvoiceExchange       string
 }
 
@@ -82,6 +95,12 @@ func WithLndInvoiceConsumerQueueName(name string) ClientOption {
 func WithLogger(logger *lecho.Logger) ClientOption {
 	return func(client *DefaultClient) {
 		client.logger = logger
+	}
+}
+
+func WithLndHubService(svc LndHubService) ClientOption {
+	return func(client *DefaultClient) {
+		client.lndHubService = svc
 	}
 }
 
@@ -127,6 +146,171 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 }
 
 func (client *DefaultClient) Close() error { return client.conn.Close() }
+
+func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context) error {
+	// Sanity check
+	if client.lndHubService == nil {
+		return errors.New("no LndHubService provided to rabbitmqClient")
+	}
+
+	err := client.publishChannel.ExchangeDeclare(
+		client.lndPaymentExchange,
+		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
+		"topic",
+		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
+		// declared when there are no remaining bindings.
+		true,
+		false,
+		// Non-Internal exchange's accept direct publishing
+		false,
+		// Nowait: We set this to false as we want to wait for a server response
+		// to check whether the exchange was created succesfully
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	queue, err := client.consumeChannel.QueueDeclare(
+		client.lndPaymentConsumerQueueName,
+		// Durable and Non-Auto-Deleted queues will survive server restarts and remain
+		// declared when there are no remaining bindings.
+		true,
+		false,
+		// None-Exclusive means other consumers can consume from this queue.
+		// Messages from queues are spread out and load balanced between consumers.
+		// So multiple lndhub.go instances will spread the load of invoices between them
+		false,
+		// Nowait: We set this to false as we want to wait for a server response
+		// to check whether the queue was created successfully
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	err = client.consumeChannel.QueueBind(
+		queue.Name,
+		"payment.outgoing.#",
+		client.lndPaymentExchange,
+		// Nowait: We set this to false as we want to wait for a server response
+		// to check whether the queue was created successfully
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	deliveryChan, err := client.consumeChannel.Consume(
+		queue.Name,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	getInvoicesTable := func(ctx context.Context) (map[string]models.Invoice, error) {
+		invoicesByHash := map[string]models.Invoice{}
+		pendingInvoices, err := client.lndHubService.GetAllPendingPayments(ctx)
+
+		if err != nil {
+			return invoicesByHash, err
+		}
+
+		for _, invoice := range pendingInvoices {
+			invoicesByHash[invoice.RHash] = invoice
+		}
+		return invoicesByHash, nil
+	}
+
+	pendingInvoices, err := getInvoicesTable(ctx)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case delivery, ok := <-deliveryChan:
+			// Shortcircuit if no pending invoices are left
+			if len(pendingInvoices) == 0 {
+				break
+			}
+
+			if !ok {
+				return err
+			}
+
+			payment := lnrpc.Payment{}
+
+			err := json.Unmarshal(delivery.Body, &payment)
+			if err != nil {
+				delivery.Nack(false, false)
+
+				continue
+			}
+
+			ticker := time.NewTicker(time.Hour)
+			defer ticker.Stop()
+
+			// Check if paymentHash corresponds to one of the pending invoices
+			if invoice, ok := pendingInvoices[payment.PaymentHash]; ok == true {
+				switch payment.Status {
+				case lnrpc.Payment_SUCCEEDED:
+					t, err := client.lndHubService.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
+					if err != nil {
+						delivery.Nack(false, true)
+
+						continue
+					}
+
+					if err = client.lndHubService.HandleSuccessfulPayment(ctx, &invoice, t); err != nil {
+						delivery.Nack(false, true)
+
+						continue
+					}
+
+				case lnrpc.Payment_FAILED:
+					t, err := client.lndHubService.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
+					if err != nil {
+						delivery.Nack(false, true)
+
+						continue
+					}
+
+					if err = client.lndHubService.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf(payment.FailureReason.String())); err != nil {
+						delivery.Nack(false, true)
+
+						continue
+					}
+				}
+			}
+
+            // Refresh the pending invoice table after each tick
+			select {
+			case <-ticker.C:
+				invoices, err := getInvoicesTable(ctx)
+				pendingInvoices = invoices
+                if err != nil {
+                    return err
+                }
+			}
+
+			delivery.Ack(false)
+		}
+
+		return nil
+	}
+}
 
 func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler IncomingInvoiceHandler) error {
 	err := client.publishChannel.ExchangeDeclare(

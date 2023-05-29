@@ -46,6 +46,7 @@ type Config struct {
 	RabbitMQLndInvoiceExchange       string  `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
 	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
 	SubscriptionConsumerType         string  `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`
+	FinalizePendingPaymentsWith      string  `envconfig:"FINALIZE_PAYMENTS_WITH" default:"native"`
 	Branding                         BrandingConfig
 }
 
