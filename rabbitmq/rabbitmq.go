@@ -53,14 +53,7 @@ type LndHubService interface {
 }
 
 type DefaultClient struct {
-	conn *amqp.Connection
-
-	// It is recommended that, when possible, publishers and consumers
-	// use separate connections so that consumers are isolated from potential
-	// flow control measures that may be applied to publishing connections.
-	consumeChannel *amqp.Channel
-	publishChannel *amqp.Channel
-
+    amqpClient AMQPClient
 	logger *lecho.Logger
 
 	lndInvoiceConsumerQueueName string
@@ -109,27 +102,9 @@ func WithLogger(logger *lecho.Logger) ClientOption {
 }
 
 // Dial sets up a connection to rabbitmq with two channels that are ready to produce and consume
-func Dial(uri string, options ...ClientOption) (Client, error) {
-	conn, err := amqp.Dial(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	consumeChannel, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-
-	produceChannel, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-
+func NewClient(amqpClient AMQPClient, options ...ClientOption) (Client, error) {
 	client := &DefaultClient{
-		conn: conn,
-
-		consumeChannel: consumeChannel,
-		publishChannel: produceChannel,
+        amqpClient: amqpClient,
 
 		logger: lecho.New(
 			os.Stdout,
@@ -151,70 +126,15 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 	return client, nil
 }
 
-func (client *DefaultClient) Close() error { return client.conn.Close() }
+func (client *DefaultClient) Close() error { return client.amqpClient.Close() }
 
 func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, svc LndHubService) error {
-
-	err := client.publishChannel.ExchangeDeclare(
-		client.lndPaymentExchange,
-		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
-		"topic",
-		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
-		// declared when there are no remaining bindings.
-		true,
-		false,
-		// Non-Internal exchange's accept direct publishing
-		false,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the exchange was created succesfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	queue, err := client.consumeChannel.QueueDeclare(
-		client.lndPaymentConsumerQueueName,
-		// Durable and Non-Auto-Deleted queues will survive server restarts and remain
-		// declared when there are no remaining bindings.
-		true,
-		false,
-		// None-Exclusive means other consumers can consume from this queue.
-		// Messages from queues are spread out and load balanced between consumers.
-		// So multiple lndhub.go instances will spread the load of invoices between them
-		false,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the queue was created successfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	err = client.consumeChannel.QueueBind(
-		queue.Name,
-		"payment.outgoing.#",
-		client.lndPaymentExchange,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the queue was created successfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	deliveryChan, err := client.consumeChannel.Consume(
-		queue.Name,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
+	deliveryChan, err := client.amqpClient.Listen(
+        ctx,
+        client.lndPaymentExchange,
+        "payment.outgoing.*",
+        client.lndPaymentConsumerQueueName,
+    )
 	if err != nil {
 		return err
 	}
@@ -315,66 +235,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 }
 
 func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler IncomingInvoiceHandler) error {
-	err := client.publishChannel.ExchangeDeclare(
-		client.lndInvoiceExchange,
-		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
-		"topic",
-		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
-		// declared when there are no remaining bindings.
-		true,
-		false,
-		// Non-Internal exchange's accept direct publishing
-		false,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the exchange was created succesfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	queue, err := client.consumeChannel.QueueDeclare(
-		client.lndInvoiceConsumerQueueName,
-		// Durable and Non-Auto-Deleted queues will survive server restarts and remain
-		// declared when there are no remaining bindings.
-		true,
-		false,
-		// None-Exclusive means other consumers can consume from this queue.
-		// Messages from queues are spread out and load balanced between consumers.
-		// So multiple lndhub.go instances will spread the load of invoices between them
-		false,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the queue was created successfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	err = client.consumeChannel.QueueBind(
-		queue.Name,
-		"invoice.incoming.settled",
-		client.lndInvoiceExchange,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the queue was created successfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	deliveryChan, err := client.consumeChannel.Consume(
-		queue.Name,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
+    deliveryChan, err := client.amqpClient.Listen(ctx, client.lndInvoiceExchange, "invoice.incoming.settled", client.lndInvoiceConsumerQueueName)
 	if err != nil {
 		return err
 	}
@@ -429,7 +290,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 }
 
 func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc, payloadFunc EncodeOutgoingInvoiceFunc) error {
-	err := client.publishChannel.ExchangeDeclare(
+	err := client.amqpClient.ExchangeDeclare(
 		client.lndHubInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
 		"topic",
@@ -484,7 +345,7 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 
 	key := fmt.Sprintf("invoice.%s.%s", invoice.Type, invoice.State)
 
-	err = client.publishChannel.PublishWithContext(ctx,
+	err = client.amqpClient.PublishWithContext(ctx,
 		client.lndHubInvoiceExchange,
 		key,
 		false,
