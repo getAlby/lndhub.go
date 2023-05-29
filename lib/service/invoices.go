@@ -295,6 +295,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
 	}
 
 	// Get the user's fee account for the transaction entry, current account is already there in parent entry
