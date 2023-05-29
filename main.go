@@ -165,6 +165,8 @@ func main() {
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+            rabbitmq.WithLndPaymentExchange(c.RabbitMQLndPaymentExchange),
+            rabbitmq.WithLndPaymentConsumerQueueName(c.RabbitMQPaymentConsumerQueueName),
 		)
 		if err != nil {
 			logger.Fatal(err)

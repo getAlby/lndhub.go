@@ -90,6 +90,18 @@ func WithLndInvoiceConsumerQueueName(name string) ClientOption {
 	}
 }
 
+func WithLndPaymentConsumerQueueName(name string) ClientOption {
+	return func(client *DefaultClient) {
+		client.lndPaymentConsumerQueueName = name
+	}
+}
+
+func WithLndPaymentExchange(exchange string) ClientOption {
+	return func(client *DefaultClient) {
+		client.lndPaymentExchange = exchange
+	}
+}
+
 func WithLogger(logger *lecho.Logger) ClientOption {
 	return func(client *DefaultClient) {
 		client.logger = logger
