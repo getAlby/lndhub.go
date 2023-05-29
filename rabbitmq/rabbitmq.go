@@ -225,7 +225,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 	if err != nil {
 		return err
 	}
-	client.logger.Info("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
+	client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
