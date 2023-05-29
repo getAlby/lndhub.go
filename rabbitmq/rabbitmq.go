@@ -238,7 +238,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 		case <-ticker.C:
 			invoices, err := getInvoicesTable(ctx)
 			pendingInvoices = invoices
-			client.logger.Info("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
+			client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 			if err != nil {
 				return err
 			}
