@@ -156,15 +156,6 @@ func main() {
 	}
 	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
 
-	svc := &service.LndhubService{
-		Config:         c,
-		DB:             dbConn,
-		LndClient:      lndClient,
-		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
-		InvoicePubSub:  service.NewPubsub(),
-	}
-
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
@@ -174,7 +165,6 @@ func main() {
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
-			rabbitmq.WithLndHubService(svc),
 		)
 		if err != nil {
 			logger.Fatal(err)
@@ -184,7 +174,15 @@ func main() {
 		defer rabbitmqClient.Close()
 	}
 
-	svc.RabbitMQClient = rabbitmqClient
+	svc := &service.LndhubService{
+		Config:         c,
+		DB:             dbConn,
+		LndClient:      lndClient,
+		Logger:         logger,
+		IdentityPubkey: getInfo.IdentityPubkey,
+		InvoicePubSub:  service.NewPubsub(),
+		RabbitMQClient: rabbitmqClient,
+	}
 
 	logMw := createLoggingMiddleware(logger)
 	// strict rate limit for requests for sending payments
@@ -234,14 +232,16 @@ func main() {
 	go func() {
 		switch svc.Config.FinalizePendingPaymentsWith {
 		case "rabbitmq":
-			err = svc.RabbitMQClient.FinalizeInitializedPayments(backGroundCtx)
+			err = svc.RabbitMQClient.FinalizeInitializedPayments(backGroundCtx, svc)
 			if err != nil {
+				sentry.CaptureException(err)
 				svc.Logger.Error(err)
 			}
 
 		default:
 			err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
 			if err != nil {
+				sentry.CaptureException(err)
 				svc.Logger.Error(err)
 			}
 		}

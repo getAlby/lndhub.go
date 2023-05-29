@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -41,7 +40,7 @@ type (
 type Client interface {
 	SubscribeToLndInvoices(context.Context, IncomingInvoiceHandler) error
 	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeOutgoingInvoiceFunc) error
-	FinalizeInitializedPayments(context.Context) error
+	FinalizeInitializedPayments(context.Context, LndHubService) error
 	// Close will close all connections to rabbitmq
 	Close() error
 }
@@ -54,8 +53,7 @@ type LndHubService interface {
 }
 
 type DefaultClient struct {
-	conn          *amqp.Connection
-	lndHubService LndHubService
+	conn *amqp.Connection
 
 	// It is recommended that, when possible, publishers and consumers
 	// use separate connections so that consumers are isolated from potential
@@ -95,12 +93,6 @@ func WithLndInvoiceConsumerQueueName(name string) ClientOption {
 func WithLogger(logger *lecho.Logger) ClientOption {
 	return func(client *DefaultClient) {
 		client.logger = logger
-	}
-}
-
-func WithLndHubService(svc LndHubService) ClientOption {
-	return func(client *DefaultClient) {
-		client.lndHubService = svc
 	}
 }
 
@@ -147,11 +139,7 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 
 func (client *DefaultClient) Close() error { return client.conn.Close() }
 
-func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context) error {
-	// Sanity check
-	if client.lndHubService == nil {
-		return errors.New("no LndHubService provided to rabbitmqClient")
-	}
+func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, svc LndHubService) error {
 
 	err := client.publishChannel.ExchangeDeclare(
 		client.lndPaymentExchange,
@@ -219,7 +207,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context) er
 
 	getInvoicesTable := func(ctx context.Context) (map[string]models.Invoice, error) {
 		invoicesByHash := map[string]models.Invoice{}
-		pendingInvoices, err := client.lndHubService.GetAllPendingPayments(ctx)
+		pendingInvoices, err := svc.GetAllPendingPayments(ctx)
 
 		if err != nil {
 			return invoicesByHash, err
@@ -236,10 +224,19 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context) er
 		return err
 	}
 
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return context.Canceled
+		case <-ticker.C:
+			invoices, err := getInvoicesTable(ctx)
+			pendingInvoices = invoices
+			if err != nil {
+				return err
+			}
 		case delivery, ok := <-deliveryChan:
 			// Shortcircuit if no pending invoices are left
 			if len(pendingInvoices) == 0 {
@@ -259,52 +256,36 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context) er
 				continue
 			}
 
-			ticker := time.NewTicker(time.Hour)
-			defer ticker.Stop()
-
 			// Check if paymentHash corresponds to one of the pending invoices
-			if invoice, ok := pendingInvoices[payment.PaymentHash]; ok == true {
+			if invoice, ok := pendingInvoices[payment.PaymentHash]; ok {
+				t, err := svc.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
+				if err != nil {
+					captureErr(client.logger, err)
+					delivery.Nack(false, false)
+
+					continue
+				}
+
 				switch payment.Status {
 				case lnrpc.Payment_SUCCEEDED:
-					t, err := client.lndHubService.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
-					if err != nil {
-						delivery.Nack(false, true)
+					if err = svc.HandleSuccessfulPayment(ctx, &invoice, t); err != nil {
+						captureErr(client.logger, err)
+						delivery.Nack(false, false)
 
 						continue
 					}
-
-					if err = client.lndHubService.HandleSuccessfulPayment(ctx, &invoice, t); err != nil {
-						delivery.Nack(false, true)
-
-						continue
-					}
+					delete(pendingInvoices, payment.PaymentHash)
 
 				case lnrpc.Payment_FAILED:
-					t, err := client.lndHubService.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
-					if err != nil {
-						delivery.Nack(false, true)
+					if err = svc.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf(payment.FailureReason.String())); err != nil {
+						captureErr(client.logger, err)
+						delivery.Nack(false, false)
 
 						continue
 					}
-
-					if err = client.lndHubService.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf(payment.FailureReason.String())); err != nil {
-						delivery.Nack(false, true)
-
-						continue
-					}
+					delete(pendingInvoices, payment.PaymentHash)
 				}
 			}
-
-            // Refresh the pending invoice table after each tick
-			select {
-			case <-ticker.C:
-				invoices, err := getInvoicesTable(ctx)
-				pendingInvoices = invoices
-                if err != nil {
-                    return err
-                }
-			}
-
 			delivery.Ack(false)
 		}
 
