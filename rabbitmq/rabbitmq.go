@@ -225,10 +225,12 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 	if err != nil {
 		return err
 	}
+	client.logger.Info("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 
+	client.logger.Info("Starting payment finalizer rabbitmq consumer")
 	for {
 		select {
 		case <-ctx.Done():
@@ -236,6 +238,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 		case <-ticker.C:
 			invoices, err := getInvoicesTable(ctx)
 			pendingInvoices = invoices
+			client.logger.Info("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 			if err != nil {
 				return err
 			}
@@ -276,6 +279,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 						continue
 					}
+					client.logger.Infof("Payment finalizer: updated successful payment with hash: %s", payment.PaymentHash)
 					delete(pendingInvoices, payment.PaymentHash)
 
 				case lnrpc.Payment_FAILED:
@@ -285,6 +289,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 						continue
 					}
+					client.logger.Infof("Payment finalizer: updated failed payment with hash: %s", payment.PaymentHash)
 					delete(pendingInvoices, payment.PaymentHash)
 				}
 			}
