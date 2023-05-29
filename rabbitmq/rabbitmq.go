@@ -245,7 +245,8 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 		case delivery, ok := <-deliveryChan:
 			// Shortcircuit if no pending invoices are left
 			if len(pendingInvoices) == 0 {
-				break
+                client.logger.Info("Payment finalizer: Resolved all pending payments, exiting payment finalizer routine")
+                return nil
 			}
 
 			if !ok {
@@ -298,9 +299,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 			}
 			delivery.Ack(false)
 		}
-
-		return nil
-	}
+    }
 }
 
 func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler IncomingInvoiceHandler) error {
