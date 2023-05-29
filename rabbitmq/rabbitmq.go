@@ -238,7 +238,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 		case <-ticker.C:
 			invoices, err := getInvoicesTable(ctx)
 			pendingInvoices = invoices
-			client.logger.Info("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
+			client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 			if err != nil {
 				return err
 			}
@@ -273,8 +273,8 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 				switch payment.Status {
 				case lnrpc.Payment_SUCCEEDED:
-                    invoice.Fee = payment.FeeSat
-                    invoice.Preimage = payment.PaymentPreimage
+					invoice.Fee = payment.FeeSat
+					invoice.Preimage = payment.PaymentPreimage
 
 					if err = svc.HandleSuccessfulPayment(ctx, &invoice, t); err != nil {
 						captureErr(client.logger, err)
