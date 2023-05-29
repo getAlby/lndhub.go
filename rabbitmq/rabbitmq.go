@@ -126,7 +126,9 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 		),
 
 		lndInvoiceConsumerQueueName: "lnd_invoice_consumer",
+		lndPaymentConsumerQueueName: "lnd_payment_consumer",
 		lndInvoiceExchange:          "lnd_invoice",
+		lndPaymentExchange:          "lnd_payment",
 		lndHubInvoiceExchange:       "lndhub_invoice",
 	}
 
