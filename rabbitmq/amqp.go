@@ -13,7 +13,7 @@ type AMQPClient interface {
     Close() error
 }
 
-type DefaultAMQPCLient struct {
+type defaultAMQPCLient struct {
 	conn *amqp.Connection
 
 	// It is recommended that, when possible, publishers and consumers
@@ -23,9 +23,9 @@ type DefaultAMQPCLient struct {
 	publishChannel *amqp.Channel
 }
 
-func (c *DefaultAMQPCLient) Close() error { return c.conn.Close() }
+func (c *defaultAMQPCLient) Close() error { return c.conn.Close() }
 
-func (c *DefaultAMQPCLient) ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error {
+func (c *defaultAMQPCLient) ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error {
     // TODO: Seperate management channel? Or provide way to select channel?
     ch, err := c.conn.Channel()
     if err != nil {
@@ -38,7 +38,7 @@ func (c *DefaultAMQPCLient) ExchangeDeclare(name, kind string, durable, autoDele
 }
 
 
-type listenOptions struct {
+type ListenOptions struct {
 	Durable    bool
 	AutoDelete bool
 	Internal   bool
@@ -47,52 +47,52 @@ type listenOptions struct {
 	AutoAck    bool
 }
 
-type AMQPListenOptions = func(opts listenOptions) listenOptions
+type AMQPListenOptions = func(opts ListenOptions) ListenOptions
 
 func WithDurable(durable bool) AMQPListenOptions {
-	return func(opts listenOptions) listenOptions {
+	return func(opts ListenOptions) ListenOptions {
 		opts.Durable = durable
 		return opts
 	}
 }
 
 func WithAutoDelete(autoDelete bool) AMQPListenOptions {
-	return func(opts listenOptions) listenOptions {
+	return func(opts ListenOptions) ListenOptions {
 		opts.AutoDelete = autoDelete
 		return opts
 	}
 }
 
 func WithInternal(internal bool) AMQPListenOptions {
-	return func(opts listenOptions) listenOptions {
+	return func(opts ListenOptions) ListenOptions {
 		opts.Internal = internal
 		return opts
 	}
 }
 
 func WithWait(wait bool) AMQPListenOptions {
-	return func(opts listenOptions) listenOptions {
+	return func(opts ListenOptions) ListenOptions {
 		opts.Wait = wait
 		return opts
 	}
 }
 
 func WithExclusive(exclusive bool) AMQPListenOptions {
-	return func(opts listenOptions) listenOptions {
+	return func(opts ListenOptions) ListenOptions {
 		opts.Exclusive = exclusive
 		return opts
 	}
 }
 
 func WithAutoAck(autoAck bool) AMQPListenOptions {
-	return func(opts listenOptions) listenOptions {
+	return func(opts ListenOptions) ListenOptions {
 		opts.AutoAck = autoAck
 		return opts
 	}
 }
 
-func (c *DefaultAMQPCLient) Listen(ctx context.Context, exchange string, routingKey string, queueName string, options ...AMQPListenOptions) (<-chan amqp.Delivery, error) {
-	opts := listenOptions{
+func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routingKey string, queueName string, options ...AMQPListenOptions) (<-chan amqp.Delivery, error) {
+	opts := ListenOptions{
 		Durable:    true,
 		AutoDelete: false,
 		Internal:   false,
@@ -167,11 +167,11 @@ func (c *DefaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 	)
 }
 
-func (c *DefaultAMQPCLient) PublishWithContext(ctx context.Context, exchange string, key string, mandatory bool, immediate bool, msg amqp.Publishing) error {
+func (c *defaultAMQPCLient) PublishWithContext(ctx context.Context, exchange string, key string, mandatory bool, immediate bool, msg amqp.Publishing) error {
 	return c.publishChannel.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 
-func Dial(uri string) (AMQPClient, error) {
+func DialAMQP(uri string) (AMQPClient, error) {
 	conn, err := amqp.Dial(uri)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func Dial(uri string) (AMQPClient, error) {
 		return nil, err
 	}
 
-	return &DefaultAMQPCLient{
+	return &defaultAMQPCLient{
 		conn,
 		consumeChannel,
 		publishChannel,

@@ -160,7 +160,12 @@ func main() {
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
 	if c.RabbitMQUri != "" {
-		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+        amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLogger(logger),
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
