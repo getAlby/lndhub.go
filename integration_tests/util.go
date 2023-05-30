@@ -65,7 +65,13 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		c.RabbitMQUri = rabbitmqUri
 		c.RabbitMQLndhubInvoiceExchange = "test_lndhub_invoices"
 		c.RabbitMQLndInvoiceExchange = "test_lnd_invoices"
-		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+
+        amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
+        if err != nil {
+            return nil, err
+        }
+
+		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),

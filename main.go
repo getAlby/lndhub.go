@@ -160,11 +160,20 @@ func main() {
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
 	if c.RabbitMQUri != "" {
-		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+        amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+        defer amqpClient.Close()
+
+		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLogger(logger),
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+            rabbitmq.WithLndPaymentExchange(c.RabbitMQLndPaymentExchange),
+            rabbitmq.WithLndPaymentConsumerQueueName(c.RabbitMQPaymentConsumerQueueName),
 		)
 		if err != nil {
 			logger.Fatal(err)
@@ -178,10 +187,10 @@ func main() {
 		Config:         c,
 		DB:             dbConn,
 		LndClient:      lndClient,
-		RabbitMQClient: rabbitmqClient,
 		Logger:         logger,
 		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
+		RabbitMQClient: rabbitmqClient,
 	}
 
 	logMw := createLoggingMiddleware(logger)
@@ -230,10 +239,22 @@ func main() {
 	// A goroutine will be spawned for each one
 	backgroundWg.Add(1)
 	go func() {
-		err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
-		if err != nil {
-			svc.Logger.Error(err)
+		switch svc.Config.FinalizePendingPaymentsWith {
+		case "rabbitmq":
+			err = svc.RabbitMQClient.FinalizeInitializedPayments(backGroundCtx, svc)
+			if err != nil {
+				sentry.CaptureException(err)
+				svc.Logger.Error(err)
+			}
+
+		default:
+			err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
+			if err != nil {
+				sentry.CaptureException(err)
+				svc.Logger.Error(err)
+			}
 		}
+
 		svc.Logger.Info("Pending payment check routines done")
 		backgroundWg.Done()
 	}()
