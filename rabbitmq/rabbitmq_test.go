@@ -75,7 +75,7 @@ func TestFinalizedInitializedPayments(t *testing.T) {
 		Return(models.TransactionEntry{InvoiceID: invoices[1].ID}, nil)
 
 	ctx := context.Background()
-    successPaymnent, err := json.Marshal(&lnrpc.Payment{PaymentHash: firstHash, Status: lnrpc.Payment_SUCCEEDED})
+    successPayment, err := json.Marshal(&lnrpc.Payment{PaymentHash: firstHash, Status: lnrpc.Payment_SUCCEEDED})
     if err != nil {
         t.Error(err)
     }
@@ -85,7 +85,7 @@ func TestFinalizedInitializedPayments(t *testing.T) {
         t.Error(err)
     }
 
-    ch <- amqp.Delivery{Body: successPaymnent}
+    ch <- amqp.Delivery{Body: successPayment}
     ch <- amqp.Delivery{Body: failedPayment}
 
     wg := sync.WaitGroup{}
