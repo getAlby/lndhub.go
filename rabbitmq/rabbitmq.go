@@ -28,7 +28,8 @@ var bufPool = sync.Pool{
 }
 
 const (
-	contentTypeJSON = "application/json"
+	contentTypeJSON            = "application/json"
+	outgoingPaymentsRoutingKey = "payment.outgoing.*"
 )
 
 type (
@@ -138,7 +139,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 	deliveryChan, err := client.amqpClient.Listen(
 		ctx,
 		client.config.lndPaymentExchange,
-		"payment.outgoing.*",
+		outgoingPaymentsRoutingKey,
 		client.config.lndPaymentConsumerQueueName,
 	)
 	if err != nil {
