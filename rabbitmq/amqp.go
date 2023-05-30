@@ -3,7 +3,6 @@ package rabbitmq
 import (
 	"context"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/labstack/gommon/log"
