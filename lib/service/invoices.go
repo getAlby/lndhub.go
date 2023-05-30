@@ -62,6 +62,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		if err != nil {
 			// invoice not found or already settled
 			// TODO: logging
+			svc.Logger.Errorf("Could not find invoice for internal payment ====>>>>%s, %s, %s", common.InvoiceTypeIncoming, invoice.RHash, common.InvoiceStateOpen)
 			return sendPaymentResponse, err
 		}
 	}
