@@ -29,34 +29,39 @@ func TestFinalizedInitializedPayments(t *testing.T) {
 	client, err := rabbitmq.NewClient(amqpClient)
 	assert.NoError(t, err)
 
-	ch := make(chan amqp.Delivery, 1)
+	ch := make(chan amqp.Delivery, 2)
 	amqpClient.EXPECT().
 		Listen(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		MaxTimes(1).
+		Times(1).
 		Return(ch, nil)
 
-    hash := "69e5f0f0590be75e30f671d56afe1d55"
+    firstHash := "69e5f0f0590be75e30f671d56afe1d55"
+    secondHash := "ffff0f0590be75e30f671d56afe1d55"
 
 	invoices := []models.Invoice{
 		{
 			ID: 0,
-            RHash: hash,
+            RHash: firstHash,
 		},
+        {
+            ID: 1,
+            RHash: secondHash,
+        },
 	}
 
 	lndHubService.EXPECT().
 		GetAllPendingPayments(gomock.Any()).
-		MaxTimes(1).
+		Times(1).
 		Return(invoices, nil)
 
 	lndHubService.EXPECT().
-		HandleFailedPayment(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().
+		HandleSuccessfulPayment(gomock.Any(), gomock.Eq(&invoices[0]), gomock.Any()).
+		Times(1).
 		Return(nil)
 
 	lndHubService.EXPECT().
-		HandleSuccessfulPayment(gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().
+		HandleFailedPayment(gomock.Any(), gomock.Eq(&invoices[1]), gomock.Any(), gomock.Any()).
+		Times(1).
 		Return(nil)
 
 	lndHubService.EXPECT().
@@ -64,13 +69,24 @@ func TestFinalizedInitializedPayments(t *testing.T) {
 		AnyTimes().
 		Return(models.TransactionEntry{InvoiceID: invoices[0].ID}, nil)
 
+	lndHubService.EXPECT().
+		GetTransactionEntryByInvoiceId(gomock.Any(), gomock.Eq(invoices[1].ID)).
+		AnyTimes().
+		Return(models.TransactionEntry{InvoiceID: invoices[1].ID}, nil)
+
 	ctx := context.Background()
-    b, err := json.Marshal(&lnrpc.Payment{PaymentHash: hash, Status: lnrpc.Payment_SUCCEEDED})
+    successPaymnent, err := json.Marshal(&lnrpc.Payment{PaymentHash: firstHash, Status: lnrpc.Payment_SUCCEEDED})
     if err != nil {
         t.Error(err)
     }
 
-    ch <- amqp.Delivery{Body: b}
+    failedPayment, err := json.Marshal(&lnrpc.Payment{PaymentHash: secondHash, Status: lnrpc.Payment_FAILED})
+    if err != nil {
+        t.Error(err)
+    }
+
+    ch <- amqp.Delivery{Body: successPaymnent}
+    ch <- amqp.Delivery{Body: failedPayment}
 
     wg := sync.WaitGroup{}
 

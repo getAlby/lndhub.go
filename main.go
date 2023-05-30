@@ -165,6 +165,8 @@ func main() {
 			logger.Fatal(err)
 		}
 
+        defer amqpClient.Close()
+
 		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLogger(logger),
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
