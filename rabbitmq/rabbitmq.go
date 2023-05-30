@@ -256,11 +256,12 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 		return err
 	}
 
-	client.logger.Info("Starting RabbitMQ consumer loop")
+	client.logger.Info("Starting RabbitMQ invoice consumer loop")
 	for {
 		select {
 		case <-ctx.Done():
 			return context.Canceled
+
 		case delivery, ok := <-deliveryChan:
 			if !ok {
 				return fmt.Errorf("Disconnected from RabbitMQ")
