@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -38,6 +39,10 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error initializing db connection: %v", err)
 	}
+
+	// Migrate the DB
+	//Todo: use timeout for startupcontext
+	startupCtx := context.Background()
 
 	// New Echo app
 	e := echo.New()
