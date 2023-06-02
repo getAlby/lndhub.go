@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 
 	"github.com/getAlby/lndhub.go/db"
-	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -15,7 +13,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/uptrace/bun/migrate"
 )
 
 // script to reconcile pending payments between the backup node and the database
@@ -40,31 +37,6 @@ func main() {
 	dbConn, err := db.Open(c)
 	if err != nil {
 		logger.Fatalf("Error initializing db connection: %v", err)
-	}
-
-	// Migrate the DB
-	//Todo: use timeout for startupcontext
-	startupCtx := context.Background()
-	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
-	err = migrator.Init(startupCtx)
-	if err != nil {
-		logger.Fatalf("Error initializing db migrator: %v", err)
-	}
-	_, err = migrator.Migrate(startupCtx)
-	if err != nil {
-		logger.Fatalf("Error migrating database: %v", err)
-	}
-	// Setup exception tracking with Sentry if configured
-	// sentry init needs to happen before the echo middlewares are added
-	if c.SentryDSN != "" {
-		if err = sentry.Init(sentry.ClientOptions{
-			Dsn:              c.SentryDSN,
-			IgnoreErrors:     []string{"401"},
-			EnableTracing:    c.SentryTracesSampleRate > 0,
-			TracesSampleRate: c.SentryTracesSampleRate,
-		}); err != nil {
-			logger.Errorf("sentry init error: %v", err)
-		}
 	}
 
 	// New Echo app
