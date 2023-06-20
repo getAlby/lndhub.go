@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
@@ -167,32 +166,12 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 	client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 
-	ticker := time.NewTicker(time.Hour)
-	defer ticker.Stop()
-
 	client.logger.Info("Starting payment finalizer rabbitmq consumer")
 
 	for {
-		// Shortcircuit if no pending invoices are left
-		if len(pendingInvoices) == 0 {
-			client.logger.Info("Payment finalizer: Resolved all pending payments, exiting payment finalizer routine")
-
-			return nil
-		}
-
 		select {
 		case <-ctx.Done():
 			return context.Canceled
-
-		case <-ticker.C:
-			invoices, err := getInvoicesTable(ctx)
-			if err != nil {
-				return err
-			}
-
-			pendingInvoices = invoices
-
-			client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 
 		case delivery, ok := <-deliveryChan:
 			if !ok {
