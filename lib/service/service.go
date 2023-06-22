@@ -25,7 +25,6 @@ type LndhubService struct {
 	LndClient      lnd.LightningClientWrapper
 	RabbitMQClient rabbitmq.Client
 	Logger         *lecho.Logger
-	IdentityPubkey string
 	InvoicePubSub  *Pubsub
 }
 

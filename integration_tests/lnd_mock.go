@@ -248,6 +248,15 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 	}
 	return result, nil
 }
+
+func (mlnd *MockLND) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {
+	return pubkey == hex.EncodeToString(mlnd.pubKey.SerializeCompressed())
+}
+
+func (mlnd *MockLND) GetMainPubkey() (pubkey string) {
+	return hex.EncodeToString(mlnd.pubKey.SerializeCompressed())
+}
+
 func makePreimageHex() ([]byte, error) {
 	return randBytesFromStr(32, random.Hex)
 }

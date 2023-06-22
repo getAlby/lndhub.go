@@ -24,7 +24,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
 )
@@ -105,15 +104,12 @@ func main() {
 		MacaroonHex:  c.LNDMacaroonHex,
 		CertFile:     c.LNDCertFile,
 		CertHex:      c.LNDCertHex,
-	})
+	}, startupCtx)
 	if err != nil {
 		logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
-	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		logger.Fatalf("Error getting node info: %v", err)
-	}
-	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+
+	logger.Infof("Connected to LND: %s ", lndClient.GetMainPubkey())
 
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
@@ -147,7 +143,6 @@ func main() {
 		DB:             dbConn,
 		LndClient:      lndClient,
 		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
 		RabbitMQClient: rabbitmqClient,
 	}

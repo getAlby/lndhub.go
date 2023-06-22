@@ -283,7 +283,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(ExpectedKeySendRequestBody{
 		Amount:      int64(bobAmt),
-		Destination: suite.service.IdentityPubkey,
+		Destination: suite.service.LndClient.GetMainPubkey(),
 		Memo:        memo,
 		//add memo as WHATSAT_MESSAGE custom record
 		CustomRecords: map[string]string{fmt.Sprint(service.TLV_WHATSAT_MESSAGE): memo,
