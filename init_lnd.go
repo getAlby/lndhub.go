@@ -46,10 +46,15 @@ func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context
 		}
 		nodes = append(nodes, n)
 	}
-	return &lnd.LNDCluster{
+	logger.Infof("Initialized LND cluster with %d nodes", len(nodes))
+	cluster := &lnd.LNDCluster{
 		Nodes:               nodes,
-		ActiveChannelRatio:  0.5,
+		ActiveChannelRatio:  c.LNDClusterActiveChannelRatio,
+		ActiveNode:          nodes[0],
 		Logger:              logger,
-		LivenessCheckPeriod: 30,
-	}, nil
+		LivenessCheckPeriod: c.LNDClusterLivenessPeriod,
+	}
+	//start liveness check
+	go cluster.StartLivenessLoop(ctx)
+	return cluster, nil
 }

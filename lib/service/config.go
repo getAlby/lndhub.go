@@ -31,6 +31,8 @@ type Config struct {
 	LNDCertFile                      string  `envconfig:"LND_CERT_FILE"`
 	LNDMacaroonHex                   string  `envconfig:"LND_MACAROON_HEX"`
 	LNDCertHex                       string  `envconfig:"LND_CERT_HEX"`
+	LNDClusterLivenessPeriod         int     `envconfig:"LND_CLUSTER_LIVENESS_PERIOD" default:"30"`
+	LNDClusterActiveChannelRatio     float64 `envconfig:"LND_CLUSTER_ACTIVE_CHANNEL_RATIO" default:"0.5"`
 	CustomName                       string  `envconfig:"CUSTOM_NAME"`
 	Host                             string  `envconfig:"HOST" default:"localhost:3000"`
 	Port                             int     `envconfig:"PORT" default:"3000"`

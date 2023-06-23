@@ -14,33 +14,33 @@ import (
 
 type LNDCluster struct {
 	Nodes               []*LNDWrapper
-	activeNode          *LNDWrapper
+	ActiveNode          *LNDWrapper
 	ActiveChannelRatio  float64
 	Logger              *lecho.Logger
 	LivenessCheckPeriod int
 }
 
-func (cluster *LNDCluster) startLivenessLoop(ctx context.Context) {
+func (cluster *LNDCluster) StartLivenessLoop(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(cluster.LivenessCheckPeriod) * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			cluster.Logger.Info("Checking cluster status")
 			cluster.checkClusterStatus(ctx)
 		}
 	}
 }
 func (cluster *LNDCluster) checkClusterStatus(ctx context.Context) {
 	//for all nodes
-	var i int
 	for _, node := range cluster.Nodes {
 		//call getinfo
 		resp, err := node.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 		//if we get an error here, the node is probably offline
 		//so we move to the next node
 		if err != nil {
-			cluster.Logger.Infof("Error connecting to node, node id %s, error %s", resp.IdentityPubkey, err.Error())
+			cluster.Logger.Infof("Error connecting to node, node id %s, error %s", node.GetMainPubkey(), err.Error())
 			continue
 		}
 		//if the context has been canceled, return
@@ -51,38 +51,35 @@ func (cluster *LNDCluster) checkClusterStatus(ctx context.Context) {
 		//not booted yet, go to next
 		nrActiveChannels := resp.NumActiveChannels
 		totalChannels := resp.NumActiveChannels + resp.NumInactiveChannels
-		if float64(nrActiveChannels/totalChannels) < cluster.ActiveChannelRatio {
-			cluster.Logger.Infof("Node does not have enough active channels yet, node id %s, active channels %d, total channels %d", resp.IdentityPubkey, nrActiveChannels, totalChannels)
+		activeChannelRatio := float64(nrActiveChannels) / float64(totalChannels)
+		if activeChannelRatio < cluster.ActiveChannelRatio {
+			cluster.Logger.Infof("Node does not have enough active channels yet, node id %s, ratio %f, active channels %d, total channels %d", resp.IdentityPubkey, activeChannelRatio, nrActiveChannels, totalChannels)
 			continue
 		}
 		//node is online and has enough active channels, set this node to active
 		//log & send notification to Sentry in case we're switching
-		if cluster.activeNode != node {
-			cluster.activeNode = node
+		if cluster.ActiveNode != node {
+			cluster.ActiveNode = node
 			message := fmt.Sprintf("Switched nodes: new node id %s", node.GetMainPubkey())
 			cluster.Logger.Info(message)
 			sentry.CaptureMessage(message)
-			break
 		}
-		i++
-
-	}
-	if i == len(cluster.Nodes)-1 {
-		message := "Cluster is offline, could not find an active node"
-		cluster.Logger.Info(message)
-		sentry.CaptureMessage(message)
+		//if we get here, break because we have an active node
+		//either the one which was already active
+		//or the new one
+		break
 	}
 }
 func (cluster *LNDCluster) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
-	return cluster.activeNode.ListChannels(ctx, req, options...)
+	return cluster.ActiveNode.ListChannels(ctx, req, options...)
 }
 
 func (cluster *LNDCluster) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
-	return cluster.activeNode.SendPaymentSync(ctx, req, options...)
+	return cluster.ActiveNode.SendPaymentSync(ctx, req, options...)
 }
 
 func (cluster *LNDCluster) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
-	return cluster.activeNode.AddInvoice(ctx, req, options...)
+	return cluster.ActiveNode.AddInvoice(ctx, req, options...)
 }
 
 func (cluster *LNDCluster) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
@@ -94,11 +91,11 @@ func (cluster *LNDCluster) SubscribePayment(ctx context.Context, req *routerrpc.
 }
 
 func (cluster *LNDCluster) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
-	return cluster.activeNode.GetInfo(ctx, req, options...)
+	return cluster.ActiveNode.GetInfo(ctx, req, options...)
 }
 
 func (cluster *LNDCluster) DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error) {
-	return cluster.activeNode.DecodeBolt11(ctx, bolt11, options...)
+	return cluster.ActiveNode.DecodeBolt11(ctx, bolt11, options...)
 }
 
 func (cluster *LNDCluster) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {

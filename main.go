@@ -102,7 +102,7 @@ func main() {
 		logger.Fatalf("Error initializing the %s connection: %v", c.LNClientType, err)
 	}
 
-	logger.Infof("Connected to LND: %s ", lndClient.GetMainPubkey())
+	logger.Infof("Connected to %s: %s", c.LNClientType, lndClient.GetMainPubkey())
 
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
