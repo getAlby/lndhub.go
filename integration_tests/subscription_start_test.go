@@ -144,3 +144,10 @@ func (mock *lndSubscriptionStartMockClient) DecodeBolt11(ctx context.Context, bo
 func (mlnd *lndSubscriptionStartMockClient) TrackPayment(ctx context.Context, hash []byte, options ...grpc.CallOption) (*lnrpc.Payment, error) {
 	return nil, nil
 }
+func (mlnd *lndSubscriptionStartMockClient) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (mlnd *lndSubscriptionStartMockClient) GetMainPubkey() (pubkey string) {
+	panic("not implemented") // TODO: Implement
+}
