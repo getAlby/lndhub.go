@@ -85,11 +85,11 @@ func (cluster *LNDCluster) AddInvoice(ctx context.Context, req *lnrpc.Invoice, o
 	return cluster.activeNode.AddInvoice(ctx, req, options...)
 }
 
-func (cluster *LNDCluster) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (lnd.SubscribeInvoicesWrapper, error) {
+func (cluster *LNDCluster) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (cluster *LNDCluster) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (lnd.SubscribePaymentWrapper, error) {
+func (cluster *LNDCluster) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (SubscribePaymentWrapper, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
