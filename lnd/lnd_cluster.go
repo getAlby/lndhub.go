@@ -13,8 +13,8 @@ import (
 )
 
 type LNDCluster struct {
-	Nodes               []*LNDWrapper
-	ActiveNode          *LNDWrapper
+	Nodes               []LightningClientWrapper
+	ActiveNode          LightningClientWrapper
 	ActiveChannelRatio  float64
 	Logger              *lecho.Logger
 	LivenessCheckPeriod int

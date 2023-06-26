@@ -27,7 +27,7 @@ func InitLNClient(c *service.Config, logger *lecho.Logger, ctx context.Context) 
 	}
 }
 func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
-	nodes := []*lnd.LNDWrapper{}
+	nodes := []lnd.LightningClientWrapper{}
 	//interpret lnd address, macaroon file & cert file as comma seperated values
 	addresses := strings.Split(c.LNDAddress, ",")
 	macaroons := strings.Split(c.LNDMacaroonFile, ",")
