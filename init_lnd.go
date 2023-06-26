@@ -55,6 +55,11 @@ func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context
 		if err != nil {
 			return nil, err
 		}
+		getInfo, err := n.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+		if err != nil {
+			return nil, err
+		}
+		n.IdentityPubkey = getInfo.IdentityPubkey
 		nodes = append(nodes, n)
 	}
 	logger.Infof("Initialized LND cluster with %d nodes", len(nodes))
