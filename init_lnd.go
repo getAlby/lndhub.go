@@ -7,24 +7,35 @@ import (
 
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/ziflex/lecho/v3"
 )
 
 func InitLNClient(c *service.Config, logger *lecho.Logger, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
 	switch c.LNClientType {
 	case service.LND_CLIENT_TYPE:
-		return lnd.NewLNDclient(lnd.LNDoptions{
-			Address:      c.LNDAddress,
-			MacaroonFile: c.LNDMacaroonFile,
-			MacaroonHex:  c.LNDMacaroonHex,
-			CertFile:     c.LNDCertFile,
-			CertHex:      c.LNDCertHex,
-		}, ctx)
+		return InitSingleLNDClient(c, ctx)
 	case service.LND_CLUSTER_CLIENT_TYPE:
 		return InitLNDCluster(c, logger, ctx)
 	default:
 		return nil, fmt.Errorf("Did not recognize LN client type %s", c.LNClientType)
 	}
+}
+
+func InitSingleLNDClient(c *service.Config, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
+	client, err := lnd.NewLNDclient(lnd.LNDoptions{
+		Address:      c.LNDAddress,
+		MacaroonFile: c.LNDMacaroonFile,
+		MacaroonHex:  c.LNDMacaroonHex,
+		CertFile:     c.LNDCertFile,
+		CertHex:      c.LNDCertHex,
+	}, ctx)
+	getInfo, err := client.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		return nil, err
+	}
+	client.IdentityPubkey = getInfo.IdentityPubkey
+	return client, nil
 }
 func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
 	nodes := []lnd.LightningClientWrapper{}

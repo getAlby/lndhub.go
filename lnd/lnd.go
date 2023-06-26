@@ -94,14 +94,9 @@ func NewLNDclient(lndOptions LNDoptions, ctx context.Context) (result *LNDWrappe
 		return nil, err
 	}
 	lnClient := lnrpc.NewLightningClient(conn)
-	getInfo, err := lnClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		return nil, err
-	}
 	return &LNDWrapper{
-		client:         lnClient,
-		routerClient:   routerrpc.NewRouterClient(conn),
-		IdentityPubkey: getInfo.IdentityPubkey,
+		client:       lnClient,
+		routerClient: routerrpc.NewRouterClient(conn),
 	}, nil
 }
 
