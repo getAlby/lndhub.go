@@ -40,7 +40,9 @@ func (cluster *LNDCluster) checkClusterStatus(ctx context.Context) {
 		//if we get an error here, the node is probably offline
 		//so we move to the next node
 		if err != nil {
-			cluster.Logger.Infof("Error connecting to node, node id %s, error %s", node.GetMainPubkey(), err.Error())
+			msg := fmt.Sprintf("Error connecting to node, node id %s, error %s", node.GetMainPubkey(), err.Error())
+			cluster.Logger.Infof(msg)
+			sentry.CaptureMessage(msg)
 			continue
 		}
 		//if the context has been canceled, return
@@ -53,7 +55,9 @@ func (cluster *LNDCluster) checkClusterStatus(ctx context.Context) {
 		totalChannels := resp.NumActiveChannels + resp.NumInactiveChannels
 		activeChannelRatio := float64(nrActiveChannels) / float64(totalChannels)
 		if activeChannelRatio < cluster.ActiveChannelRatio {
-			cluster.Logger.Infof("Node does not have enough active channels yet, node id %s, ratio %f, active channels %d, total channels %d", resp.IdentityPubkey, activeChannelRatio, nrActiveChannels, totalChannels)
+			msg := fmt.Sprintf("Node does not have enough active channels yet, node id %s, ratio %f, active channels %d, total channels %d", resp.IdentityPubkey, activeChannelRatio, nrActiveChannels, totalChannels)
+			cluster.Logger.Infof(msg)
+			sentry.CaptureMessage(msg)
 			continue
 		}
 		//node is online and has enough active channels, set this node to active
