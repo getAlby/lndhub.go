@@ -72,7 +72,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		}
 	}
 
-	if reqBody.Destination == controller.svc.IdentityPubkey && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
+	if controller.svc.LndClient.IsIdentityPubkey(reqBody.Destination) && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
 		return c.JSON(http.StatusBadRequest, &responses.ErrorResponse{
 			Error:          true,
 			Code:           8,

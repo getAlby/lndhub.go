@@ -13,7 +13,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
 // script to reconcile pending payments between the backup node and the database
@@ -54,23 +53,18 @@ func main() {
 		MacaroonHex:  c.LNDMacaroonHex,
 		CertFile:     c.LNDCertFile,
 		CertHex:      c.LNDCertHex,
-	})
+	}, startupCtx)
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
-	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		e.Logger.Fatalf("Error getting node info: %v", err)
-	}
-	logger.Infof("Connected to LND: %s - %s", getInfo.Alias, getInfo.IdentityPubkey)
+	logger.Infof("Connected to LND: %s ", lndClient.GetMainPubkey())
 
 	svc := &service.LndhubService{
-		Config:         c,
-		DB:             dbConn,
-		LndClient:      lndClient,
-		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
-		InvoicePubSub:  service.NewPubsub(),
+		Config:        c,
+		DB:            dbConn,
+		LndClient:     lndClient,
+		Logger:        logger,
+		InvoicePubSub: service.NewPubsub(),
 	}
 
 	err = svc.CheckAllPendingOutgoingPayments(startupCtx)

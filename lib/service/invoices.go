@@ -217,7 +217,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// Check the destination pubkey if it is an internal invoice and going to our node
 	// Here we start using context.Background because we want to complete these calls
 	// regardless of if the request's context is canceled or not.
-	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
+	if svc.LndClient.IsIdentityPubkey(invoice.DestinationPubkeyHex) {
 		paymentResponse, err = svc.SendInternalPayment(context.Background(), invoice)
 		if err != nil {
 			svc.HandleFailedPayment(context.Background(), invoice, entry, err)
@@ -408,7 +408,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	invoice.RHash = hex.EncodeToString(lnInvoiceResult.RHash)
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
-	invoice.DestinationPubkeyHex = svc.IdentityPubkey // Our node pubkey for incoming invoices
+	invoice.DestinationPubkeyHex = svc.LndClient.GetMainPubkey() // Our node pubkey for incoming invoices
 	invoice.State = common.InvoiceStateOpen
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)

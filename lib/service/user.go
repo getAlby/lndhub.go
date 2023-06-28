@@ -135,7 +135,7 @@ func (svc *LndhubService) BalanceCheck(ctx context.Context, lnpayReq *lnd.LNPayR
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
-	if destination == svc.IdentityPubkey {
+	if svc.LndClient.IsIdentityPubkey(destination) {
 		return 0
 	}
 	limit := int64(10)

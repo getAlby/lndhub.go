@@ -46,7 +46,7 @@ func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invo
 		RHash:                    hex.EncodeToString(pHash.Sum(nil)),
 		Preimage:                 hex.EncodeToString(preImage),
 		DestinationCustomRecords: invoice.DestinationCustomRecords,
-		DestinationPubkeyHex:     svc.IdentityPubkey,
+		DestinationPubkeyHex:     svc.LndClient.GetMainPubkey(),
 		AddIndex:                 invoice.AddIndex,
 	}
 	//persist the incoming invoice
@@ -212,7 +212,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 		RHash:                    hex.EncodeToString(rawInvoice.RHash),
 		Preimage:                 hex.EncodeToString(rawInvoice.RPreimage),
 		DestinationCustomRecords: rawInvoice.Htlcs[0].CustomRecords,
-		DestinationPubkeyHex:     svc.IdentityPubkey,
+		DestinationPubkeyHex:     svc.LndClient.GetMainPubkey(),
 		AddIndex:                 rawInvoice.AddIndex,
 	}
 	return result, nil

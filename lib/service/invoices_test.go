@@ -4,10 +4,13 @@ import (
 	"testing"
 
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/stretchr/testify/assert"
 )
 
-var svc = &LndhubService{}
+var svc = &LndhubService{
+	LndClient: &lnd.LNDWrapper{IdentityPubkey: "123pubkey"},
+}
 
 func TestCalcFeeWithInvoiceLessThan1000(t *testing.T) {
 	invoice := &models.Invoice{

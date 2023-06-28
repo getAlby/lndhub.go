@@ -162,7 +162,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	if reqBody.CustomRecords != nil {
 		customRecords = reqBody.CustomRecords
 	}
-	if reqBody.Destination == controller.svc.IdentityPubkey && customRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
+	if controller.svc.LndClient.IsIdentityPubkey(reqBody.Destination) && customRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
 		return nil, &responses.ErrorResponse{
 			Error:          true,
 			Code:           8,

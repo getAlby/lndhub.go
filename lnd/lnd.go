@@ -31,11 +31,12 @@ type LNDoptions struct {
 }
 
 type LNDWrapper struct {
-	client       lnrpc.LightningClient
-	routerClient routerrpc.RouterClient
+	client         lnrpc.LightningClient
+	routerClient   routerrpc.RouterClient
+	IdentityPubkey string
 }
 
-func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
+func NewLNDclient(lndOptions LNDoptions, ctx context.Context) (result *LNDWrapper, err error) {
 	// Get credentials either from a hex string, a file or the system's certificate store
 	var creds credentials.TransportCredentials
 	// if a hex string is provided
@@ -92,10 +93,15 @@ func NewLNDclient(lndOptions LNDoptions) (result *LNDWrapper, err error) {
 	if err != nil {
 		return nil, err
 	}
-
+	lnClient := lnrpc.NewLightningClient(conn)
+	getInfo, err := lnClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		return nil, err
+	}
 	return &LNDWrapper{
-		client:       lnrpc.NewLightningClient(conn),
-		routerClient: routerrpc.NewRouterClient(conn),
+		client:         lnClient,
+		routerClient:   routerrpc.NewRouterClient(conn),
+		IdentityPubkey: getInfo.IdentityPubkey,
 	}, nil
 }
 
@@ -127,4 +133,12 @@ func (wrapper *LNDWrapper) DecodeBolt11(ctx context.Context, bolt11 string, opti
 
 func (wrapper *LNDWrapper) SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (SubscribePaymentWrapper, error) {
 	return wrapper.routerClient.TrackPaymentV2(ctx, req, options...)
+}
+
+func (wrapper *LNDWrapper) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {
+	return pubkey == wrapper.IdentityPubkey
+}
+
+func (wrapper *LNDWrapper) GetMainPubkey() (pubkey string) {
+	return wrapper.IdentityPubkey
 }

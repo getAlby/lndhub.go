@@ -16,6 +16,8 @@ type LightningClientWrapper interface {
 	SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (SubscribePaymentWrapper, error)
 	GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error)
 	DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error)
+	IsIdentityPubkey(pubkey string) (isOurPubkey bool)
+	GetMainPubkey() (pubkey string)
 }
 
 type SubscribeInvoicesWrapper interface {
