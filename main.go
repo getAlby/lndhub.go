@@ -19,7 +19,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -98,18 +97,12 @@ func main() {
 		}
 	}
 	// Init new LND client
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:      c.LNDAddress,
-		MacaroonFile: c.LNDMacaroonFile,
-		MacaroonHex:  c.LNDMacaroonHex,
-		CertFile:     c.LNDCertFile,
-		CertHex:      c.LNDCertHex,
-	}, startupCtx)
+	lndClient, err := InitLNClient(c, logger, startupCtx)
 	if err != nil {
-		logger.Fatalf("Error initializing the LND connection: %v", err)
+		logger.Fatalf("Error initializing the %s connection: %v", c.LNClientType, err)
 	}
 
-	logger.Infof("Connected to LND: %s ", lndClient.GetMainPubkey())
+	logger.Infof("Connected to %s: %s", c.LNClientType, lndClient.GetMainPubkey())
 
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.

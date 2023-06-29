@@ -27,6 +27,7 @@ type MockLND struct {
 	privKey         *btcec.PrivateKey
 	pubKey          *btcec.PublicKey
 	addIndexCounter uint64
+	GetInfoError    error
 }
 
 func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*MockLND, error) {
@@ -195,7 +196,9 @@ func (mlnd *MockLND) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSu
 }
 
 func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
-
+	if mlnd.GetInfoError != nil {
+		return nil, mlnd.GetInfoError
+	}
 	return &lnrpc.GetInfoResponse{
 		Version:             "v1.0.0",
 		CommitHash:          "abc123",
