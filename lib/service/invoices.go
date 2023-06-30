@@ -345,12 +345,6 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		svc.Logger.Errorf("Could not insert revert feeLimit transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
-	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
-	if err != nil {
-		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
-		return err
-	}
 	err = tx.Commit()
 	if err != nil {
 		sentry.CaptureException(err)
