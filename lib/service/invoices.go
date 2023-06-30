@@ -261,7 +261,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		InvoiceID:       invoice.ID,
 		CreditAccountID: entryToRevert.DebitAccountID,
 		DebitAccountID:  entryToRevert.CreditAccountID,
-		Amount:          invoice.Amount,
+		Amount:          entryToRevert.Amount,
 	}
 	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
