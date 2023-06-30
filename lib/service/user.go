@@ -143,7 +143,7 @@ func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
 		limit = int64(math.Ceil(float64(amount)*float64(0.01)) + 1)
 	}
 	if amount > svc.Config.MaxFeeAmount {
-		return svc.Config.MaxFeeAmount
+		limit = svc.Config.MaxFeeAmount
 	}
 	return limit
 }
