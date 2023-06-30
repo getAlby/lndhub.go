@@ -294,8 +294,13 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
-
-	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not open tx entry for updating successful payment:r_hash:%s %v", invoice.RHash, err)
+		return err
+	}
+	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
@@ -318,10 +323,38 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		Amount:          int64(invoice.Fee),
 		ParentID:        parentEntry.ID,
 	}
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+	//revert the provisional feeLimit amount
+	feeLimit := svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
+	provisionalFeeRevertEntry := models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: parentEntry.DebitAccountID,
+		DebitAccountID:  parentEntry.CreditAccountID,
+		Amount:          feeLimit,
+		ParentID:        parentEntry.ID,
+	}
+	_, err = tx.NewInsert().Model(&provisionalFeeRevertEntry).Exec(ctx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not insert revert feeLimit transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
 
