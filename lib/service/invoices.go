@@ -197,12 +197,16 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 		return nil, err
 	}
 
+	//calculate the fee limit and add it to the provisional transaction entry
+	//in case of a succesful payment, the fee limit amount will be re-credited
+	//in case of a failed payment, this will get reverted anyway.
+	feeLimit := svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
 	entry := models.TransactionEntry{
 		UserID:          userId,
 		InvoiceID:       invoice.ID,
 		CreditAccountID: creditAccount.ID,
 		DebitAccountID:  debitAccount.ID,
-		Amount:          invoice.Amount,
+		Amount:          invoice.Amount + feeLimit,
 	}
 
 	// The DB constraints make sure the user actually has enough balance for the transaction
