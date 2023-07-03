@@ -82,6 +82,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		CreditAccountID: recipientCreditAccount.ID,
 		DebitAccountID:  recipientDebitAccount.ID,
 		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeIncoming,
 	}
 	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
@@ -203,6 +204,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 		CreditAccountID: creditAccount.ID,
 		DebitAccountID:  debitAccount.ID,
 		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeOutgoing,
 	}
 
 	// The DB constraints make sure the user actually has enough balance for the transaction
@@ -258,6 +260,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		CreditAccountID: entryToRevert.DebitAccountID,
 		DebitAccountID:  entryToRevert.CreditAccountID,
 		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeOutgoingReversal,
 	}
 	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
@@ -313,6 +316,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		DebitAccountID:  parentEntry.DebitAccountID,
 		Amount:          int64(invoice.Fee),
 		ParentID:        parentEntry.ID,
+		EntryType:       models.EntryTypeFee,
 	}
 	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {

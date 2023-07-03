@@ -4,6 +4,15 @@ import (
 	"time"
 )
 
+const (
+	EntryTypeIncoming           = "incoming"
+	EntryTypeOutgoing           = "outgoing"
+	EntryTypeFee                = "fee"
+	EntryTypeFeeReserve         = "fee_reserve"
+	EntryTypeFeeReserveReversal = "fee_reserve_reversal"
+	EntryTypeOutgoingReversal   = "outgoing_reversal"
+)
+
 // TransactionEntry : Transaction Entries Model
 type TransactionEntry struct {
 	ID              int64             `bun:",pk,autoincrement"`
@@ -19,4 +28,5 @@ type TransactionEntry struct {
 	DebitAccount    *Account          `bun:"rel:belongs-to,join:debit_account_id=id"`
 	Amount          int64             `bun:",notnull"`
 	CreatedAt       time.Time         `bun:",nullzero,notnull,default:current_timestamp"`
+	EntryType       string
 }
