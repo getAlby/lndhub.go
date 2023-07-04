@@ -330,6 +330,10 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 		}
 		entry.FeeReserve = &feeReserveEntry
 	}
+	err = tx.Commit()
+	if err != nil {
+		return entry, err
+	}
 	return entry, err
 }
 
