@@ -197,21 +197,15 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
 	}
-
-	entry := models.TransactionEntry{
-		UserID:          userId,
-		InvoiceID:       invoice.ID,
-		CreditAccountID: creditAccount.ID,
-		DebitAccountID:  debitAccount.ID,
-		Amount:          invoice.Amount,
-		EntryType:       models.EntryTypeOutgoing,
+	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, userId)
+	if err != nil {
+		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
+		return nil, err
 	}
 
-	// The DB constraints make sure the user actually has enough balance for the transaction
-	// If the user does not have enough balance this call fails
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	entry, err := svc.InsertTransactionEntry(ctx, invoice, creditAccount, debitAccount, feeAccount)
 	if err != nil {
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
+		svc.Logger.Errorf("Could not insert transaction entries: %v", err)
 		return nil, err
 	}
 
@@ -270,6 +264,13 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		return err
 	}
 
+	err = svc.RevertFeeReserve(ctx, &entry, tx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+
 	invoice.State = common.InvoiceStateError
 	if failedPaymentError != nil {
 		invoice.ErrorMessage = failedPaymentError.Error()
@@ -290,20 +291,96 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return err
 }
 
+func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *models.Invoice, creditAccount, debitAccount, feeAccount models.Account) (entry models.TransactionEntry, err error) {
+	entry = models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: creditAccount.ID,
+		DebitAccountID:  debitAccount.ID,
+		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeOutgoing,
+	}
+
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return entry, err
+	}
+
+	// The DB constraints make sure the user actually has enough balance for the transaction
+	// If the user does not have enough balance this call fails
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		return entry, err
+	}
+
+	//if external payment: add fee reserve to entry
+	feeLimit := svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
+	if feeLimit != 0 {
+		feeReserveEntry := models.TransactionEntry{
+			UserID:          invoice.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: feeAccount.ID,
+			DebitAccountID:  debitAccount.ID,
+			Amount:          invoice.Amount,
+			EntryType:       models.EntryTypeFeeReserve,
+		}
+		_, err = tx.NewInsert().Model(&feeReserveEntry).Exec(ctx)
+		if err != nil {
+			return entry, err
+		}
+		entry.FeeReserve = &feeReserveEntry
+	}
+	return entry, err
+}
+
+func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.TransactionEntry, tx bun.Tx) (err error) {
+	if entry.FeeReserve != nil {
+		entryToRevert := entry.FeeReserve
+		feeReserveRevert := models.TransactionEntry{
+			UserID:          entryToRevert.UserID,
+			InvoiceID:       entryToRevert.ID,
+			CreditAccountID: entryToRevert.DebitAccountID,
+			DebitAccountID:  entryToRevert.CreditAccountID,
+			Amount:          entryToRevert.Amount,
+			EntryType:       models.EntryTypeOutgoingReversal,
+		}
+		_, err = tx.NewInsert().Model(&feeReserveRevert).Exec(ctx)
+		return err
+	}
+	return nil
+}
+
 func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
-	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not open tx entry for updating succesful payment:r_hash:%s %v", invoice.RHash, err)
+		return err
+	}
+	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	if err != nil {
+		tx.Rollback()
+		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+
+	//revert the fee reserve entry
+	err = svc.RevertFeeReserve(ctx, &parentEntry, tx)
+	if err != nil {
+		tx.Rollback()
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
 	// Get the user's fee account for the transaction entry, current account is already there in parent entry
 	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
 	if err != nil {
+		tx.Rollback()
 		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
 		return err
 	}
@@ -318,10 +395,17 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		ParentID:        parentEntry.ID,
 		EntryType:       models.EntryTypeFee,
 	}
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
+		tx.Rollback()
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
 
