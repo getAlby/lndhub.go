@@ -264,7 +264,7 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		return err
 	}
 
-	err = svc.RevertFeeReserve(ctx, &entry, tx)
+	err = svc.RevertFeeReserve(ctx, &entryToRevert, tx)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
