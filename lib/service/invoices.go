@@ -346,7 +346,7 @@ func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.Tr
 			CreditAccountID: entryToRevert.DebitAccountID,
 			DebitAccountID:  entryToRevert.CreditAccountID,
 			Amount:          entryToRevert.Amount,
-			EntryType:       models.EntryTypeOutgoingReversal,
+			EntryType:       models.EntryTypeFeeReserveReversal,
 		}
 		_, err = tx.NewInsert().Model(&feeReserveRevert).Exec(ctx)
 		return err
