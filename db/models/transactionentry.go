@@ -23,7 +23,6 @@ type TransactionEntry struct {
 	ParentID        int64             `bun:",nullzero"`
 	Parent          *TransactionEntry `bun:"rel:belongs-to"`
 	CreditAccountID int64             `bun:",notnull"`
-	FeeReserveID    int64             `bun:",nullzero"`
 	FeeReserve      *TransactionEntry `bun:"rel:belongs-to"`
 	CreditAccount   *Account          `bun:"rel:belongs-to,join:credit_account_id=id"`
 	DebitAccountID  int64             `bun:",notnull"`
