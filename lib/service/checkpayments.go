@@ -13,15 +13,15 @@ import (
 )
 
 func (svc *LndhubService) GetAllPendingPayments(ctx context.Context) ([]models.Invoice, error) {
-    payments := []models.Invoice{}
-    err := svc.DB.NewSelect().Model(&payments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("r_hash != ''").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
-    return payments, err
+	payments := []models.Invoice{}
+	err := svc.DB.NewSelect().Model(&payments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("r_hash != ''").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
+	return payments, err
 }
 func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (err error) {
-    pendingPayments, err := svc.GetAllPendingPayments(ctx)
-    if err != nil {
-        return err
-    }
+	pendingPayments, err := svc.GetAllPendingPayments(ctx)
+	if err != nil {
+		return err
+	}
 
 	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
@@ -42,10 +42,19 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 }
 
 func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id int64) (models.TransactionEntry, error) {
-    entry := models.TransactionEntry{}
+	entry := models.TransactionEntry{}
+	feeReserveEntry := models.TransactionEntry{}
 
-    err := svc.DB.NewSelect().Model(&entry).Where("invoice_id = ?", id).Limit(1).Scan(ctx)
-    return entry, err
+	err := svc.DB.NewSelect().Model(&entry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeOutgoing).Limit(1).Scan(ctx)
+	if err != nil {
+		return entry, err
+	}
+	err = svc.DB.NewSelect().Model(&feeReserveEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeFeeReserve).Limit(1).Scan(ctx)
+	if err != nil {
+		return entry, err
+	}
+	entry.FeeReserve = &feeReserveEntry
+	return entry, err
 }
 
 // Should be called in a goroutine as the tracking can potentially take a long time
@@ -72,7 +81,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			svc.Logger.Errorf("Error tracking payment with hash %s: %s", invoice.RHash, err.Error())
 			return
 		}
-        entry, err := svc.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
+		entry, err := svc.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
 		if err != nil {
 			svc.Logger.Errorf("Error tracking payment %s: %s", invoice.RHash, err.Error())
 			return
