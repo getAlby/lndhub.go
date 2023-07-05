@@ -160,7 +160,7 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	assert.Equal(suite.T(), transactionEntries[2].CreditAccountID, transactionEntries[3].DebitAccountID)
 	assert.Equal(suite.T(), transactionEntries[2].DebitAccountID, transactionEntries[3].CreditAccountID)
 	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactionEntries[2].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[3].Amount, int64(externalSatRequested))
 	// assert that balance is the same
 	assert.Equal(suite.T(), int64(userFundingSats), userBalance)
 }
