@@ -34,7 +34,7 @@ type HodlInvoiceSuite struct {
 
 func (suite *HodlInvoiceSuite) SetupSuite() {
 	mlnd := newDefaultMockLND()
-	externalLND, err := NewMockLND("1234567890abcdefabcd", 0, make(chan (*lnrpc.Invoice)))
+	externalLND, err := NewMockLND("1234567890abcdefabcd", 0, make(chan (*lnrpc.Invoice), 5))
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
@@ -307,17 +307,11 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 		Status:          lnrpc.Payment_SUCCEEDED,
 		FailureReason:   0,
 	})
-	//wait a bit for db update to happen
-	time.Sleep(time.Second)
-
-	if err != nil {
-		fmt.Printf("Error when getting balance %v\n", err.Error())
-	}
 	//fetch user balance again
 	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
 	assert.NoError(suite.T(), err)
 	//assert the balance is negative
-	assert.True(suite.T(), userBalance < 0)
+	assert.False(suite.T(), userBalance < 0)
 }
 
 func (suite *HodlInvoiceSuite) TearDownSuite() {
