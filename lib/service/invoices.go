@@ -402,7 +402,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		return err
 	}
 
-	//revert the fee reserve entry
+	//add the real fee entry
 	err = svc.AddFeeEntry(ctx, &parentEntry, invoice, tx)
 	if err != nil {
 		tx.Rollback()
