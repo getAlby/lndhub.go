@@ -138,7 +138,7 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
 	assert.Equal(suite.T(), SendPaymentMockError, invoices[0].ErrorMessage)
 
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
@@ -154,13 +154,13 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	//  - the fee reserve + the fee reserve reversal
 	//  - the outgoing payment reversal
 	//  with reversed credit and debit account ids for payment 2/5 & payment 3/4
-	assert.Equal(suite.T(), 5, len(transactonEntries))
-	assert.Equal(suite.T(), transactonEntries[1].CreditAccountID, transactonEntries[4].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[4].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[2].CreditAccountID, transactonEntries[3].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[2].DebitAccountID, transactonEntries[3].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), 5, len(transactionEntries))
+	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[4].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].CreditAccountID, transactionEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].DebitAccountID, transactionEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[2].Amount, int64(externalSatRequested))
 	// assert that balance is the same
 	assert.Equal(suite.T(), int64(userFundingSats), userBalance)
 }

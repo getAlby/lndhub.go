@@ -77,10 +77,10 @@ func (suite *HodlInvoiceSuite) SetupSuite() {
 }
 
 func (suite *HodlInvoiceSuite) TestHodlInvoice() {
-	userFundingSats := 1000
-	externalSatRequested := 500
+	userFundingSats := int64(1000)
+	externalSatRequested := int64(500)
 	// fund user account
-	invoiceResponse := suite.createAddInvoiceReq(userFundingSats, "integration test external payment user", suite.userToken)
+	invoiceResponse := suite.createAddInvoiceReq(int(userFundingSats), "integration test external payment user", suite.userToken)
 	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
@@ -90,7 +90,7 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	// create external invoice
 	externalInvoice := lnrpc.Invoice{
 		Memo:      "integration tests: external pay from user",
-		Value:     int64(externalSatRequested),
+		Value:     externalSatRequested,
 		RPreimage: []byte("preimage1"),
 	}
 	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
@@ -107,7 +107,10 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
+
+	//also check that the fee reserve was reduced
+	feeReserve := suite.service.CalcFeeLimit(suite.externalLND.GetMainPubkey(), int64(externalSatRequested))
+	assert.Equal(suite.T(), userFundingSats-externalSatRequested-feeReserve, userBalance)
 
 	// check payment is pending
 	inv, err := suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
@@ -157,12 +160,19 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
-	// check if there are 3 transaction entries, with reversed credit and debit account ids
-	assert.Equal(suite.T(), 3, len(transactionEntries))
-	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[2].DebitAccountID)
-	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[2].CreditAccountID)
+	// check if there are 5 transaction entries:
+	//	- the incoming payment
+	//  - the outgoing payment
+	//  - the fee reserve + the fee reserve reversal
+	//  - the outgoing payment reversal
+	//  with reversed credit and debit account ids for payment 2/5 & payment 3/4
+	assert.Equal(suite.T(), 5, len(transactionEntries))
+	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[4].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].CreditAccountID, transactionEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].DebitAccountID, transactionEntries[3].CreditAccountID)
 	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactionEntries[2].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[4].Amount, int64(externalSatRequested))
 
 	// create external invoice
 	externalInvoice = lnrpc.Invoice{
