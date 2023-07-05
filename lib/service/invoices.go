@@ -247,7 +247,16 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		svc.Logger.Errorf("Could not open tx entry for updating failed payment:r_hash:%s %v", invoice.RHash, err)
 		return err
 	}
-	// add transaction entry with reverted credit/debit account id
+
+	//revert the fee reserve if necessary
+	err = svc.RevertFeeReserve(ctx, &entryToRevert, invoice, tx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+
+	//revert the payment if necessary
 	entry := models.TransactionEntry{
 		UserID:          invoice.UserID,
 		InvoiceID:       invoice.ID,
@@ -261,13 +270,6 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		tx.Rollback()
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
-		return err
-	}
-
-	err = svc.RevertFeeReserve(ctx, &entryToRevert, tx)
-	if err != nil {
-		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
@@ -337,12 +339,12 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 	return entry, err
 }
 
-func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.TransactionEntry, tx bun.Tx) (err error) {
+func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
 	if entry.FeeReserve != nil {
 		entryToRevert := entry.FeeReserve
 		feeReserveRevert := models.TransactionEntry{
 			UserID:          entryToRevert.UserID,
-			InvoiceID:       entryToRevert.ID,
+			InvoiceID:       invoice.ID,
 			CreditAccountID: entryToRevert.DebitAccountID,
 			DebitAccountID:  entryToRevert.CreditAccountID,
 			Amount:          entryToRevert.Amount,
@@ -394,7 +396,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	}
 
 	//revert the fee reserve entry
-	err = svc.RevertFeeReserve(ctx, &parentEntry, tx)
+	err = svc.RevertFeeReserve(ctx, &parentEntry, invoice, tx)
 	if err != nil {
 		tx.Rollback()
 		sentry.CaptureException(err)
