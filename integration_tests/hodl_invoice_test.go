@@ -218,6 +218,97 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	clearTable(suite.service, "transaction_entries")
 	clearTable(suite.service, "accounts")
 }
+func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
+	//10M funding, 5M sat requested
+	userFundingSats := 10000000
+	externalSatRequested := 5000000
+	userId := getUserIdFromToken(suite.userToken)
+	// fund user account
+	invoiceResponse := suite.createAddInvoiceReq(userFundingSats, "integration test external payment user", suite.userToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
+
+	// wait a bit for the callback event to hit
+	time.Sleep(10 * time.Millisecond)
+
+	// create external invoice
+	externalInvoice := lnrpc.Invoice{
+		Memo:      "integration tests: external pay from user",
+		Value:     int64(externalSatRequested),
+		RPreimage: []byte("preimage2"),
+	}
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	//the fee should be 1 %, so 50k sats (+1)
+	feeLimit := suite.service.CalcFeeLimit(suite.externalLND.GetMainPubkey(), int64(externalSatRequested))
+	// pay external from user, req will be canceled after 2 sec
+	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
+	// wait for payment to be updated as pending in database
+	time.Sleep(3 * time.Second)
+	// check payment is pending
+	inv, err := suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
+
+	//drain balance from account: at this point we have 5 M, so we can pay 4.95M
+	drainInv := lnrpc.Invoice{
+		Memo:      "integration tests: external pay from user",
+		Value:     int64(4950000),
+		RPreimage: []byte("preimage3"),
+	}
+	drainInvoice, err := suite.externalLND.AddInvoice(context.Background(), &drainInv)
+	assert.NoError(suite.T(), err)
+	//pay drain invoice
+	go suite.createPayInvoiceReqWithCancel(drainInvoice.PaymentRequest, suite.userToken)
+	time.Sleep(3 * time.Second)
+
+	//start payment checking loop
+	go func() {
+		err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+		assert.NoError(suite.T(), err)
+	}()
+	//wait a bit for routine to start
+	time.Sleep(time.Second)
+	//now settle both invoices with the maximum fee
+	suite.hodlLND.SettlePayment(lnrpc.Payment{
+		PaymentHash:     hex.EncodeToString(drainInvoice.RHash),
+		Value:           drainInv.Value,
+		CreationDate:    0,
+		FeeSat:          feeLimit,
+		PaymentPreimage: "preimage3",
+		ValueSat:        drainInv.Value,
+		ValueMsat:       0,
+		PaymentRequest:  invoice.PaymentRequest,
+		Status:          lnrpc.Payment_SUCCEEDED,
+		FailureReason:   0,
+	})
+	//wait a bit for db update to happen
+	time.Sleep(time.Second)
+	//send settle invoice with lnrpc.payment
+	suite.hodlLND.SettlePayment(lnrpc.Payment{
+		PaymentHash:     hex.EncodeToString(invoice.RHash),
+		Value:           externalInvoice.Value,
+		CreationDate:    0,
+		FeeSat:          feeLimit,
+		PaymentPreimage: "preimage2",
+		ValueSat:        externalInvoice.Value,
+		ValueMsat:       0,
+		PaymentRequest:  invoice.PaymentRequest,
+		Status:          lnrpc.Payment_SUCCEEDED,
+		FailureReason:   0,
+	})
+	//wait a bit for db update to happen
+	time.Sleep(time.Second)
+
+	if err != nil {
+		fmt.Printf("Error when getting balance %v\n", err.Error())
+	}
+	//fetch user balance again
+	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	assert.NoError(suite.T(), err)
+	//assert the balance is negative
+	assert.True(suite.T(), userBalance < 0)
+}
 
 func (suite *HodlInvoiceSuite) TearDownSuite() {
 	suite.invoiceUpdateSubCancelFn()
