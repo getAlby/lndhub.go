@@ -33,7 +33,7 @@ func (hps *HodlPaymentSubscriber) Recv() (*lnrpc.Payment, error) {
 func NewLNDMockHodlWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMockHodlWrapperAsync, err error) {
 	return &LNDMockHodlWrapperAsync{
 		hps: &HodlPaymentSubscriber{
-			ch: make(chan lnrpc.Payment),
+			ch: make(chan lnrpc.Payment, 5),
 		},
 		LightningClientWrapper: lnd,
 	}, nil
