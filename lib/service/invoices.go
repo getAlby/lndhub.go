@@ -323,7 +323,7 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 			InvoiceID:       invoice.ID,
 			CreditAccountID: feeAccount.ID,
 			DebitAccountID:  debitAccount.ID,
-			Amount:          invoice.Amount,
+			Amount:          feeLimit,
 			EntryType:       models.EntryTypeFeeReserve,
 		}
 		_, err = tx.NewInsert().Model(&feeReserveEntry).Exec(ctx)
