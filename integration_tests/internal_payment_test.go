@@ -240,7 +240,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	assert.Equal(suite.T(), 2, len(invoices))
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
 	assert.Equal(suite.T(), common.InvoiceStateSettled, invoices[1].State)
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
@@ -250,15 +250,14 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 
-	// check if there are 5 transaction entries, with reversed credit and debit account ids for last 2
-	assert.Equal(suite.T(), 5, len(transactonEntries))
-	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntries[0].Amount)
-	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntries[1].Amount)
-	assert.Equal(suite.T(), int64(fee), transactonEntries[2].Amount)
-	assert.Equal(suite.T(), transactonEntries[3].CreditAccountID, transactonEntries[4].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[3].DebitAccountID, transactonEntries[4].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
-	assert.Equal(suite.T(), transactonEntries[4].Amount, int64(bobSatRequested))
+	// check if there are 4 transaction entries, with reversed credit and debit account ids for last 2
+	assert.Equal(suite.T(), 4, len(transactionEntries))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntries[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntries[1].Amount)
+	assert.Equal(suite.T(), transactionEntries[2].CreditAccountID, transactionEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].DebitAccountID, transactionEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].Amount, int64(bobSatRequested))
+	assert.Equal(suite.T(), transactionEntries[3].Amount, int64(bobSatRequested))
 	// assert that balance was reduced only once
 	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested+fee), int64(aliceBalance))
 }
