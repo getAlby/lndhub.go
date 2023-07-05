@@ -176,7 +176,6 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	assert.Equal(suite.T(), 2, len(transactionEntriesAlice))
 	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntriesAlice[0].Amount)
 	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesAlice[1].Amount)
-	assert.Equal(suite.T(), transactionEntriesAlice[1].ID, transactionEntriesAlice[2].ParentID)
 	assert.Equal(suite.T(), int64(aliceFundingSats-bobSatRequested-fee), aliceBalance)
 
 	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
