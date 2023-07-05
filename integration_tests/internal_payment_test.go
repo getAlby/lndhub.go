@@ -171,13 +171,12 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	suite.echo.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
 
-	transactonEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
+	transactionEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
 	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), aliceId)
-	assert.Equal(suite.T(), 3, len(transactonEntriesAlice))
-	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntriesAlice[0].Amount)
-	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntriesAlice[1].Amount)
-	assert.Equal(suite.T(), int64(fee), transactonEntriesAlice[2].Amount)
-	assert.Equal(suite.T(), transactonEntriesAlice[1].ID, transactonEntriesAlice[2].ParentID)
+	assert.Equal(suite.T(), 2, len(transactionEntriesAlice))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntriesAlice[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesAlice[1].Amount)
+	assert.Equal(suite.T(), transactionEntriesAlice[1].ID, transactionEntriesAlice[2].ParentID)
 	assert.Equal(suite.T(), int64(aliceFundingSats-bobSatRequested-fee), aliceBalance)
 
 	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
