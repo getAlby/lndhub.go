@@ -133,10 +133,10 @@ func (suite *PaymentTestAsyncErrorsSuite) TestExternalAsyncFailingInvoice() {
 	}
 	// check if there are 5 transaction entries, with reversed credit and debit account ids
 	assert.Equal(suite.T(), 5, len(transactionEntries))
-	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[3].DebitAccountID)
-	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[4].CreditAccountID)
 	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactionEntries[3].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[4].Amount, int64(externalSatRequested))
 }
 
 func (suite *PaymentTestAsyncErrorsSuite) TearDownSuite() {
