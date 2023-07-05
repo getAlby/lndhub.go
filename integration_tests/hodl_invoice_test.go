@@ -153,16 +153,16 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	errorString := "FAILURE_REASON_INCORRECT_PAYMENT_DETAILS"
 	assert.Equal(suite.T(), errorString, invoices[0].ErrorMessage)
 
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
 	// check if there are 3 transaction entries, with reversed credit and debit account ids
-	assert.Equal(suite.T(), 3, len(transactonEntries))
-	assert.Equal(suite.T(), transactonEntries[1].CreditAccountID, transactonEntries[2].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[2].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), 3, len(transactionEntries))
+	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[2].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[2].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[2].Amount, int64(externalSatRequested))
 
 	// create external invoice
 	externalInvoice = lnrpc.Invoice{
