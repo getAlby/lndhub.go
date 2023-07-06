@@ -310,7 +310,7 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 	//fetch user balance again
 	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
 	assert.NoError(suite.T(), err)
-	//assert the balance is negative
+	//assert the balance did not go below 0
 	assert.False(suite.T(), userBalance < 0)
 }
 
