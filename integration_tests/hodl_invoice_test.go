@@ -28,6 +28,7 @@ type HodlInvoiceSuite struct {
 	service                  *service.LndhubService
 	userLogin                ExpectedCreateUserResponseBody
 	userToken                string
+	userToken2               string
 	invoiceUpdateSubCancelFn context.CancelFunc
 	hodlLND                  *LNDMockHodlWrapperAsync
 }
@@ -51,7 +52,7 @@ func (suite *HodlInvoiceSuite) SetupSuite() {
 	if err != nil {
 		log.Fatalf("Error initializing test service: %v", err)
 	}
-	users, userTokens, err := createUsers(svc, 1)
+	users, userTokens, err := createUsers(svc, 2)
 	if err != nil {
 		log.Fatalf("Error creating test users: %v", err)
 	}
@@ -66,10 +67,11 @@ func (suite *HodlInvoiceSuite) SetupSuite() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 	suite.echo = e
-	assert.Equal(suite.T(), 1, len(users))
-	assert.Equal(suite.T(), 1, len(userTokens))
+	assert.Equal(suite.T(), 2, len(users))
+	assert.Equal(suite.T(), 2, len(userTokens))
 	suite.userLogin = users[0]
 	suite.userToken = userTokens[0]
+	suite.userToken2 = userTokens[1]
 	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
@@ -229,9 +231,9 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 	//10M funding, 5M sat requested
 	userFundingSats := 10000000
 	externalSatRequested := 5000000
-	userId := getUserIdFromToken(suite.userToken)
+	userId := getUserIdFromToken(suite.userToken2)
 	// fund user account
-	invoiceResponse := suite.createAddInvoiceReq(userFundingSats, "integration test external payment user", suite.userToken)
+	invoiceResponse := suite.createAddInvoiceReq(userFundingSats, "integration test external payment user", suite.userToken2)
 	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
@@ -242,14 +244,14 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 	externalInvoice := lnrpc.Invoice{
 		Memo:      "integration tests: external pay from user",
 		Value:     int64(externalSatRequested),
-		RPreimage: []byte("preimage2"),
+		RPreimage: []byte("preimage3"),
 	}
 	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
 	//the fee should be 1 %, so 50k sats (+1)
 	feeLimit := suite.service.CalcFeeLimit(suite.externalLND.GetMainPubkey(), int64(externalSatRequested))
 	// pay external from user, req will be canceled after 2 sec
-	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken)
+	go suite.createPayInvoiceReqWithCancel(invoice.PaymentRequest, suite.userToken2)
 	// wait for payment to be updated as pending in database
 	time.Sleep(3 * time.Second)
 	// check payment is pending
@@ -261,12 +263,12 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 	drainInv := lnrpc.Invoice{
 		Memo:      "integration tests: external pay from user",
 		Value:     int64(4950000),
-		RPreimage: []byte("preimage3"),
+		RPreimage: []byte("preimage4"),
 	}
 	drainInvoice, err := suite.externalLND.AddInvoice(context.Background(), &drainInv)
 	assert.NoError(suite.T(), err)
 	//pay drain invoice
-	go suite.createPayInvoiceReqWithCancel(drainInvoice.PaymentRequest, suite.userToken)
+	go suite.createPayInvoiceReqWithCancel(drainInvoice.PaymentRequest, suite.userToken2)
 	time.Sleep(3 * time.Second)
 
 	//start payment checking loop
@@ -297,7 +299,7 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 		Value:           externalInvoice.Value,
 		CreationDate:    0,
 		FeeSat:          feeLimit,
-		PaymentPreimage: "preimage2",
+		PaymentPreimage: "preimage4",
 		ValueSat:        externalInvoice.Value,
 		ValueMsat:       0,
 		PaymentRequest:  invoice.PaymentRequest,
