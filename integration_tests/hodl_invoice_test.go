@@ -224,9 +224,6 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	inv, err = suite.service.FindInvoiceByPaymentHash(context.Background(), userId, hex.EncodeToString(invoice.RHash))
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), common.InvoiceStateSettled, inv.State)
-	clearTable(suite.service, "invoices")
-	clearTable(suite.service, "transaction_entries")
-	clearTable(suite.service, "accounts")
 }
 func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 	//10M funding, 5M sat requested
@@ -315,6 +312,9 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 }
 
 func (suite *HodlInvoiceSuite) TearDownSuite() {
+	clearTable(suite.service, "invoices")
+	clearTable(suite.service, "transaction_entries")
+	clearTable(suite.service, "accounts")
 	suite.invoiceUpdateSubCancelFn()
 }
 
