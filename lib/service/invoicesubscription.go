@@ -163,6 +163,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 			CreditAccountID: creditAccount.ID,
 			DebitAccountID:  debitAccount.ID,
 			Amount:          rawInvoice.AmtPaidSat,
+			EntryType:       models.EntryTypeIncoming,
 		}
 		// Save the transaction entry
 		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
