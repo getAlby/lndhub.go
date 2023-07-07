@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -47,6 +49,16 @@ func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id
 
 	err := svc.DB.NewSelect().Model(&entry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeOutgoing).Limit(1).Scan(ctx)
 	if err != nil {
+		//migration issue: pre-feereserve payment will cause a "no rows in result set" error.
+		//in this case, we also look for the entries without the outgoing check, and do not add the fee reserve
+		//we can remove this later when all relevant payments will have an entry_type and a fee_reserve tx
+		if errors.Is(err, sql.ErrNoRows) {
+			//check again with legacy query
+			err = svc.DB.NewSelect().Model(&entry).Where("invoice_id = ?", id).Limit(1).Scan(ctx)
+			if err == nil {
+				return entry, nil
+			}
+		}
 		return entry, err
 	}
 	err = svc.DB.NewSelect().Model(&feeReserveEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeFeeReserve).Limit(1).Scan(ctx)
