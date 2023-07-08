@@ -262,7 +262,11 @@ func (c *defaultAMQPCLient) consume(ctx context.Context, exchange string, routin
 		// Nowait: We set this to false as we want to wait for a server response
 		// to check whether the queue was created successfully
 		opts.Wait,
-		nil,
+		// A safety mechanism. If our code would requeue failed messages when listening
+		// We want to limit the amount of redeliveries as to avoid infinite loops.
+		amqp.Table{
+			"delivery-limit": 10,
+		},
 	)
 	if err != nil {
 		return nil, err
