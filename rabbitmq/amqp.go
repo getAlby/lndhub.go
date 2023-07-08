@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/labstack/gommon/log"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/ziflex/lecho/v3"
@@ -85,13 +86,13 @@ func (c *defaultAMQPCLient) connect() error {
 }
 
 func (c *defaultAMQPCLient) Close() error {
-    close(c.notifyCloseChan)
+	close(c.notifyCloseChan)
 	return c.conn.Close()
 }
 
 func (c *defaultAMQPCLient) ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error {
-    // For now we simply create a short lived channel. If this proves to be a bad approach we can either create a management channel
-    // at client create time, or use either the consumer/publishing channels that already exist.
+	// For now we simply create a short lived channel. If this proves to be a bad approach we can either create a management channel
+	// at client create time, or use either the consumer/publishing channels that already exist.
 	ch, err := c.conn.Channel()
 	if err != nil {
 		return err
@@ -162,15 +163,15 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 
 	clientChannel := make(chan amqp.Delivery)
 
-    // This routine functions as a wrapper arround the "raw" delivery channel.
-    // The happy-path of the select statement, i.e. the last one, is to simply
-    // pass on the message we get from the actual amqp channel. If however, an
-    // error is send over the NotifyClose channel it means we must try to
-    // reconnect if the error is Recoverable. In the meantime the client using
-    // the Listen function is non the wiser that this happened. A successful
-    // reconnect will make sure we recieve message from a new "raw" delivery
-    // channel on the next loop we simply keep sending new messages to the
-    // client channel using this new underlying connection/channel.
+	// This routine functions as a wrapper arround the "raw" delivery channel.
+	// The happy-path of the select statement, i.e. the last one, is to simply
+	// pass on the message we get from the actual amqp channel. If however, an
+	// error is send over the NotifyClose channel it means we must try to
+	// reconnect if the error is Recoverable. In the meantime the client using
+	// the Listen function is non the wiser that this happened. A successful
+	// reconnect will make sure we recieve message from a new "raw" delivery
+	// channel on the next loop we simply keep sending new messages to the
+	// client channel using this new underlying connection/channel.
 	go func() {
 		for {
 			select {
@@ -180,17 +181,18 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 
 			case amqpError := <-c.notifyCloseChan:
 				c.logger.Error(amqpError.Error())
-				if !amqpError.Recover {
-                    c.Close()
-					return
-				}
 
 				c.logger.Info("amqp: trying to reconnect...")
 
-				err := c.connect()
+				expontentialBackoff := backoff.NewExponentialBackOff()
+
+				expontentialBackoff.MaxInterval = time.Second * 10
+				expontentialBackoff.MaxElapsedTime = time.Minute
+
+				err := backoff.Retry(c.connect, expontentialBackoff)
 				if err != nil {
 					c.logger.Error(err)
-                    c.Close()
+					c.Close()
 
 					return
 				}
@@ -198,7 +200,7 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 				d, err := c.consume(ctx, exchange, routingKey, queueName, options...)
 				if err != nil {
 					c.logger.Error(err)
-                    c.Close()
+					c.Close()
 
 					return
 				}
@@ -291,6 +293,6 @@ func (c *defaultAMQPCLient) consume(ctx context.Context, exchange string, routin
 }
 
 func (c *defaultAMQPCLient) PublishWithContext(ctx context.Context, exchange string, key string, mandatory bool, immediate bool, msg amqp.Publishing) error {
-    // TODO: Think about race condition here. When a connection retry is in progress the publishing channel will get reassigned as well.
+	// TODO: Think about race condition here. When a connection retry is in progress the publishing channel will get reassigned as well.
 	return c.publishChannel.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
