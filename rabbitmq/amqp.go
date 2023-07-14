@@ -61,6 +61,10 @@ func DialAMQP(uri string) (AMQPClient, error) {
 		reconFlag: atomic.Bool{},
 	}
 	err := client.connect()
+    if err != nil {
+        return client, err
+    }
+
 	client.listeners = []chan listenerMsg{}
 
 	go client.reconnectionLoop()
@@ -114,10 +118,6 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 
 			c.logger.Info("amqp: trying to reconnect...")
 			err := backoff.Retry(c.connect, expontentialBackoff)
-
-			c.reconFlag.Store(false)
-			c.logger.Info("amqp: succesfully reconnected")
-
 			if err != nil {
 				for _, listener := range c.listeners {
 					listener <- msgClose
@@ -125,6 +125,11 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 
 				return err
 			}
+
+			c.reconFlag.Store(false)
+			c.logger.Info("amqp: succesfully reconnected")
+
+
 
 			for _, listener := range c.listeners {
 				listener <- msgReconnect
