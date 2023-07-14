@@ -272,7 +272,7 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 						return
 					}
 
-					c.logger.Info("succesfully consuming from new deliveries channel")
+                    c.logger.Infof("amqp: succesfully consuming messages with routingkey: %s from new deliveries channel", routingKey)
 					deliveries = d
 
 				case msgClose:
