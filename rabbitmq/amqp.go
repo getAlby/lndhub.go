@@ -110,6 +110,7 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 			expontentialBackoff.MaxInterval = time.Second * 10
 			expontentialBackoff.MaxElapsedTime = time.Minute
 
+			c.reconFlag.Store(true)
 			err := backoff.Retry(func() error {
 				c.logger.Info("amqp: trying to reconnect...")
 
@@ -144,6 +145,7 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 
 				return nil
 			}, expontentialBackoff)
+			c.reconFlag.Store(false)
 
 			if err != nil {
 				return err
