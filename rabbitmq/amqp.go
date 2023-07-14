@@ -3,12 +3,10 @@ package rabbitmq
 import (
 	"context"
 	"errors"
-	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/labstack/gommon/log"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/ziflex/lecho/v3"
 )
