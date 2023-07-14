@@ -160,20 +160,20 @@ func main() {
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
 	if c.RabbitMQUri != "" {
-        amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
+		amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
 		if err != nil {
 			logger.Fatal(err)
 		}
 
-        defer amqpClient.Close()
+		defer amqpClient.Close()
 
 		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLogger(logger),
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
-            rabbitmq.WithLndPaymentExchange(c.RabbitMQLndPaymentExchange),
-            rabbitmq.WithLndPaymentConsumerQueueName(c.RabbitMQPaymentConsumerQueueName),
+			rabbitmq.WithLndPaymentExchange(c.RabbitMQLndPaymentExchange),
+			rabbitmq.WithLndPaymentConsumerQueueName(c.RabbitMQPaymentConsumerQueueName),
 		)
 		if err != nil {
 			logger.Fatal(err)
@@ -211,24 +211,19 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	backgroundWg.Add(1)
 	go func() {
-		switch svc.Config.SubscriptionConsumerType {
-		case "rabbitmq":
+		if svc.RabbitMQClient != nil {
 			err = svc.RabbitMQClient.SubscribeToLndInvoices(backGroundCtx, svc.ProcessInvoiceUpdate)
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
 				sentry.CaptureException(err)
 				svc.Logger.Fatal(err)
 			}
-
-		case "grpc":
+		} else {
 			err = svc.InvoiceUpdateSubscription(backGroundCtx)
 			if err != nil && err != context.Canceled {
 				// in case of an error in this routine, we want to restart LNDhub
 				svc.Logger.Fatal(err)
 			}
-
-		default:
-			svc.Logger.Fatalf("Unrecognized subscription consumer type %s", svc.Config.SubscriptionConsumerType)
 		}
 
 		svc.Logger.Info("Invoice routine done")
@@ -239,15 +234,13 @@ func main() {
 	// A goroutine will be spawned for each one
 	backgroundWg.Add(1)
 	go func() {
-		switch svc.Config.FinalizePendingPaymentsWith {
-		case "rabbitmq":
+		if svc.RabbitMQClient != nil {
 			err = svc.RabbitMQClient.FinalizeInitializedPayments(backGroundCtx, svc)
 			if err != nil {
 				sentry.CaptureException(err)
 				svc.Logger.Error(err)
 			}
-
-		default:
+		} else {
 			err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
 			if err != nil {
 				sentry.CaptureException(err)
@@ -259,15 +252,6 @@ func main() {
 		backgroundWg.Done()
 	}()
 
-	//Start webhook subscription
-	if svc.Config.WebhookUrl != "" {
-		backgroundWg.Add(1)
-		go func() {
-			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
-			svc.Logger.Info("Webhook routine done")
-			backgroundWg.Done()
-		}()
-	}
 	//Start rabbit publisher
 	if svc.RabbitMQClient != nil {
 		backgroundWg.Add(1)
@@ -282,6 +266,13 @@ func main() {
 			}
 
 			svc.Logger.Info("Rabbit invoice publisher done")
+			backgroundWg.Done()
+		}()
+	} else {
+		backgroundWg.Add(1)
+		go func() {
+			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
+			svc.Logger.Info("Webhook routine done")
 			backgroundWg.Done()
 		}()
 	}

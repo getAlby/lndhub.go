@@ -196,7 +196,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 		case delivery, ok := <-deliveryChan:
 			if !ok {
-				return err
+				return fmt.Errorf("Disconnected from RabbitMQ")
 			}
 
 			payment := lnrpc.Payment{}
