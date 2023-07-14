@@ -171,13 +171,11 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	suite.echo.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
 
-	transactonEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
+	transactionEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
 	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), aliceId)
-	assert.Equal(suite.T(), 3, len(transactonEntriesAlice))
-	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntriesAlice[0].Amount)
-	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntriesAlice[1].Amount)
-	assert.Equal(suite.T(), int64(fee), transactonEntriesAlice[2].Amount)
-	assert.Equal(suite.T(), transactonEntriesAlice[1].ID, transactonEntriesAlice[2].ParentID)
+	assert.Equal(suite.T(), 2, len(transactionEntriesAlice))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntriesAlice[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesAlice[1].Amount)
 	assert.Equal(suite.T(), int64(aliceFundingSats-bobSatRequested-fee), aliceBalance)
 
 	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
@@ -241,7 +239,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	assert.Equal(suite.T(), 2, len(invoices))
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
 	assert.Equal(suite.T(), common.InvoiceStateSettled, invoices[1].State)
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
@@ -251,15 +249,14 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 
-	// check if there are 5 transaction entries, with reversed credit and debit account ids for last 2
-	assert.Equal(suite.T(), 5, len(transactonEntries))
-	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntries[0].Amount)
-	assert.Equal(suite.T(), int64(bobSatRequested), transactonEntries[1].Amount)
-	assert.Equal(suite.T(), int64(fee), transactonEntries[2].Amount)
-	assert.Equal(suite.T(), transactonEntries[3].CreditAccountID, transactonEntries[4].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[3].DebitAccountID, transactonEntries[4].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[3].Amount, int64(bobSatRequested))
-	assert.Equal(suite.T(), transactonEntries[4].Amount, int64(bobSatRequested))
+	// check if there are 4 transaction entries, with reversed credit and debit account ids for last 2
+	assert.Equal(suite.T(), 4, len(transactionEntries))
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntries[0].Amount)
+	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntries[1].Amount)
+	assert.Equal(suite.T(), transactionEntries[2].CreditAccountID, transactionEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].DebitAccountID, transactionEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].Amount, int64(bobSatRequested))
+	assert.Equal(suite.T(), transactionEntries[3].Amount, int64(bobSatRequested))
 	// assert that balance was reduced only once
 	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(bobSatRequested+fee), int64(aliceBalance))
 }
@@ -283,7 +280,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(ExpectedKeySendRequestBody{
 		Amount:      int64(bobAmt),
-		Destination: suite.service.IdentityPubkey,
+		Destination: suite.service.LndClient.GetMainPubkey(),
 		Memo:        memo,
 		//add memo as WHATSAT_MESSAGE custom record
 		CustomRecords: map[string]string{fmt.Sprint(service.TLV_WHATSAT_MESSAGE): memo,

@@ -90,8 +90,8 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 
 	//test an expired invoice
 	externalInvoice := lnrpc.Invoice{
-		Memo:  "integration tests: external pay from alice",
-		Value: int64(externalSatRequested),
+		Memo:   "integration tests: external pay from alice",
+		Value:  int64(externalSatRequested),
 		Expiry: 1,
 	}
 	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
@@ -138,7 +138,7 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
 	assert.Equal(suite.T(), SendPaymentMockError, invoices[0].ErrorMessage)
 
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
@@ -148,12 +148,19 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 
-	// check if there are 3 transaction entries, with reversed credit and debit account ids
-	assert.Equal(suite.T(), 3, len(transactonEntries))
-	assert.Equal(suite.T(), transactonEntries[1].CreditAccountID, transactonEntries[2].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[2].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
+	// check if there are 5 transaction entries:
+	//	- the incoming payment
+	//  - the outgoing payment
+	//  - the fee reserve + the fee reserve reversal
+	//  - the outgoing payment reversal
+	//  with reversed credit and debit account ids for payment 2/5 & payment 3/4
+	assert.Equal(suite.T(), 5, len(transactionEntries))
+	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[4].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].CreditAccountID, transactionEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[2].DebitAccountID, transactionEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[4].Amount, int64(externalSatRequested))
 	// assert that balance is the same
 	assert.Equal(suite.T(), int64(userFundingSats), userBalance)
 }

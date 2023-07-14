@@ -46,7 +46,7 @@ func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invo
 		RHash:                    hex.EncodeToString(pHash.Sum(nil)),
 		Preimage:                 hex.EncodeToString(preImage),
 		DestinationCustomRecords: invoice.DestinationCustomRecords,
-		DestinationPubkeyHex:     svc.IdentityPubkey,
+		DestinationPubkeyHex:     svc.LndClient.GetMainPubkey(),
 		AddIndex:                 invoice.AddIndex,
 	}
 	//persist the incoming invoice
@@ -100,11 +100,10 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 		}
 	}
 	// Search for an incoming invoice with the r_hash that is NOT settled in our DB
-	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? AND expires_at > ?",
+	err := svc.DB.NewSelect().Model(&invoice).Where("type = ? AND r_hash = ? AND state <> ? ",
 		common.InvoiceTypeIncoming,
 		rHashStr,
-		common.InvoiceStateSettled,
-		time.Now()).Limit(1).Scan(ctx)
+		common.InvoiceStateSettled).Limit(1).Scan(ctx)
 	if err != nil {
 		svc.Logger.Infof("Invoice not found. Ignoring. r_hash:%s", rHashStr)
 		return nil
@@ -164,6 +163,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 			CreditAccountID: creditAccount.ID,
 			DebitAccountID:  debitAccount.ID,
 			Amount:          rawInvoice.AmtPaidSat,
+			EntryType:       models.EntryTypeIncoming,
 		}
 		// Save the transaction entry
 		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
@@ -213,7 +213,7 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 		RHash:                    hex.EncodeToString(rawInvoice.RHash),
 		Preimage:                 hex.EncodeToString(rawInvoice.RPreimage),
 		DestinationCustomRecords: rawInvoice.Htlcs[0].CustomRecords,
-		DestinationPubkeyHex:     svc.IdentityPubkey,
+		DestinationPubkeyHex:     svc.LndClient.GetMainPubkey(),
 		AddIndex:                 rawInvoice.AddIndex,
 	}
 	return result, nil

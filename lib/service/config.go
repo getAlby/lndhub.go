@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+const (
+	LND_CLIENT_TYPE         = "lnd"
+	LND_CLUSTER_CLIENT_TYPE = "lnd_cluster"
+	ECLAIR_CLIENT_TYPE      = "eclair"
+)
+
 type Config struct {
 	DatabaseUri                      string  `envconfig:"DATABASE_URI" required:"true"`
 	DatabaseMaxConns                 int     `envconfig:"DATABASE_MAX_CONNS" default:"10"`
@@ -19,11 +25,14 @@ type Config struct {
 	AdminToken                       string  `envconfig:"ADMIN_TOKEN"`
 	JWTRefreshTokenExpiry            int     `envconfig:"JWT_REFRESH_EXPIRY" default:"604800"` // in seconds, default 7 days
 	JWTAccessTokenExpiry             int     `envconfig:"JWT_ACCESS_EXPIRY" default:"172800"`  // in seconds, default 2 days
+	LNClientType                     string  `envconfig:"LN_CLIENT_TYPE" default:"lnd"`        //lnd, lnd_cluster, eclair
 	LNDAddress                       string  `envconfig:"LND_ADDRESS" required:"true"`
 	LNDMacaroonFile                  string  `envconfig:"LND_MACAROON_FILE"`
 	LNDCertFile                      string  `envconfig:"LND_CERT_FILE"`
 	LNDMacaroonHex                   string  `envconfig:"LND_MACAROON_HEX"`
 	LNDCertHex                       string  `envconfig:"LND_CERT_HEX"`
+	LNDClusterLivenessPeriod         int     `envconfig:"LND_CLUSTER_LIVENESS_PERIOD" default:"10"`
+	LNDClusterActiveChannelRatio     float64 `envconfig:"LND_CLUSTER_ACTIVE_CHANNEL_RATIO" default:"0.5"`
 	CustomName                       string  `envconfig:"CUSTOM_NAME"`
 	Host                             string  `envconfig:"HOST" default:"localhost:3000"`
 	Port                             int     `envconfig:"PORT" default:"3000"`
