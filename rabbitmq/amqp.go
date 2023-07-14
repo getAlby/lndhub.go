@@ -48,18 +48,24 @@ type defaultAMQPCLient struct {
 	logger *lecho.Logger
 }
 
-type DialOption = func(amqp.Config) amqp.Config
+type DialOption = func(*defaultAMQPCLient)
 
-func DialAMQP(uri string) (AMQPClient, error) {
+func WithAmqpLogger(logger *lecho.Logger) DialOption {
+    return func(da *defaultAMQPCLient) {
+        da.logger = logger
+    }
+}
+
+func DialAMQP(uri string, options...DialOption) (AMQPClient, error) {
 	client := &defaultAMQPCLient{
 		uri: uri,
-		logger: lecho.New(
-			os.Stdout,
-			lecho.WithLevel(log.DEBUG),
-			lecho.WithTimestamp(),
-		),
 		reconFlag: atomic.Bool{},
 	}
+
+    for _, opt := range options {
+        opt(client)
+    }
+
 	err := client.connect()
     if err != nil {
         return client, err
