@@ -3,7 +3,6 @@ package rabbitmq_test
 import (
 	"context"
 	"encoding/json"
-	"sync"
 	"testing"
 	"time"
 
@@ -88,14 +87,11 @@ func TestFinalizedInitializedPayments(t *testing.T) {
 	ch <- amqp.Delivery{Body: successPayment}
 	ch <- amqp.Delivery{Body: failedPayment}
 
-	wg := sync.WaitGroup{}
 
-	wg.Add(1)
 	go func() {
 		err = client.FinalizeInitializedPayments(ctx, lndHubService)
 
 		assert.NoError(t, err)
-		wg.Done()
 	}()
 
 	//wait a bit for payments to be processed
