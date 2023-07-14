@@ -2,7 +2,9 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -35,6 +37,9 @@ type defaultAMQPCLient struct {
 
 	notifyCloseChan chan *amqp.Error
 
+	listeners []chan interface{}
+	reconFlag atomic.Bool
+
 	logger *lecho.Logger
 }
 
@@ -48,9 +53,12 @@ func DialAMQP(uri string) (AMQPClient, error) {
 			lecho.WithLevel(log.DEBUG),
 			lecho.WithTimestamp(),
 		),
+		reconFlag: atomic.Bool{},
 	}
-
 	err := client.connect()
+
+	go client.reconnectionLoop()
+
 	return client, err
 }
 
@@ -82,11 +90,74 @@ func (c *defaultAMQPCLient) connect() error {
 	c.publishChannel = publishChannel
 	c.notifyCloseChan = notifyCloseChan
 
+	c.listeners = []chan interface{}{}
+
 	return nil
 }
 
+func (c *defaultAMQPCLient) reconnectionLoop() error {
+	for {
+		select {
+		case amqpError, ok := <-c.notifyCloseChan:
+			if !ok {
+				return nil
+			}
+
+			c.logger.Error(amqpError)
+
+			expontentialBackoff := backoff.NewExponentialBackOff()
+
+			expontentialBackoff.MaxInterval = time.Second * 10
+			expontentialBackoff.MaxElapsedTime = time.Minute
+
+			err := backoff.Retry(func() error {
+				c.logger.Info("amqp: trying to reconnect...")
+
+				conn, err := amqp.DialConfig(c.uri, amqp.Config{
+					Heartbeat: defaultHeartbeat,
+					Locale:    defaultLocale,
+					Dial:      amqp.DefaultDial(time.Second * 3),
+				})
+				if err != nil {
+					return err
+				}
+
+				consumeChannel, err := conn.Channel()
+				if err != nil {
+					return err
+				}
+
+				publishChannel, err := conn.Channel()
+				if err != nil {
+					return err
+				}
+
+				notifyCloseChan := make(chan *amqp.Error)
+				conn.NotifyClose(notifyCloseChan)
+
+				c.conn = conn
+				c.consumeChannel = consumeChannel
+				c.publishChannel = publishChannel
+				c.notifyCloseChan = notifyCloseChan
+
+				c.logger.Info("amqp: succesfully reconnected")
+
+				return nil
+			}, expontentialBackoff)
+
+			if err != nil {
+				return err
+			}
+
+			for _, listener := range c.listeners {
+				listener <- "DONE"
+			}
+		}
+	}
+
+}
+
 func (c *defaultAMQPCLient) Close() error {
-	close(c.notifyCloseChan)
 	return c.conn.Close()
 }
 
@@ -163,52 +234,37 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 
 	clientChannel := make(chan amqp.Delivery)
 
+	notifyReconnectChan := make(chan interface{}, 2)
+	c.listeners = append(c.listeners, notifyReconnectChan)
+
 	// This routine functions as a wrapper arround the "raw" delivery channel.
 	// The happy-path of the select statement, i.e. the last one, is to simply
-	// pass on the message we get from the actual amqp channel. If however, an
-	// error is send over the NotifyClose channel it means we must try to
-	// reconnect if the error is Recoverable. In the meantime the client using
-	// the Listen function is non the wiser that this happened. A successful
-	// reconnect will make sure we recieve message from a new "raw" delivery
-	// channel on the next loop we simply keep sending new messages to the
-	// client channel using this new underlying connection/channel.
+	// pass on the message we get from the actual amqp channel. If however, a
+	// message is passed on the notifyReconnectChan it means the recoonection
+	// loop was successful in reconnecting. Which means the listener should
+	// get a new deliveries channel from the new amqp channels that were made.
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				c.Close()
 				return
 
-			case amqpError := <-c.notifyCloseChan:
-				c.logger.Error(amqpError.Error())
-
-				c.logger.Info("amqp: trying to reconnect...")
-
-				expontentialBackoff := backoff.NewExponentialBackOff()
-
-				expontentialBackoff.MaxInterval = time.Second * 10
-				expontentialBackoff.MaxElapsedTime = time.Minute
-
-				err := backoff.Retry(c.connect, expontentialBackoff)
-				if err != nil {
-					c.logger.Error(err)
-					c.Close()
-
-					return
-				}
-
+			case <-notifyReconnectChan:
 				d, err := c.consume(ctx, exchange, routingKey, queueName, options...)
 				if err != nil {
 					c.logger.Error(err)
-					c.Close()
 
 					return
 				}
 
+				c.logger.Info("succesfully consuming from new deliveries channel")
+
 				deliveries = d
 
-			case delivery := <-deliveries:
-				clientChannel <- delivery
+			case delivery, ok := <-deliveries:
+				if ok {
+					clientChannel <- delivery
+				}
 			}
 		}
 	}()
@@ -297,6 +353,24 @@ func (c *defaultAMQPCLient) consume(ctx context.Context, exchange string, routin
 }
 
 func (c *defaultAMQPCLient) PublishWithContext(ctx context.Context, exchange string, key string, mandatory bool, immediate bool, msg amqp.Publishing) error {
-	// TODO: Think about race condition here. When a connection retry is in progress the publishing channel will get reassigned as well.
+	if c.reconFlag.Load() {
+		expontentialBackoff := backoff.NewExponentialBackOff()
+
+		expontentialBackoff.MaxInterval = time.Second * 10
+		expontentialBackoff.MaxElapsedTime = time.Minute
+
+		err := backoff.Retry(func() error {
+			if c.reconFlag.Load() {
+				return errors.New("amqp: trying to publish during reconnect")
+			}
+
+			return nil
+		}, expontentialBackoff)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return c.publishChannel.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
