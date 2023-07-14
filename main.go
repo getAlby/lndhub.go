@@ -108,7 +108,7 @@ func main() {
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
 	if c.RabbitMQUri != "" {
-		amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
+		amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri, rabbitmq.WithAmqpLogger(logger))
 		if err != nil {
 			logger.Fatal(err)
 		}

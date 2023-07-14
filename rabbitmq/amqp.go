@@ -2,41 +2,160 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/ziflex/lecho/v3"
 )
+
+const (
+	defaultHeartbeat = 10 * time.Second
+	defaultLocale    = "en_US"
+
+	msgReconnect = "RECONNECT_DONE"
+	msgClose     = "CLOSE"
+)
+
+type listenerMsg = string
 
 type AMQPClient interface {
 	Listen(ctx context.Context, exchange string, routingKey string, queueName string, options ...AMQPListenOptions) (<-chan amqp.Delivery, error)
 	PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error
-    ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error
-    Close() error
+	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error
+	Close() error
 }
 
 type defaultAMQPCLient struct {
 	conn *amqp.Connection
+	uri  string
 
 	// It is recommended that, when possible, publishers and consumers
 	// use separate connections so that consumers are isolated from potential
 	// flow control measures that may be applied to publishing connections.
 	consumeChannel *amqp.Channel
 	publishChannel *amqp.Channel
+
+	notifyCloseChan chan *amqp.Error
+
+	listeners []chan listenerMsg
+	reconFlag atomic.Bool
+
+	logger *lecho.Logger
 }
 
-func (c *defaultAMQPCLient) Close() error { return c.conn.Close() }
+type DialOption = func(*defaultAMQPCLient)
+
+func WithAmqpLogger(logger *lecho.Logger) DialOption {
+	return func(da *defaultAMQPCLient) {
+		da.logger = logger
+	}
+}
+
+func DialAMQP(uri string, options ...DialOption) (AMQPClient, error) {
+	client := &defaultAMQPCLient{
+		uri:       uri,
+		reconFlag: atomic.Bool{},
+	}
+
+	for _, opt := range options {
+		opt(client)
+	}
+
+	err := client.connect()
+	if err != nil {
+		return client, err
+	}
+
+	client.listeners = []chan listenerMsg{}
+
+	go client.reconnectionLoop()
+
+	return client, err
+}
+
+func (c *defaultAMQPCLient) connect() error {
+	conn, err := amqp.DialConfig(c.uri, amqp.Config{
+		Heartbeat: defaultHeartbeat,
+		Locale:    defaultLocale,
+		Dial:      amqp.DefaultDial(time.Second * 3),
+	})
+	if err != nil {
+		return err
+	}
+
+	consumeChannel, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	publishChannel, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	notifyCloseChan := make(chan *amqp.Error)
+	conn.NotifyClose(notifyCloseChan)
+
+	c.conn = conn
+	c.consumeChannel = consumeChannel
+	c.publishChannel = publishChannel
+	c.notifyCloseChan = notifyCloseChan
+
+	return nil
+}
+
+func (c *defaultAMQPCLient) reconnectionLoop() error {
+	for {
+		select {
+		case amqpError := <-c.notifyCloseChan:
+			c.logger.Error(amqpError)
+
+			exponentialBackoff := backoff.NewExponentialBackOff()
+
+			exponentialBackoff.MaxInterval = time.Second * 10
+			exponentialBackoff.MaxElapsedTime = time.Minute
+
+			c.reconFlag.Store(true)
+
+			c.logger.Info("amqp: trying to reconnect...")
+			err := backoff.Retry(c.connect, exponentialBackoff)
+			if err != nil {
+				for _, listener := range c.listeners {
+					listener <- msgClose
+				}
+
+				return err
+			}
+
+			c.reconFlag.Store(false)
+			c.logger.Info("amqp: succesfully reconnected")
+
+			for _, listener := range c.listeners {
+				listener <- msgReconnect
+			}
+		}
+	}
+
+}
+
+func (c *defaultAMQPCLient) Close() error {
+	return c.conn.Close()
+}
 
 func (c *defaultAMQPCLient) ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error {
-    // TODO: Seperate management channel? Or provide way to select channel?
-    ch, err := c.conn.Channel()
-    if err != nil {
-        return err
-    }
-    defer ch.Close()
+	// For now we simply create a short lived channel. If this proves to be a bad approach we can either create a management channel
+	// at client create time, or use either the consumer/publishing channels that already exist.
+	ch, err := c.conn.Channel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
 
-
-    return ch.ExchangeDeclare(name, kind, durable, autoDelete, internal, noWait, args)
+	return ch.ExchangeDeclare(name, kind, durable, autoDelete, internal, noWait, args)
 }
-
 
 type ListenOptions struct {
 	Durable    bool
@@ -92,6 +211,59 @@ func WithAutoAck(autoAck bool) AMQPListenOptions {
 }
 
 func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routingKey string, queueName string, options ...AMQPListenOptions) (<-chan amqp.Delivery, error) {
+	deliveries, err := c.consume(ctx, exchange, routingKey, queueName, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	clientChannel := make(chan amqp.Delivery)
+
+	notifyReconnectChan := make(chan listenerMsg, 2)
+	c.listeners = append(c.listeners, notifyReconnectChan)
+
+	// This routine functions as a wrapper arround the "raw" delivery channel.
+	// The happy-path of the select statement, i.e. the last one, is to simply
+	// pass on the message we get from the actual amqp channel. If however, a
+	// message is passed on the notifyReconnectChan it means the reconnection
+	// loop was successful in reconnecting. Which means the listener should
+	// get a new deliveries channel from the new amqp channels that were made.
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+
+			case msg := <-notifyReconnectChan:
+				switch msg {
+				case msgReconnect:
+					d, err := c.consume(ctx, exchange, routingKey, queueName, options...)
+					if err != nil {
+						c.logger.Error(err)
+
+						return
+					}
+
+					c.logger.Infof("amqp: succesfully consuming messages with routingkey: %s from new deliveries channel", routingKey)
+					deliveries = d
+
+				case msgClose:
+					close(clientChannel)
+				default:
+					c.logger.Warnf("amqp: unrecognized message send to listener: %s", msg)
+				}
+
+			case delivery, ok := <-deliveries:
+				if ok {
+					clientChannel <- delivery
+				}
+			}
+		}
+	}()
+
+	return clientChannel, nil
+}
+
+func (c *defaultAMQPCLient) consume(ctx context.Context, exchange string, routingKey string, queueName string, options ...AMQPListenOptions) (<-chan amqp.Delivery, error) {
 	opts := ListenOptions{
 		Durable:    true,
 		AutoDelete: false,
@@ -137,7 +309,11 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 		// Nowait: We set this to false as we want to wait for a server response
 		// to check whether the queue was created successfully
 		opts.Wait,
-		nil,
+		// A safety mechanism. If our code would requeue failed messages when listening
+		// We want to limit the amount of redeliveries as to avoid infinite loops.
+		amqp.Table{
+			"delivery-limit": 10,
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -168,28 +344,24 @@ func (c *defaultAMQPCLient) Listen(ctx context.Context, exchange string, routing
 }
 
 func (c *defaultAMQPCLient) PublishWithContext(ctx context.Context, exchange string, key string, mandatory bool, immediate bool, msg amqp.Publishing) error {
+	if c.reconFlag.Load() {
+		exponentialBackoff := backoff.NewExponentialBackOff()
+
+		exponentialBackoff.MaxInterval = time.Second * 10
+		exponentialBackoff.MaxElapsedTime = time.Minute
+
+		err := backoff.Retry(func() error {
+			if c.reconFlag.Load() {
+				return errors.New("amqp: trying to publish during reconnect")
+			}
+
+			return nil
+		}, exponentialBackoff)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return c.publishChannel.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
-}
-
-func DialAMQP(uri string) (AMQPClient, error) {
-	conn, err := amqp.Dial(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	consumeChannel, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-
-	publishChannel, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-
-	return &defaultAMQPCLient{
-		conn,
-		consumeChannel,
-		publishChannel,
-	}, nil
 }
