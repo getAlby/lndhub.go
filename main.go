@@ -184,6 +184,15 @@ func main() {
 		backgroundWg.Done()
 	}()
 
+	//Start webhook subscription
+	if svc.Config.WebhookUrl != "" {
+		backgroundWg.Add(1)
+		go func() {
+			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
+			svc.Logger.Info("Webhook routine done")
+			backgroundWg.Done()
+		}()
+	}
 	//Start rabbit publisher
 	if svc.RabbitMQClient != nil {
 		backgroundWg.Add(1)
@@ -198,13 +207,6 @@ func main() {
 			}
 
 			svc.Logger.Info("Rabbit invoice publisher done")
-			backgroundWg.Done()
-		}()
-	} else {
-		backgroundWg.Add(1)
-		go func() {
-			svc.StartWebhookSubscription(backGroundCtx, svc.Config.WebhookUrl)
-			svc.Logger.Info("Webhook routine done")
 			backgroundWg.Done()
 		}()
 	}
