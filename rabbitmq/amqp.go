@@ -49,25 +49,25 @@ type defaultAMQPCLient struct {
 type DialOption = func(*defaultAMQPCLient)
 
 func WithAmqpLogger(logger *lecho.Logger) DialOption {
-    return func(da *defaultAMQPCLient) {
-        da.logger = logger
-    }
+	return func(da *defaultAMQPCLient) {
+		da.logger = logger
+	}
 }
 
-func DialAMQP(uri string, options...DialOption) (AMQPClient, error) {
+func DialAMQP(uri string, options ...DialOption) (AMQPClient, error) {
 	client := &defaultAMQPCLient{
-		uri: uri,
+		uri:       uri,
 		reconFlag: atomic.Bool{},
 	}
 
-    for _, opt := range options {
-        opt(client)
-    }
+	for _, opt := range options {
+		opt(client)
+	}
 
 	err := client.connect()
-    if err != nil {
-        return client, err
-    }
+	if err != nil {
+		return client, err
+	}
 
 	client.listeners = []chan listenerMsg{}
 
@@ -113,15 +113,15 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 		case amqpError := <-c.notifyCloseChan:
 			c.logger.Error(amqpError)
 
-			expontentialBackoff := backoff.NewExponentialBackOff()
+			exponentialBackoff := backoff.NewExponentialBackOff()
 
-			expontentialBackoff.MaxInterval = time.Second * 10
-			expontentialBackoff.MaxElapsedTime = time.Minute
+			exponentialBackoff.MaxInterval = time.Second * 10
+			exponentialBackoff.MaxElapsedTime = time.Minute
 
 			c.reconFlag.Store(true)
 
 			c.logger.Info("amqp: trying to reconnect...")
-			err := backoff.Retry(c.connect, expontentialBackoff)
+			err := backoff.Retry(c.connect, exponentialBackoff)
 			if err != nil {
 				for _, listener := range c.listeners {
 					listener <- msgClose
@@ -132,8 +132,6 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 
 			c.reconFlag.Store(false)
 			c.logger.Info("amqp: succesfully reconnected")
-
-
 
 			for _, listener := range c.listeners {
 				listener <- msgReconnect
@@ -347,10 +345,10 @@ func (c *defaultAMQPCLient) consume(ctx context.Context, exchange string, routin
 
 func (c *defaultAMQPCLient) PublishWithContext(ctx context.Context, exchange string, key string, mandatory bool, immediate bool, msg amqp.Publishing) error {
 	if c.reconFlag.Load() {
-		expontentialBackoff := backoff.NewExponentialBackOff()
+		exponentialBackoff := backoff.NewExponentialBackOff()
 
-		expontentialBackoff.MaxInterval = time.Second * 10
-		expontentialBackoff.MaxElapsedTime = time.Minute
+		exponentialBackoff.MaxInterval = time.Second * 10
+		exponentialBackoff.MaxElapsedTime = time.Minute
 
 		err := backoff.Retry(func() error {
 			if c.reconFlag.Load() {
@@ -358,7 +356,7 @@ func (c *defaultAMQPCLient) PublishWithContext(ctx context.Context, exchange str
 			}
 
 			return nil
-		}, expontentialBackoff)
+		}, exponentialBackoff)
 
 		if err != nil {
 			return err
