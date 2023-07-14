@@ -102,11 +102,7 @@ func (c *defaultAMQPCLient) connect() error {
 func (c *defaultAMQPCLient) reconnectionLoop() error {
 	for {
 		select {
-		case amqpError, ok := <-c.notifyCloseChan:
-			if !ok {
-				return nil
-			}
-
+		case amqpError := <-c.notifyCloseChan:
 			c.logger.Error(amqpError)
 
 			expontentialBackoff := backoff.NewExponentialBackOff()
@@ -116,20 +112,11 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 
 			c.reconFlag.Store(true)
 
-			err := backoff.Retry(func() error {
-				c.logger.Info("amqp: trying to reconnect...")
-
-				err := c.connect()
-				if err != nil {
-					return err
-				}
-
-				c.logger.Info("amqp: succesfully reconnected")
-
-				return nil
-			}, expontentialBackoff)
+			c.logger.Info("amqp: trying to reconnect...")
+			err := backoff.Retry(c.connect, expontentialBackoff)
 
 			c.reconFlag.Store(false)
+			c.logger.Info("amqp: succesfully reconnected")
 
 			if err != nil {
 				for _, listener := range c.listeners {
