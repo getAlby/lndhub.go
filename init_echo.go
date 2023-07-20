@@ -19,8 +19,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/ziflex/lecho/v3"
 	"golang.org/x/time/rate"
-	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func initEcho(c *service.Config, logger *lecho.Logger) (e *echo.Echo) {
@@ -32,12 +30,6 @@ func initEcho(c *service.Config, logger *lecho.Logger) (e *echo.Echo) {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
-	//if Datadog is configured, add datadog middleware
-	if c.DatadogAgentUrl != "" {
-		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
-		defer tracer.Stop()
-		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
-	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("250K"))
 	// set the default rate limit defining the overal max requests/second

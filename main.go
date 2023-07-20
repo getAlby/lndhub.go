@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
@@ -142,6 +144,13 @@ func main() {
 
 	//init echo server
 	e := initEcho(c, logger)
+	//if Datadog is configured, add datadog middleware
+	if c.DatadogAgentUrl != "" {
+		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
+		defer tracer.Stop()
+		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
+	}
+
 	logMw := createLoggingMiddleware(logger)
 	// strict rate limit for requests for sending payments
 	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
