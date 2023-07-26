@@ -137,3 +137,7 @@ func (wrapper *LNDWrapper) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {
 func (wrapper *LNDWrapper) GetMainPubkey() (pubkey string) {
 	return wrapper.IdentityPubkey
 }
+
+func (wrapper *LNDWrapper) ListInvoices(ctx context.Context, req *lnrpc.ListInvoiceRequest, options ...grpc.CallOption) (*lnrpc.ListInvoiceResponse, error) {
+	return wrapper.client.ListInvoices(ctx, req, options...)
+}
