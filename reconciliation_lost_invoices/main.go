@@ -21,10 +21,16 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
+type ReconciliationConfig struct {
+	NumDays        int `envconfig:"NUM_DAYS" default:"30"`
+	NumMaxInvoices int `envconfig:"NUM_MAX_INVOICES" default:"100"`
+}
+
 // script to reconcile pending payments between the backup node and the database
 func main() {
 
 	c := &service.Config{}
+	rc := &ReconciliationConfig{}
 
 	// Load configruation from environment variables
 	err := godotenv.Load(".env")
@@ -32,6 +38,11 @@ func main() {
 		fmt.Println("Failed to load .env file")
 	}
 	err = envconfig.Process("", c)
+	if err != nil {
+		log.Fatalf("Error loading environment variables: %v", err)
+	}
+
+	err = envconfig.Process("", rc)
 	if err != nil {
 		log.Fatalf("Error loading environment variables: %v", err)
 	}
@@ -73,20 +84,16 @@ func main() {
 		InvoicePubSub: service.NewPubsub(),
 	}
 
-	numDays := 30
-	numMaxInvoices := 100
 	ctx := context.Background()
 	//for loop:
 	offset := uint64(0)
 	//	- fetch next 100 invoices from LND
-	startTime := time.Now()
-	counter := 0
 	for {
 
 		invoiceResp, err := lndClient.ListInvoices(ctx, &lnrpc.ListInvoiceRequest{
 			PendingOnly:    false,
 			IndexOffset:    offset,
-			NumMaxInvoices: uint64(numMaxInvoices),
+			NumMaxInvoices: uint64(rc.NumMaxInvoices),
 			Reversed:       true,
 		})
 		if err != nil {
@@ -96,18 +103,17 @@ func main() {
 		for _, lndInvoice := range invoiceResp.Invoices {
 			creationDate := time.Unix(lndInvoice.CreationDate, 0)
 			//		- return if invoice older than time X
-			if creationDate.Before(time.Now().Add(-1 * time.Duration(numDays) * 24 * time.Hour)) {
-				fmt.Printf("time elapsed: %f total invoices %d \n", time.Now().Sub(startTime).Seconds(), counter)
+			if creationDate.Before(time.Now().Add(-1 * time.Duration(rc.NumDays) * 24 * time.Hour)) {
 				return
 			}
 			//		- get payment hash and do a db query
 			var dbInvoice models.Invoice
-			counter += 1
 
 			err := svc.DB.NewSelect().Model(&dbInvoice).Where("invoice.r_hash = ?", hex.EncodeToString(lndInvoice.RHash)).Limit(1).Scan(ctx)
 			if err != nil {
 				// 	 	- if not found, dump invoice json
 				if errors.Is(err, sql.ErrNoRows) {
+					fmt.Printf("hex: %s\n", hex.EncodeToString(lndInvoice.RHash))
 					marshalled, err := json.Marshal(lndInvoice)
 					if err != nil {
 						svc.Logger.Fatal(err)
