@@ -13,8 +13,8 @@ jobs:
     - name: Docker build
       uses: mr-smithers-excellent/docker-build-push@v5
       id: build
-      dockerfile: reconciliation.Dockerfile
       with:
+        dockerfile: reconciliation.Dockerfile
         image: ${{ env.IMAGENAME }}
         registry: ${{ env.REGISTRY }}
         username: ${{ github.repository_owner }}
