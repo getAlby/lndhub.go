@@ -107,10 +107,14 @@ func main() {
 			if creationDate.Before(time.Now().Add(-1 * time.Duration(rc.NumDays) * 24 * time.Hour)) {
 				return
 			}
+			//non-settled invoices don't matter
+			if !lndInvoice.Settled {
+				continue
+			}
 			//		- get payment hash and do a db query
 			var dbInvoice models.Invoice
 
-			err := svc.DB.NewSelect().Model(&dbInvoice).Where("invoice.r_hash = ? AND state = ?", hex.EncodeToString(lndInvoice.RHash), common.InvoiceStateSettled).Limit(1).Scan(ctx)
+			err := svc.DB.NewSelect().Model(&dbInvoice).Where("type = ? AND invoice.r_hash = ? AND state = ?", common.InvoiceTypeIncoming, hex.EncodeToString(lndInvoice.RHash), common.InvoiceStateSettled).Limit(1).Scan(ctx)
 			if err != nil {
 				// 	 	- if not found, dump invoice json
 				if errors.Is(err, sql.ErrNoRows) {
