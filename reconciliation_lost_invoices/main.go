@@ -10,6 +10,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
@@ -109,11 +110,11 @@ func main() {
 			//		- get payment hash and do a db query
 			var dbInvoice models.Invoice
 
-			err := svc.DB.NewSelect().Model(&dbInvoice).Where("invoice.r_hash = ?", hex.EncodeToString(lndInvoice.RHash)).Limit(1).Scan(ctx)
+			err := svc.DB.NewSelect().Model(&dbInvoice).Where("invoice.r_hash = ? AND state = ?", hex.EncodeToString(lndInvoice.RHash), common.InvoiceStateSettled).Limit(1).Scan(ctx)
 			if err != nil {
 				// 	 	- if not found, dump invoice json
 				if errors.Is(err, sql.ErrNoRows) {
-					fmt.Printf("hex: %s\n", hex.EncodeToString(lndInvoice.RHash))
+					fmt.Printf("keysend: %t hex: %s\n", lndInvoice.IsKeysend, hex.EncodeToString(lndInvoice.RHash))
 					marshalled, err := json.Marshal(lndInvoice)
 					if err != nil {
 						svc.Logger.Fatal(err)
