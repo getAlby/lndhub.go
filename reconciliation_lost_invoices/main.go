@@ -118,7 +118,22 @@ func main() {
 			if err != nil {
 				// 	 	- if not found, dump invoice json
 				if errors.Is(err, sql.ErrNoRows) {
-					fmt.Printf("keysend: %t hex: %s\n", lndInvoice.IsKeysend, hex.EncodeToString(lndInvoice.RHash))
+
+					firstHtlc := &lnrpc.InvoiceHTLC{}
+					if len(lndInvoice.Htlcs) > 0 {
+						firstHtlc = lndInvoice.Htlcs[0]
+					}
+					messageJson := map[string]interface{}{
+						"message":        "reconciliation: potential missing invoice",
+						"r_hash":         hex.EncodeToString(lndInvoice.RHash),
+						"keysend":        lndInvoice.IsKeysend,
+						"custom_records": firstHtlc.CustomRecords,
+					}
+					msgBytes, err := json.Marshal(messageJson)
+					if err != nil {
+						svc.Logger.Fatal(err)
+					}
+					fmt.Printf(string(msgBytes))
 					marshalled, err := json.Marshal(lndInvoice)
 					if err != nil {
 						svc.Logger.Fatal(err)
