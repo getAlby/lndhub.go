@@ -26,7 +26,7 @@ require (
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/ziflex/lecho/v3 v3.5.0
 	golang.org/x/crypto v0.10.0
-	google.golang.org/grpc v1.56.1
+	google.golang.org/grpc v1.57.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.52.0
 	gopkg.in/macaroon.v2 v2.1.0
 )
