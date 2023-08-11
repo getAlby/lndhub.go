@@ -27,6 +27,7 @@ type MockLND struct {
 	privKey         *btcec.PrivateKey
 	pubKey          *btcec.PublicKey
 	addIndexCounter uint64
+	GetInfoError    error
 }
 
 func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*MockLND, error) {
@@ -195,7 +196,9 @@ func (mlnd *MockLND) SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSu
 }
 
 func (mlnd *MockLND) GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error) {
-
+	if mlnd.GetInfoError != nil {
+		return nil, mlnd.GetInfoError
+	}
 	return &lnrpc.GetInfoResponse{
 		Version:             "v1.0.0",
 		CommitHash:          "abc123",
@@ -248,6 +251,15 @@ func (mlnd *MockLND) DecodeBolt11(ctx context.Context, bolt11 string, options ..
 	}
 	return result, nil
 }
+
+func (mlnd *MockLND) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {
+	return pubkey == hex.EncodeToString(mlnd.pubKey.SerializeCompressed())
+}
+
+func (mlnd *MockLND) GetMainPubkey() (pubkey string) {
+	return hex.EncodeToString(mlnd.pubKey.SerializeCompressed())
+}
+
 func makePreimageHex() ([]byte, error) {
 	return randBytesFromStr(32, random.Hex)
 }

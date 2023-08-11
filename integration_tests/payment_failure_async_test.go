@@ -105,7 +105,8 @@ func (suite *PaymentTestAsyncErrorsSuite) TestExternalAsyncFailingInvoice() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
+	feeReserve := suite.service.CalcFeeLimit(suite.externalLND.GetMainPubkey(), int64(externalSatRequested))
+	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested)-feeReserve, userBalance)
 
 	// fail payment and wait a bit
 	suite.serviceClient.FailPayment(SendPaymentMockError)
@@ -126,16 +127,16 @@ func (suite *PaymentTestAsyncErrorsSuite) TestExternalAsyncFailingInvoice() {
 	assert.Equal(suite.T(), common.InvoiceStateError, invoices[0].State)
 	assert.Equal(suite.T(), SendPaymentMockError, invoices[0].ErrorMessage)
 
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
-	// check if there are 3 transaction entries, with reversed credit and debit account ids
-	assert.Equal(suite.T(), 3, len(transactonEntries))
-	assert.Equal(suite.T(), transactonEntries[1].CreditAccountID, transactonEntries[2].DebitAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].DebitAccountID, transactonEntries[2].CreditAccountID)
-	assert.Equal(suite.T(), transactonEntries[1].Amount, int64(externalSatRequested))
-	assert.Equal(suite.T(), transactonEntries[2].Amount, int64(externalSatRequested))
+	// check if there are 5 transaction entries, with reversed credit and debit account ids
+	assert.Equal(suite.T(), 5, len(transactionEntries))
+	assert.Equal(suite.T(), transactionEntries[1].CreditAccountID, transactionEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].DebitAccountID, transactionEntries[4].CreditAccountID)
+	assert.Equal(suite.T(), transactionEntries[1].Amount, int64(externalSatRequested))
+	assert.Equal(suite.T(), transactionEntries[4].Amount, int64(externalSatRequested))
 }
 
 func (suite *PaymentTestAsyncErrorsSuite) TearDownSuite() {

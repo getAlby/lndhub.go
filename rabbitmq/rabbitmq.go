@@ -27,7 +27,8 @@ var bufPool = sync.Pool{
 }
 
 const (
-	contentTypeJSON = "application/json"
+	contentTypeJSON            = "application/json"
+	outgoingPaymentsRoutingKey = "payment.outgoing.*"
 )
 
 type (
@@ -39,43 +40,62 @@ type (
 type Client interface {
 	SubscribeToLndInvoices(context.Context, IncomingInvoiceHandler) error
 	StartPublishInvoices(context.Context, SubscribeToInvoicesFunc, EncodeOutgoingInvoiceFunc) error
+	FinalizeInitializedPayments(context.Context, LndHubService) error
 	// Close will close all connections to rabbitmq
 	Close() error
 }
 
-type DefaultClient struct {
-	conn *amqp.Connection
-
-	// It is recommended that, when possible, publishers and consumers
-	// use separate connections so that consumers are isolated from potential
-	// flow control measures that may be applied to publishing connections.
-	consumeChannel *amqp.Channel
-	publishChannel *amqp.Channel
-
-	logger *lecho.Logger
-
+type ClientConfig struct {
 	lndInvoiceConsumerQueueName string
+	lndPaymentConsumerQueueName string
 	lndInvoiceExchange          string
+	lndPaymentExchange          string
 	lndHubInvoiceExchange       string
+}
+
+type LndHubService interface {
+	HandleFailedPayment(context.Context, *models.Invoice, models.TransactionEntry, error) error
+	HandleSuccessfulPayment(context.Context, *models.Invoice, models.TransactionEntry) error
+	GetAllPendingPayments(context.Context) ([]models.Invoice, error)
+	GetTransactionEntryByInvoiceId(context.Context, int64) (models.TransactionEntry, error)
+}
+
+type DefaultClient struct {
+	amqpClient AMQPClient
+	logger     *lecho.Logger
+
+	config ClientConfig
 }
 
 type ClientOption = func(client *DefaultClient)
 
 func WithLndInvoiceExchange(exchange string) ClientOption {
 	return func(client *DefaultClient) {
-		client.lndInvoiceExchange = exchange
+		client.config.lndInvoiceExchange = exchange
 	}
 }
 
 func WithLndHubInvoiceExchange(exchange string) ClientOption {
 	return func(client *DefaultClient) {
-		client.lndHubInvoiceExchange = exchange
+		client.config.lndHubInvoiceExchange = exchange
 	}
 }
 
 func WithLndInvoiceConsumerQueueName(name string) ClientOption {
 	return func(client *DefaultClient) {
-		client.lndInvoiceConsumerQueueName = name
+		client.config.lndInvoiceConsumerQueueName = name
+	}
+}
+
+func WithLndPaymentConsumerQueueName(name string) ClientOption {
+	return func(client *DefaultClient) {
+		client.config.lndPaymentConsumerQueueName = name
+	}
+}
+
+func WithLndPaymentExchange(exchange string) ClientOption {
+	return func(client *DefaultClient) {
+		client.config.lndPaymentExchange = exchange
 	}
 }
 
@@ -86,27 +106,9 @@ func WithLogger(logger *lecho.Logger) ClientOption {
 }
 
 // Dial sets up a connection to rabbitmq with two channels that are ready to produce and consume
-func Dial(uri string, options ...ClientOption) (Client, error) {
-	conn, err := amqp.Dial(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	consumeChannel, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-
-	produceChannel, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-
+func NewClient(amqpClient AMQPClient, options ...ClientOption) (Client, error) {
 	client := &DefaultClient{
-		conn: conn,
-
-		consumeChannel: consumeChannel,
-		publishChannel: produceChannel,
+		amqpClient: amqpClient,
 
 		logger: lecho.New(
 			os.Stdout,
@@ -114,9 +116,13 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 			lecho.WithTimestamp(),
 		),
 
-		lndInvoiceConsumerQueueName: "lnd_invoice_consumer",
-		lndInvoiceExchange:          "lnd_invoice",
-		lndHubInvoiceExchange:       "lndhub_invoice",
+		config: ClientConfig{
+			lndInvoiceConsumerQueueName: "lnd_invoice_consumer",
+			lndPaymentConsumerQueueName: "lnd_payment_consumer",
+			lndInvoiceExchange:          "lnd_invoice",
+			lndPaymentExchange:          "lnd_payment",
+			lndHubInvoiceExchange:       "lndhub_invoice",
+		},
 	}
 
 	for _, opt := range options {
@@ -126,78 +132,115 @@ func Dial(uri string, options ...ClientOption) (Client, error) {
 	return client, nil
 }
 
-func (client *DefaultClient) Close() error { return client.conn.Close() }
+func (client *DefaultClient) Close() error { return client.amqpClient.Close() }
 
-func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler IncomingInvoiceHandler) error {
-	err := client.publishChannel.ExchangeDeclare(
-		client.lndInvoiceExchange,
-		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
-		"topic",
-		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
-		// declared when there are no remaining bindings.
-		true,
-		false,
-		// Non-Internal exchange's accept direct publishing
-		false,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the exchange was created succesfully
-		false,
-		nil,
+func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, svc LndHubService) error {
+	deliveryChan, err := client.amqpClient.Listen(
+		ctx,
+		client.config.lndPaymentExchange,
+		outgoingPaymentsRoutingKey,
+		client.config.lndPaymentConsumerQueueName,
 	)
 	if err != nil {
 		return err
 	}
 
-	queue, err := client.consumeChannel.QueueDeclare(
-		client.lndInvoiceConsumerQueueName,
-		// Durable and Non-Auto-Deleted queues will survive server restarts and remain
-		// declared when there are no remaining bindings.
-		true,
-		false,
-		// None-Exclusive means other consumers can consume from this queue.
-		// Messages from queues are spread out and load balanced between consumers.
-		// So multiple lndhub.go instances will spread the load of invoices between them
-		false,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the queue was created successfully
-		false,
-		nil,
-	)
+	getInvoicesTable := func(ctx context.Context) (map[string]models.Invoice, error) {
+		invoicesByHash := map[string]models.Invoice{}
+		pendingInvoices, err := svc.GetAllPendingPayments(ctx)
+
+		if err != nil {
+			return invoicesByHash, err
+		}
+
+		for _, invoice := range pendingInvoices {
+			invoicesByHash[invoice.RHash] = invoice
+		}
+		return invoicesByHash, nil
+	}
+
+	pendingInvoices, err := getInvoicesTable(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = client.consumeChannel.QueueBind(
-		queue.Name,
-		"invoice.incoming.settled",
-		client.lndInvoiceExchange,
-		// Nowait: We set this to false as we want to wait for a server response
-		// to check whether the queue was created successfully
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
+	client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
 
-	deliveryChan, err := client.consumeChannel.Consume(
-		queue.Name,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
+	client.logger.Info("Starting payment finalizer rabbitmq consumer")
 
-	client.logger.Info("Starting RabbitMQ consumer loop")
 	for {
 		select {
 		case <-ctx.Done():
 			return context.Canceled
+
+		case delivery, ok := <-deliveryChan:
+			if !ok {
+				return fmt.Errorf("Disconnected from RabbitMQ")
+			}
+
+			payment := lnrpc.Payment{}
+
+			err := json.Unmarshal(delivery.Body, &payment)
+			if err != nil {
+				delivery.Nack(false, false)
+
+				continue
+			}
+
+			// Check if paymentHash corresponds to one of the pending invoices
+			if invoice, ok := pendingInvoices[payment.PaymentHash]; ok {
+				t, err := svc.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
+				if err != nil {
+					captureErr(client.logger, err)
+					delivery.Nack(false, false)
+
+					continue
+				}
+
+				switch payment.Status {
+				case lnrpc.Payment_SUCCEEDED:
+					invoice.Fee = payment.FeeSat
+					invoice.Preimage = payment.PaymentPreimage
+
+					if err = svc.HandleSuccessfulPayment(ctx, &invoice, t); err != nil {
+						captureErr(client.logger, err)
+						delivery.Nack(false, false)
+
+						continue
+					}
+
+					client.logger.Infof("Payment finalizer: updated successful payment with hash: %s", payment.PaymentHash)
+					delete(pendingInvoices, payment.PaymentHash)
+
+				case lnrpc.Payment_FAILED:
+					if err = svc.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf(payment.FailureReason.String())); err != nil {
+						captureErr(client.logger, err)
+						delivery.Nack(false, false)
+
+						continue
+					}
+
+					client.logger.Infof("Payment finalizer: updated failed payment with hash: %s", payment.PaymentHash)
+					delete(pendingInvoices, payment.PaymentHash)
+				}
+			}
+			delivery.Ack(false)
+		}
+	}
+}
+
+func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler IncomingInvoiceHandler) error {
+	deliveryChan, err := client.amqpClient.Listen(ctx, client.config.lndInvoiceExchange, "invoice.incoming.settled", client.config.lndInvoiceConsumerQueueName)
+	if err != nil {
+		return err
+	}
+
+	client.logger.Info("Starting RabbitMQ invoice consumer loop")
+	for {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+
 		case delivery, ok := <-deliveryChan:
 			if !ok {
 				return fmt.Errorf("Disconnected from RabbitMQ")
@@ -223,10 +266,10 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 			if err != nil {
 				captureErr(client.logger, err)
 
-				// If for some reason we can't handle the message we instruct rabbitmq to
-				// requeue the message in hopes of finding another consumer that can deal
-				// with this message.
-				err := delivery.Nack(false, true)
+				// If for some reason we can't handle the message we also don't requeue
+				// because this can lead to an endless loop that puts pressure on the
+				// database and logs.
+				err := delivery.Nack(false, false)
 				if err != nil {
 					captureErr(client.logger, err)
 				}
@@ -243,8 +286,8 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 }
 
 func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesSubscribeFunc SubscribeToInvoicesFunc, payloadFunc EncodeOutgoingInvoiceFunc) error {
-	err := client.publishChannel.ExchangeDeclare(
-		client.lndHubInvoiceExchange,
+	err := client.amqpClient.ExchangeDeclare(
+		client.config.lndHubInvoiceExchange,
 		// topic is a type of exchange that allows routing messages to different queue's bases on a routing key
 		"topic",
 		// Durable and Non-Auto-Deleted exchanges will survive server restarts and remain
@@ -298,8 +341,8 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 
 	key := fmt.Sprintf("invoice.%s.%s", invoice.Type, invoice.State)
 
-	err = client.publishChannel.PublishWithContext(ctx,
-		client.lndHubInvoiceExchange,
+	err = client.amqpClient.PublishWithContext(ctx,
+		client.config.lndHubInvoiceExchange,
 		key,
 		false,
 		false,

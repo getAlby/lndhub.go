@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/getAlby/lndhub.go/rabbitmq"
 	"strconv"
 
+	"github.com/getAlby/lndhub.go/rabbitmq"
+
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
@@ -23,7 +25,6 @@ type LndhubService struct {
 	LndClient      lnd.LightningClientWrapper
 	RabbitMQClient rabbitmq.Client
 	Logger         *lecho.Logger
-	IdentityPubkey string
 	InvoicePubSub  *Pubsub
 }
 
@@ -55,6 +56,10 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 		{
 			return "", "", fmt.Errorf("login and password or refresh token is required")
 		}
+	}
+
+	if user.Deactivated {
+		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
 	}
 
 	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)

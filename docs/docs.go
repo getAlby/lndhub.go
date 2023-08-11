@@ -69,6 +69,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/v2/admin/users": {
+            "put": {
+                "description": "Update an account with a new a login, password and activation status. Requires Authorization header with admin token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Account"
+                ],
+                "summary": "Update an account",
+                "parameters": [
+                    {
+                        "description": "Update User",
+                        "name": "account",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/v2controllers.UpdateUserRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v2controllers.UpdateUserResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v2/balance": {
             "get": {
                 "security": [
@@ -536,9 +581,6 @@ const docTemplate = `{
         },
         "v2controllers.AddInvoiceRequestBody": {
             "type": "object",
-            "required": [
-                "amount"
-            ],
             "properties": {
                 "amount": {
                     "type": "integer",
@@ -680,6 +722,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "custom_records": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "destination": {
                     "type": "string"
                 },
@@ -693,6 +741,12 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "integer"
+                },
+                "custom_records": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "description": {
                     "type": "string"
@@ -787,6 +841,40 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "payment_request": {
+                    "type": "string"
+                }
+            }
+        },
+        "v2controllers.UpdateUserRequestBody": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "deactivated": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "v2controllers.UpdateUserResponseBody": {
+            "type": "object",
+            "properties": {
+                "deactivated": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "login": {
                     "type": "string"
                 }
             }

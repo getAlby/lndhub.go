@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -14,7 +15,6 @@ import (
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
-	"github.com/labstack/gommon/random"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
@@ -82,6 +82,7 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 		CreditAccountID: recipientCreditAccount.ID,
 		DebitAccountID:  recipientDebitAccount.ID,
 		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeIncoming,
 	}
 	_, err = svc.DB.NewInsert().Model(&recipientEntry).Exec(ctx)
 	if err != nil {
@@ -196,20 +197,15 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
 	}
-
-	entry := models.TransactionEntry{
-		UserID:          userId,
-		InvoiceID:       invoice.ID,
-		CreditAccountID: creditAccount.ID,
-		DebitAccountID:  debitAccount.ID,
-		Amount:          invoice.Amount,
+	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, userId)
+	if err != nil {
+		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
+		return nil, err
 	}
 
-	// The DB constraints make sure the user actually has enough balance for the transaction
-	// If the user does not have enough balance this call fails
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+	entry, err := svc.InsertTransactionEntry(ctx, invoice, creditAccount, debitAccount, feeAccount)
 	if err != nil {
-		svc.Logger.Errorf("Could not insert transaction entry user_id:%v invoice_id:%v", userId, invoice.ID)
+		svc.Logger.Errorf("Could not insert transaction entries: %v", err)
 		return nil, err
 	}
 
@@ -217,7 +213,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// Check the destination pubkey if it is an internal invoice and going to our node
 	// Here we start using context.Background because we want to complete these calls
 	// regardless of if the request's context is canceled or not.
-	if svc.IdentityPubkey == invoice.DestinationPubkeyHex {
+	if svc.LndClient.IsIdentityPubkey(invoice.DestinationPubkeyHex) {
 		paymentResponse, err = svc.SendInternalPayment(context.Background(), invoice)
 		if err != nil {
 			svc.HandleFailedPayment(context.Background(), invoice, entry, err)
@@ -251,13 +247,23 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 		svc.Logger.Errorf("Could not open tx entry for updating failed payment:r_hash:%s %v", invoice.RHash, err)
 		return err
 	}
-	// add transaction entry with reverted credit/debit account id
+
+	//revert the fee reserve if necessary
+	err = svc.RevertFeeReserve(ctx, &entryToRevert, invoice, tx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+
+	//revert the payment if necessary
 	entry := models.TransactionEntry{
 		UserID:          invoice.UserID,
 		InvoiceID:       invoice.ID,
 		CreditAccountID: entryToRevert.DebitAccountID,
 		DebitAccountID:  entryToRevert.CreditAccountID,
 		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeOutgoingReversal,
 	}
 	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
 	if err != nil {
@@ -287,40 +293,134 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	return err
 }
 
+func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *models.Invoice, creditAccount, debitAccount, feeAccount models.Account) (entry models.TransactionEntry, err error) {
+	entry = models.TransactionEntry{
+		UserID:          invoice.UserID,
+		InvoiceID:       invoice.ID,
+		CreditAccountID: creditAccount.ID,
+		DebitAccountID:  debitAccount.ID,
+		Amount:          invoice.Amount,
+		EntryType:       models.EntryTypeOutgoing,
+	}
+
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return entry, err
+	}
+
+	// The DB constraints make sure the user actually has enough balance for the transaction
+	// If the user does not have enough balance this call fails
+	_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		return entry, err
+	}
+
+	//if external payment: add fee reserve to entry
+	feeLimit := svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
+	if feeLimit != 0 {
+		feeReserveEntry := models.TransactionEntry{
+			UserID:          invoice.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: feeAccount.ID,
+			DebitAccountID:  debitAccount.ID,
+			Amount:          feeLimit,
+			EntryType:       models.EntryTypeFeeReserve,
+		}
+		_, err = tx.NewInsert().Model(&feeReserveEntry).Exec(ctx)
+		if err != nil {
+			return entry, err
+		}
+		entry.FeeReserve = &feeReserveEntry
+	}
+	err = tx.Commit()
+	if err != nil {
+		return entry, err
+	}
+	return entry, err
+}
+
+func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
+	if entry.FeeReserve != nil {
+		entryToRevert := entry.FeeReserve
+		feeReserveRevert := models.TransactionEntry{
+			UserID:          entryToRevert.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: entryToRevert.DebitAccountID,
+			DebitAccountID:  entryToRevert.CreditAccountID,
+			Amount:          entryToRevert.Amount,
+			EntryType:       models.EntryTypeFeeReserveReversal,
+		}
+		_, err = tx.NewInsert().Model(&feeReserveRevert).Exec(ctx)
+		return err
+	}
+	return nil
+}
+
+func (svc *LndhubService) AddFeeEntry(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
+	if entry.FeeReserve != nil {
+		// add transaction entry for fee
+		// if there was no fee reserve then this is an internal payment
+		// and no fee entry is needed
+		// if there is a fee reserve then we must use the same account id's
+		entry := models.TransactionEntry{
+			UserID:          invoice.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: entry.FeeReserve.CreditAccountID,
+			DebitAccountID:  entry.FeeReserve.DebitAccountID,
+			Amount:          int64(invoice.Fee),
+			ParentID:        entry.ID,
+			EntryType:       models.EntryTypeFee,
+		}
+		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+		return err
+	}
+	return nil
+}
+
 func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *models.Invoice, parentEntry models.TransactionEntry) error {
 	invoice.State = common.InvoiceStateSettled
 	invoice.SettledAt = schema.NullTime{Time: time.Now()}
 
-	_, err := svc.DB.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	tx, err := svc.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not open tx entry for updating succesful payment:r_hash:%s %v", invoice.RHash, err)
+		return err
+	}
+	_, err = tx.NewUpdate().Model(invoice).WherePK().Exec(ctx)
+	if err != nil {
+		tx.Rollback()
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not update sucessful payment invoice user_id:%v invoice_id:%v, error %s", invoice.UserID, invoice.ID, err.Error())
-	}
-
-	// Get the user's fee account for the transaction entry, current account is already there in parent entry
-	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.UserID)
-	if err != nil {
-		svc.Logger.Errorf("Could not find fees account user_id:%v", invoice.UserID)
 		return err
 	}
 
-	// add transaction entry for fee
-	entry := models.TransactionEntry{
-		UserID:          invoice.UserID,
-		InvoiceID:       invoice.ID,
-		CreditAccountID: feeAccount.ID,
-		DebitAccountID:  parentEntry.DebitAccountID,
-		Amount:          int64(invoice.Fee),
-		ParentID:        parentEntry.ID,
+	//revert the fee reserve entry
+	err = svc.RevertFeeReserve(ctx, &parentEntry, invoice, tx)
+	if err != nil {
+		tx.Rollback()
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
 	}
-	_, err = svc.DB.NewInsert().Model(&entry).Exec(ctx)
+
+	//add the real fee entry
+	err = svc.AddFeeEntry(ctx, &parentEntry, invoice, tx)
+	if err != nil {
+		tx.Rollback()
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not add fee entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Errorf("Could not insert fee transaction entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		svc.Logger.Errorf("Failed to commit DB transaction user_id:%v invoice_id:%v  %v", invoice.UserID, invoice.ID, err)
 		return err
 	}
 
-	userBalance, err := svc.CurrentUserBalance(ctx, entry.UserID)
+	userBalance, err := svc.CurrentUserBalance(ctx, parentEntry.UserID)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
@@ -328,7 +428,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	}
 
 	if userBalance < 0 {
-		amountMsg := fmt.Sprintf("User balance is negative transaction_entry_id:%v user_id:%v amount:%v", entry.ID, entry.UserID, userBalance)
+		amountMsg := fmt.Sprintf("User balance is negative  user_id:%v amount:%v", invoice.UserID, userBalance)
 		svc.Logger.Info(amountMsg)
 		sentry.CaptureMessage(amountMsg)
 	}
@@ -407,7 +507,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	invoice.RHash = hex.EncodeToString(lnInvoiceResult.RHash)
 	invoice.Preimage = hex.EncodeToString(preimage)
 	invoice.AddIndex = lnInvoiceResult.AddIndex
-	invoice.DestinationPubkeyHex = svc.IdentityPubkey // Our node pubkey for incoming invoices
+	invoice.DestinationPubkeyHex = svc.LndClient.GetMainPubkey() // Our node pubkey for incoming invoices
 	invoice.State = common.InvoiceStateOpen
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
@@ -422,8 +522,11 @@ func (svc *LndhubService) DecodePaymentRequest(ctx context.Context, bolt11 strin
 	return svc.LndClient.DecodeBolt11(ctx, bolt11)
 }
 
-const hexBytes = random.Hex
-
 func makePreimageHex() ([]byte, error) {
-	return randBytesFromStr(32, hexBytes)
+	bytes := make([]byte, 32) // 32 bytes * 8 bits/byte = 256 bits
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }

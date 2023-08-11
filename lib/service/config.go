@@ -6,8 +6,14 @@ import (
 )
 
 const (
+<<<<<<< HEAD
 	LND_CLIENT_TYPE    = "lnd"
 	ECLAIR_CLIENT_TYPE = "eclair"
+=======
+	LND_CLIENT_TYPE         = "lnd"
+	LND_CLUSTER_CLIENT_TYPE = "lnd_cluster"
+	ECLAIR_CLIENT_TYPE      = "eclair"
+>>>>>>> main
 )
 
 type Config struct {
@@ -24,14 +30,24 @@ type Config struct {
 	AdminToken                       string  `envconfig:"ADMIN_TOKEN"`
 	JWTRefreshTokenExpiry            int     `envconfig:"JWT_REFRESH_EXPIRY" default:"604800"` // in seconds, default 7 days
 	JWTAccessTokenExpiry             int     `envconfig:"JWT_ACCESS_EXPIRY" default:"172800"`  // in seconds, default 2 days
+<<<<<<< HEAD
 	LNClientType                     string  `envconfig:"LN_CLIENT_TYPE" default:"lnd"`        //lnd, eclair?
 	LNDAddress                       string  `envconfig:"LND_ADDRESS"`
+=======
+	LNClientType                     string  `envconfig:"LN_CLIENT_TYPE" default:"lnd"`        //lnd, lnd_cluster, eclair
+	LNDAddress                       string  `envconfig:"LND_ADDRESS" required:"true"`
+>>>>>>> main
 	LNDMacaroonFile                  string  `envconfig:"LND_MACAROON_FILE"`
 	LNDCertFile                      string  `envconfig:"LND_CERT_FILE"`
 	LNDMacaroonHex                   string  `envconfig:"LND_MACAROON_HEX"`
 	LNDCertHex                       string  `envconfig:"LND_CERT_HEX"`
+<<<<<<< HEAD
 	EclairHost                       string  `envconfig:"ECLAIR_HOST"`
 	EclairPassword                   string  `envconfig:"ECLAIR_PASSWORD"`
+=======
+	LNDClusterLivenessPeriod         int     `envconfig:"LND_CLUSTER_LIVENESS_PERIOD" default:"10"`
+	LNDClusterActiveChannelRatio     float64 `envconfig:"LND_CLUSTER_ACTIVE_CHANNEL_RATIO" default:"0.5"`
+>>>>>>> main
 	CustomName                       string  `envconfig:"CUSTOM_NAME"`
 	Host                             string  `envconfig:"HOST" default:"localhost:3000"`
 	Port                             int     `envconfig:"PORT" default:"3000"`
@@ -52,8 +68,9 @@ type Config struct {
 	RabbitMQUri                      string  `envconfig:"RABBITMQ_URI"`
 	RabbitMQLndhubInvoiceExchange    string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
 	RabbitMQLndInvoiceExchange       string  `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
+	RabbitMQLndPaymentExchange       string  `envconfig:"RABBITMQ_LND_PAYMENT_EXCHANGE" default:"lnd_payment"`
 	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
-	SubscriptionConsumerType         string  `envconfig:"SUBSCRIPTION_CONSUMER_TYPE" default:"grpc"`
+	RabbitMQPaymentConsumerQueueName string  `envconfig:"RABBITMQ_PAYMENT_CONSUMER_QUEUE_NAME" default:"lnd_payment_consumer"`
 	Branding                         BrandingConfig
 }
 

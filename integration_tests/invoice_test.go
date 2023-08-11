@@ -3,6 +3,7 @@ package integration_tests
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -86,6 +87,20 @@ func (suite *InvoiceTestSuite) TestAddInvoiceWithoutToken() {
 func (suite *InvoiceTestSuite) TestAddInvoiceForNonExistingUser() {
 	nonExistingLogin := suite.aliceLogin.Login + "abc"
 	suite.createInvoiceReqError(10, "test invoice without token", nonExistingLogin)
+}
+func (suite *InvoiceTestSuite) TestPreimageEntropy() {
+	user, _ := suite.service.FindUserByLogin(context.Background(), suite.aliceLogin.Login)
+	preimageChars := map[byte]int{}
+	for i := 0; i < 1000; i++ {
+		inv, err := suite.service.AddIncomingInvoice(context.Background(), user.ID, 10, "test entropy", "")
+		assert.NoError(suite.T(), err)
+		primgBytes, _ := hex.DecodeString(inv.Preimage)
+		for _, char := range primgBytes {
+			preimageChars[char] += 1
+		}
+	}
+	//check that we use all possible byte values
+	assert.Equal(suite.T(), 256, len(preimageChars))
 }
 
 func TestInvoiceSuite(t *testing.T) {

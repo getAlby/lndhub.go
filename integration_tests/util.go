@@ -19,7 +19,6 @@ import (
 	"github.com/getAlby/lndhub.go/rabbitmq"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/uptrace/bun/migrate"
@@ -65,7 +64,13 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		c.RabbitMQUri = rabbitmqUri
 		c.RabbitMQLndhubInvoiceExchange = "test_lndhub_invoices"
 		c.RabbitMQLndInvoiceExchange = "test_lnd_invoices"
-		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+
+		amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri)
+		if err != nil {
+			return nil, err
+		}
+
+		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
@@ -99,11 +104,6 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		Logger:         logger,
 		RabbitMQClient: rabbitmqClient,
 	}
-	getInfo, err := lndClientMock.GetInfo(ctx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		logger.Fatalf("Error getting node info: %v", err)
-	}
-	svc.IdentityPubkey = getInfo.IdentityPubkey
 
 	svc.InvoicePubSub = service.NewPubsub()
 	return svc, nil

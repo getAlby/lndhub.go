@@ -12,32 +12,21 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	cache "github.com/SporkHubr/echo-http-cache"
-	"github.com/SporkHubr/echo-http-cache/adapter/memory"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
 	"github.com/getAlby/lndhub.go/docs"
 	"github.com/getAlby/lndhub.go/lib"
-	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
-	sentryecho "github.com/getsentry/sentry-go/echo"
-	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
-	"github.com/ziflex/lecho/v3"
-	"golang.org/x/time/rate"
-	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 //go:embed templates/index.html
@@ -109,56 +98,32 @@ func main() {
 			logger.Errorf("sentry init error: %v", err)
 		}
 	}
-
-	// New Echo app
-	e := echo.New()
-	e.HideBanner = true
-
-	e.HTTPErrorHandler = responses.HTTPErrorHandler
-	e.Validator = &lib.CustomValidator{Validator: validator.New()}
-
-	//if Datadog is configured, add datadog middleware
-	if c.DatadogAgentUrl != "" {
-		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
-		defer tracer.Stop()
-		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
-	}
-	e.Use(middleware.Recover())
-	e.Use(middleware.BodyLimit("250K"))
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
-
-	e.Logger = logger
-	e.Use(middleware.RequestID())
-	e.Use(lecho.Middleware(lecho.Config{
-		Logger: logger,
-	}))
-
-	// Setup exception tracking with Sentry if configured
-	// sentry init needs to happen before the echo middlewares are added
-	if c.SentryDSN != "" {
-		e.Use(sentryecho.New(sentryecho.Options{}))
-	}
-
-	// Init new LN client
-	lndClient, err := createLnClient(c)
+	// Init new LND client
+	lndClient, err := InitLNClient(c, logger, startupCtx)
 	if err != nil {
-		e.Logger.Fatalf("Error initializing LN client %s", err.Error())
+		logger.Fatalf("Error initializing the %s connection: %v", c.LNClientType, err)
 	}
-	getInfo, err := lndClient.GetInfo(startupCtx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		e.Logger.Fatalf("Error getting node info: %v", err)
-	}
-	logger.Infof("Connected to %s: %s - %s", c.LNClientType, getInfo.Alias, getInfo.IdentityPubkey)
+
+	logger.Infof("Connected to %s: %s", c.LNClientType, lndClient.GetMainPubkey())
 
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
 	if c.RabbitMQUri != "" {
-		rabbitmqClient, err = rabbitmq.Dial(c.RabbitMQUri,
+		amqpClient, err := rabbitmq.DialAMQP(c.RabbitMQUri, rabbitmq.WithAmqpLogger(logger))
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		defer amqpClient.Close()
+
+		rabbitmqClient, err = rabbitmq.NewClient(amqpClient,
 			rabbitmq.WithLogger(logger),
 			rabbitmq.WithLndInvoiceExchange(c.RabbitMQLndInvoiceExchange),
 			rabbitmq.WithLndHubInvoiceExchange(c.RabbitMQLndhubInvoiceExchange),
 			rabbitmq.WithLndInvoiceConsumerQueueName(c.RabbitMQInvoiceConsumerQueueName),
+			rabbitmq.WithLndPaymentExchange(c.RabbitMQLndPaymentExchange),
+			rabbitmq.WithLndPaymentConsumerQueueName(c.RabbitMQPaymentConsumerQueueName),
 		)
 		if err != nil {
 			logger.Fatal(err)
@@ -172,18 +137,28 @@ func main() {
 		Config:         c,
 		DB:             dbConn,
 		LndClient:      lndClient,
-		RabbitMQClient: rabbitmqClient,
 		Logger:         logger,
-		IdentityPubkey: getInfo.IdentityPubkey,
 		InvoicePubSub:  service.NewPubsub(),
+		RabbitMQClient: rabbitmqClient,
 	}
 
-	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
-	secured := e.Group("", tokens.Middleware(c.JWTSecret), middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(c.DefaultRateLimit))))
-	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware)
+	//init echo server
+	e := initEcho(c, logger)
+	//if Datadog is configured, add datadog middleware
+	if c.DatadogAgentUrl != "" {
+		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
+		defer tracer.Stop()
+		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
+	}
 
-	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
-	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken))
+	logMw := createLoggingMiddleware(logger)
+	// strict rate limit for requests for sending payments
+	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
+	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
+
+	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
+	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host
@@ -194,38 +169,26 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	backgroundWg.Add(1)
 	go func() {
-		switch svc.Config.SubscriptionConsumerType {
-		case "rabbitmq":
-			err = svc.RabbitMQClient.SubscribeToLndInvoices(backGroundCtx, svc.ProcessInvoiceUpdate)
-			if err != nil && err != context.Canceled {
-				// in case of an error in this routine, we want to restart LNDhub
-				sentry.CaptureException(err)
-				svc.Logger.Fatal(err)
-			}
-
-		case "grpc":
-			err = svc.InvoiceUpdateSubscription(backGroundCtx)
-			if err != nil && err != context.Canceled {
-				// in case of an error in this routine, we want to restart LNDhub
-				svc.Logger.Fatal(err)
-			}
-
-		default:
-			svc.Logger.Fatalf("Unrecognized subscription consumer type %s", svc.Config.SubscriptionConsumerType)
+		err = StartInvoiceRoutine(svc, backGroundCtx)
+		if err != nil {
+			sentry.CaptureException(err)
+			//we want to restart in case of an error here
+			svc.Logger.Fatal(err)
 		}
-
 		svc.Logger.Info("Invoice routine done")
 		backgroundWg.Done()
 	}()
 
 	// Check the status of all pending outgoing payments
-	// A goroutine will be spawned for each one
 	backgroundWg.Add(1)
 	go func() {
-		err = svc.CheckAllPendingOutgoingPayments(backGroundCtx)
+		err = StartPendingPaymentRoutine(svc, backGroundCtx)
 		if err != nil {
+			sentry.CaptureException(err)
+			//in case of an error here no restart is necessary
 			svc.Logger.Error(err)
 		}
+
 		svc.Logger.Info("Pending payment check routines done")
 		backgroundWg.Done()
 	}()
@@ -260,19 +223,7 @@ func main() {
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
 	if svc.Config.EnablePrometheus {
-		// Create Prometheus server and Middleware
-		echoPrometheus = echo.New()
-		echoPrometheus.HideBanner = true
-		prom := prometheus.NewPrometheus("echo", nil)
-		// Scrape metrics from Main Server
-		e.Use(prom.HandlerFunc)
-		// Setup metrics endpoint at another server
-		prom.SetMetricsPath(echoPrometheus)
-		go func() {
-			echoPrometheus.Logger = logger
-			echoPrometheus.Logger.Infof("Starting prometheus on port %d", svc.Config.PrometheusPort)
-			echoPrometheus.Logger.Fatal(echoPrometheus.Start(fmt.Sprintf(":%d", svc.Config.PrometheusPort)))
-		}()
+		go startPrometheusEcho(logger, svc, e)
 	}
 
 	// Start server
@@ -296,51 +247,4 @@ func main() {
 	//Wait for graceful shutdown of background routines
 	backgroundWg.Wait()
 	svc.Logger.Info("LNDhub exiting gracefully. Goodbye.")
-}
-
-func createRateLimitMiddleware(seconds int, burst int) echo.MiddlewareFunc {
-	config := middleware.RateLimiterMemoryStoreConfig{
-		Rate:  rate.Every(time.Duration(seconds) * time.Second),
-		Burst: burst,
-	}
-	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(config))
-}
-
-func createLnClient(c *service.Config) (lnd.LightningClientWrapper, error) {
-	switch c.LNClientType {
-	case service.LND_CLIENT_TYPE:
-		return lnd.NewLNDclient(lnd.LNDoptions{
-			Address:      c.LNDAddress,
-			MacaroonFile: c.LNDMacaroonFile,
-			MacaroonHex:  c.LNDMacaroonHex,
-			CertFile:     c.LNDCertFile,
-			CertHex:      c.LNDCertHex,
-		})
-	case service.ECLAIR_CLIENT_TYPE:
-		return lnd.NewEclairClient(c.EclairHost, c.EclairPassword), nil
-	default:
-		return nil, fmt.Errorf("Client type not recognized: %s", c.LNClientType)
-	}
-}
-
-func createCacheClient() *cache.Client {
-	memcached, err := memory.NewAdapter(
-		memory.AdapterWithAlgorithm(memory.LRU),
-		memory.AdapterWithCapacity(10000000),
-	)
-
-	if err != nil {
-		log.Fatalf("Error creating cache client memory adapter: %v", err)
-	}
-
-	cacheClient, err := cache.NewClient(
-		cache.ClientWithAdapter(memcached),
-		cache.ClientWithTTL(10*time.Minute),
-		cache.ClientWithRefreshKey("opn"),
-	)
-
-	if err != nil {
-		log.Fatalf("Error creating cache client: %v", err)
-	}
-	return cacheClient
 }

@@ -6,6 +6,7 @@ Wrapper for Lightning Network Daemon (lnd) ⚡
 
 It provides separate accounts for end users.
 Live deployment at [ln.getalby.com](https://ln.getalby.com).
+[API documentation](https://ln.getalby.com/swagger/index.html)
 
 ### [LndHub](https://github.com/BlueWallet/LndHub) compatible API implemented in Go using relational database backends
 
@@ -13,8 +14,6 @@ Live deployment at [ln.getalby.com](https://ln.getalby.com).
 * Focussing only on Lightning (no onchain functionality)
 * No runtime dependencies (simple Go executable)
 * Extensible to add more features
-
-### Status: alpha
 
 ## Configuration
 
@@ -43,14 +42,14 @@ vim .env # edit your config
 + `HOST`: (default: "localhost:3000") Host the app should listen on
 + `PORT`: (default: 3000) Port the app should listen on
 + `DEFAULT_RATE_LIMIT`: (default: 10) Requests per second rate limit
-+ `STRICT_RATE_LIMIT`: (default: 10) Requests per burst rate limit (e.g. 1 request each 10 seconds)
-+ `BURST_RATE_LIMIT`: (default: 1) Rate limit burst
++ `STRICT_RATE_LIMIT`: (default: 10) Requests per second rate limit for resource-intensive APIs (e.g. sending a payment)
++ `BURST_RATE_LIMIT`: (default: 1) Specifies the maximum number of requests that can pass at the same moment
 + `ENABLE_PROMETHEUS`: (default: false) Enable Prometheus metrics to be exposed
 + `PROMETHEUS_PORT`: (default: 9092) Prometheus port (path: `/metrics`)
 + `WEBHOOK_URL`: Optional. Callback URL for incoming and outgoing payment events, see below.
 + `FEE_RESERVE`: (default: false) Keep fee reserve for each user
 + `ALLOW_ACCOUNT_CREATION`: (default: true) Enable creation of new accounts
-+ `ADMIN_TOKEN`: Only allow account creation requests if they have the header `Authorization: Bearer ADMIN_TOKEN`
++ `ADMIN_TOKEN`: Only allow account creation requests if they have the header `Authorization: Bearer ADMIN_TOKEN`. Also required for endpoint for updating users login, password and (de)activation status.
 + `MIN_PASSWORD_ENTROPY`: (default: 0 = disable check) Minimum entropy (bits) of a password to be accepted during account creation
 + `MAX_RECEIVE_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) for which an invoice can be created
 + `MAX_SEND_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) of an invoice that can be paid
