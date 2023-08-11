@@ -16,8 +16,9 @@ import (
 )
 
 type EclairClient struct {
-	host     string
-	password string
+	host           string
+	password       string
+	IdentityPubkey string
 }
 
 type EclairInvoicesSubscriber struct {
@@ -42,11 +43,17 @@ func (ept *EclairPaymentsTracker) Recv() (*lnrpc.Payment, error) {
 	return nil, fmt.Errorf("context canceled")
 }
 
-func NewEclairClient(host, password string) *EclairClient {
-	return &EclairClient{
+func NewEclairClient(host, password string, ctx context.Context) (result *EclairClient, err error) {
+	result = &EclairClient{
 		host:     host,
 		password: password,
 	}
+	info, err := result.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		return nil, err
+	}
+	result.IdentityPubkey = info.IdentityPubkey
+	return result, nil
 }
 
 func (eclair *EclairClient) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error) {
@@ -241,4 +248,12 @@ func (eclair *EclairClient) DecodeBolt11(ctx context.Context, bolt11 string, opt
 		DescriptionHash: invoice.DescriptionHash,
 		NumMsat:         int64(invoice.Amount),
 	}, nil
+}
+
+func (eclair *EclairClient) IsIdentityPubkey(pubkey string) (isOurPubkey bool) {
+	return pubkey == eclair.IdentityPubkey
+}
+
+func (eclair *EclairClient) GetMainPubkey() (pubkey string) {
+	return eclair.IdentityPubkey
 }
