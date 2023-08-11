@@ -117,9 +117,13 @@ func (eclair *EclairClient) SendPaymentSync(ctx context.Context, req *lnrpc.Send
 	for _, part := range resp.Parts {
 		totalFees += part.FeesPaid / 1000
 	}
+	preimage, err := hex.DecodeString(resp.PaymentPreimage)
+	if err != nil {
+		return nil, err
+	}
 	return &lnrpc.SendResponse{
 		PaymentError:    errString,
-		PaymentPreimage: []byte(resp.PaymentPreimage),
+		PaymentPreimage: preimage,
 		PaymentRoute: &lnrpc.Route{
 			TotalFees: int64(totalFees),
 			TotalAmt:  int64(resp.RecipientAmount)/1000 + int64(totalFees),
