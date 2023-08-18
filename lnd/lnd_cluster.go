@@ -82,6 +82,10 @@ func (cluster *LNDCluster) SendPaymentSync(ctx context.Context, req *lnrpc.SendR
 	return cluster.ActiveNode.SendPaymentSync(ctx, req, options...)
 }
 
+func (cluster *LNDCluster) WalletBalance(ctx context.Context, req *lnrpc.WalletBalanceRequest, options ...grpc.CallOption) (*lnrpc.WalletBalanceResponse, error) {
+	return cluster.ActiveNode.WalletBalance(ctx, req, options...)
+}
+
 func (cluster *LNDCluster) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
 	return cluster.ActiveNode.AddInvoice(ctx, req, options...)
 }
