@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -30,16 +29,8 @@ func (svc *LndhubService) StartWebhookSubscription(ctx context.Context, url stri
 	}
 }
 func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
-
-	//Look up the user's login to add it to the invoice
-	user, err := svc.FindUser(context.Background(), invoice.UserID)
-	if err != nil {
-		svc.Logger.Error(err)
-		return
-	}
-
 	payload := new(bytes.Buffer)
-	err = json.NewEncoder(payload).Encode(ConvertPayload(invoice, user))
+	err := svc.AddInvoiceMetadata(context.Background(), payload, invoice)
 	if err != nil {
 		svc.Logger.Error(err)
 		return
@@ -59,28 +50,6 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 	}
 }
 
-type WebhookInvoicePayload struct {
-	ID                       int64             `json:"id"`
-	Type                     string            `json:"type"`
-	UserLogin                string            `json:"user_login"`
-	Amount                   int64             `json:"amount"`
-	Fee                      int64             `json:"fee"`
-	Memo                     string            `json:"memo"`
-	DescriptionHash          string            `json:"description_hash,omitempty"`
-	PaymentRequest           string            `json:"payment_request"`
-	DestinationPubkeyHex     string            `json:"destination_pubkey_hex"`
-	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty"`
-	RHash                    string            `json:"r_hash"`
-	Preimage                 string            `json:"preimage"`
-	Keysend                  bool              `json:"keysend"`
-	State                    string            `json:"state"`
-	ErrorMessage             string            `json:"error_message,omitempty"`
-	CreatedAt                time.Time         `json:"created_at"`
-	ExpiresAt                time.Time         `json:"expires_at"`
-	UpdatedAt                time.Time         `json:"updated_at"`
-	SettledAt                time.Time         `json:"settled_at"`
-}
-
 func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoing chan models.Invoice, err error) {
 	incomingInvoices, _, err := svc.InvoicePubSub.Subscribe(common.InvoiceTypeIncoming)
 	if err != nil {
@@ -93,13 +62,17 @@ func (svc *LndhubService) SubscribeIncomingOutgoingInvoices() (incoming, outgoin
 	return incomingInvoices, outgoingInvoices, nil
 }
 
-func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.Writer, invoice models.Invoice) error {
+func (svc *LndhubService) AddInvoiceMetadata(ctx context.Context, w io.Writer, invoice models.Invoice) error {
 	user, err := svc.FindUser(ctx, invoice.UserID)
 	if err != nil {
 		return err
 	}
 
-	err = json.NewEncoder(w).Encode(ConvertPayload(invoice, user))
+	balance, err := svc.CurrentUserBalance(ctx, invoice.UserID)
+	if err != nil {
+		return err
+	}
+	err = json.NewEncoder(w).Encode(ConvertPayload(invoice, user, balance))
 	if err != nil {
 		return err
 	}
@@ -107,13 +80,14 @@ func (svc *LndhubService) EncodeInvoiceWithUserLogin(ctx context.Context, w io.W
 	return nil
 }
 
-func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookInvoicePayload) {
-	return WebhookInvoicePayload{
+func ConvertPayload(invoice models.Invoice, user *models.User, balance int64) (result models.WebhookInvoicePayload) {
+	return models.WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,
 		UserLogin:                user.Login,
 		Amount:                   invoice.Amount,
 		Fee:                      invoice.Fee,
+		Balance:                  balance,
 		Memo:                     invoice.Memo,
 		DescriptionHash:          invoice.DescriptionHash,
 		PaymentRequest:           invoice.PaymentRequest,

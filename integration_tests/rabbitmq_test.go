@@ -68,7 +68,7 @@ func (suite *RabbitMQTestSuite) SetupSuite() {
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.svc).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.svc).PayInvoice)
 	go func() {
-		err = svc.RabbitMQClient.StartPublishInvoices(ctx, svc.SubscribeIncomingOutgoingInvoices, svc.EncodeInvoiceWithUserLogin)
+		err = svc.RabbitMQClient.StartPublishInvoices(ctx, svc.SubscribeIncomingOutgoingInvoices, svc.AddInvoiceMetadata)
 		assert.NoError(suite.T(), err)
 	}()
 }
@@ -150,13 +150,14 @@ func (suite *RabbitMQTestSuite) TestConsumeAndPublishInvoice() {
 
 	msg := <-m
 
-	var receivedInvoice models.Invoice
+	var receivedInvoice models.WebhookInvoicePayload
 	r := bytes.NewReader(msg.Body)
 	err = json.NewDecoder(r).Decode(&receivedInvoice)
 	assert.NoError(suite.T(), err)
 
 	assert.Equal(suite.T(), invoice.RHash, receivedInvoice.RHash)
 	assert.Equal(suite.T(), common.InvoiceTypeIncoming, receivedInvoice.Type)
+	assert.Equal(suite.T(), int64(1000), receivedInvoice.Balance)
 }
 
 func (suite *RabbitMQTestSuite) TestPublishInvoice() {
