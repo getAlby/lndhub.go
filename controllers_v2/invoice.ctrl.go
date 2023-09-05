@@ -134,6 +134,7 @@ type AddInvoiceResponseBody struct {
 	PaymentHash    string    `json:"payment_hash"`
 	PaymentRequest string    `json:"payment_request"`
 	ExpiresAt      time.Time `json:"expires_at"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // AddInvoice godoc
@@ -174,6 +175,7 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		PaymentHash:    invoice.RHash,
 		PaymentRequest: invoice.PaymentRequest,
 		ExpiresAt:      invoice.ExpiresAt.Time,
+		CreatedAt:      invoice.CreatedAt,
 	}
 
 	return c.JSON(http.StatusOK, &responseBody)
