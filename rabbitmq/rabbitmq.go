@@ -205,6 +205,11 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 					continue
 				}
+				client.logger.Infoj(log.JSON{
+					"subroutine":   "payment finalizer",
+					"payment_hash": invoice.RHash,
+					"message":      "updating payment",
+				})
 
 				switch payment.Status {
 				case lnrpc.Payment_SUCCEEDED:
@@ -222,7 +227,11 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 						continue
 					}
 
-					client.logger.Infof("Payment finalizer: updated successful payment with hash: %s", payment.PaymentHash)
+					client.logger.Infoj(log.JSON{
+						"subroutine":   "payment finalizer",
+						"message":      "updated succesful payment",
+						"payment_hash": payment.PaymentHash,
+					})
 					delete(pendingInvoices, payment.PaymentHash)
 
 				case lnrpc.Payment_FAILED:
@@ -236,8 +245,11 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 						continue
 					}
-
-					client.logger.Infof("Payment finalizer: updated failed payment with hash: %s", payment.PaymentHash)
+					client.logger.Infoj(log.JSON{
+						"subroutine":   "payment finalizer",
+						"message":      "updated failed payment",
+						"payment_hash": payment.PaymentHash,
+					})
 					delete(pendingInvoices, payment.PaymentHash)
 				}
 			}
@@ -288,6 +300,11 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 
 				continue
 			}
+			log.Infoj(log.JSON{
+				"subroutine":   "invoice consumer",
+				"message":      "adding invoice",
+				"payment_hash": invoice.RHash,
+			})
 
 			err = handler(ctx, &invoice)
 			if err != nil {
