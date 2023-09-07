@@ -164,10 +164,11 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 		return err
 	}
 
-	client.logger.Infof("Payment finalizer: Found %d pending invoices", len(pendingInvoices))
-
-	client.logger.Info("Starting payment finalizer rabbitmq consumer")
-
+	client.logger.Infoj(log.JSON{
+		"subroutine":           "payment finalizer",
+		"num_pending_payments": len(pendingInvoices),
+		"message":              "starting payment finalizer loop",
+	})
 	for {
 		select {
 		case <-ctx.Done():
@@ -182,6 +183,9 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 			err := json.Unmarshal(delivery.Body, &payment)
 			if err != nil {
+				captureErr(client.logger, err, log.JSON{
+					"message": "error unmarshalling payment json",
+				})
 				delivery.Nack(false, false)
 
 				continue
@@ -191,7 +195,10 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 			if invoice, ok := pendingInvoices[payment.PaymentHash]; ok {
 				t, err := svc.GetTransactionEntryByInvoiceId(ctx, invoice.ID)
 				if err != nil {
-					captureErr(client.logger, err)
+					captureErr(client.logger, err, log.JSON{
+						"payment_hash": invoice.RHash,
+						"message":      "error fetching transaction entry by id",
+					})
 					delivery.Nack(false, false)
 
 					continue
@@ -203,7 +210,10 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 					invoice.Preimage = payment.PaymentPreimage
 
 					if err = svc.HandleSuccessfulPayment(ctx, &invoice, t); err != nil {
-						captureErr(client.logger, err)
+						captureErr(client.logger, err, log.JSON{
+							"payment_hash": invoice.RHash,
+							"message":      "error handling succesful payment",
+						})
 						delivery.Nack(false, false)
 
 						continue
@@ -214,7 +224,10 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 
 				case lnrpc.Payment_FAILED:
 					if err = svc.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf(payment.FailureReason.String())); err != nil {
-						captureErr(client.logger, err)
+						captureErr(client.logger, err, log.JSON{
+							"message":      "error handling failed payment",
+							"payment_hash": invoice.RHash,
+						})
 						delivery.Nack(false, false)
 
 						continue
@@ -249,14 +262,19 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 
 			err := json.Unmarshal(delivery.Body, &invoice)
 			if err != nil {
-				captureErr(client.logger, err)
+				captureErr(client.logger, err, log.JSON{
+					"message": "error unmarshalling invoice json",
+				})
 
 				// If we can't even Unmarshall the message we are dealing with
 				// badly formatted events. In that case we simply Nack the message
 				// and explicitly do not requeue it.
 				err = delivery.Nack(false, false)
 				if err != nil {
-					captureErr(client.logger, err)
+					captureErr(client.logger, err, log.JSON{
+						"message":      "error nacking invoice",
+						"payment_hash": invoice.RHash,
+					})
 				}
 
 				continue
@@ -264,14 +282,20 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 
 			err = handler(ctx, &invoice)
 			if err != nil {
-				captureErr(client.logger, err)
+				captureErr(client.logger, err, log.JSON{
+					"message":      "error handling invoice",
+					"payment_hash": invoice.RHash,
+				})
 
 				// If for some reason we can't handle the message we also don't requeue
 				// because this can lead to an endless loop that puts pressure on the
 				// database and logs.
 				err := delivery.Nack(false, false)
 				if err != nil {
-					captureErr(client.logger, err)
+					captureErr(client.logger, err, log.JSON{
+						"message":      "error nacking event",
+						"payment_hash": invoice.RHash,
+					})
 				}
 
 				continue
@@ -279,7 +303,10 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 
 			err = delivery.Ack(false)
 			if err != nil {
-				captureErr(client.logger, err)
+				captureErr(client.logger, err, log.JSON{
+					"message":      "error acking event",
+					"payment_hash": invoice.RHash,
+				})
 			}
 		}
 	}
@@ -320,13 +347,19 @@ func (client *DefaultClient) StartPublishInvoices(ctx context.Context, invoicesS
 			err = client.publishToLndhubExchange(ctx, incomingInvoice, payloadFunc)
 
 			if err != nil {
-				captureErr(client.logger, err)
+				captureErr(client.logger, err, log.JSON{
+					"message":      "error publishing invoice",
+					"payment_hash": incomingInvoice.RHash,
+				})
 			}
 		case outgoing := <-out:
 			err = client.publishToLndhubExchange(ctx, outgoing, payloadFunc)
 
 			if err != nil {
-				captureErr(client.logger, err)
+				captureErr(client.logger, err, log.JSON{
+					"message":      "error publishing invoice",
+					"payment_hash": outgoing.RHash,
+				})
 			}
 		}
 	}
@@ -352,7 +385,6 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 		},
 	)
 	if err != nil {
-		captureErr(client.logger, err)
 		return err
 	}
 
@@ -361,7 +393,8 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 	return nil
 }
 
-func captureErr(logger *lecho.Logger, err error) {
-	logger.Error(err)
+func captureErr(logger *lecho.Logger, err error, j log.JSON) {
+	j["error"] = err
+	logger.Errorj(j)
 	sentry.CaptureException(err)
 }
