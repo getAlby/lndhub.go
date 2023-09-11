@@ -423,9 +423,10 @@ func (client *DefaultClient) publishToLndhubExchange(ctx context.Context, invoic
 	}
 
 	client.logger.Infoj(log.JSON{
-		"subroutine":   "invoice publisher",
-		"message":      "succesfully published invoice",
-		"payment_hash": invoice.RHash,
+		"subroutine":           "invoice publisher",
+		"message":              "succesfully published invoice",
+		"payment_hash":         invoice.RHash,
+		"rabbitmq_routing_key": key,
 	})
 
 	return nil
