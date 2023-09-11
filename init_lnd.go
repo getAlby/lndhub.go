@@ -30,6 +30,9 @@ func InitSingleLNDClient(c *service.Config, ctx context.Context) (result lnd.Lig
 		CertFile:     c.LNDCertFile,
 		CertHex:      c.LNDCertHex,
 	}, ctx)
+	if err != nil {
+		return nil, err
+	}
 	getInfo, err := client.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		return nil, err
