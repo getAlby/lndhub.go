@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -294,7 +295,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 					captureErr(client.logger, err, log.JSON{
 						"subroutine":   "invoice consumer",
 						"message":      "error nacking invoice",
-						"payment_hash": invoice.RHash,
+						"payment_hash": hex.EncodeToString(invoice.RHash),
 					})
 				}
 
@@ -303,7 +304,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 			log.Infoj(log.JSON{
 				"subroutine":   "invoice consumer",
 				"message":      "adding invoice",
-				"payment_hash": invoice.RHash,
+				"payment_hash": hex.EncodeToString(invoice.RHash),
 			})
 
 			err = handler(ctx, &invoice)
@@ -311,7 +312,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 				captureErr(client.logger, err, log.JSON{
 					"subroutine":   "invoice consumer",
 					"message":      "error handling invoice",
-					"payment_hash": invoice.RHash,
+					"payment_hash": hex.EncodeToString(invoice.RHash),
 				})
 
 				// If for some reason we can't handle the message we also don't requeue
@@ -322,7 +323,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 					captureErr(client.logger, err, log.JSON{
 						"subroutine":   "invoice consumer",
 						"message":      "error nacking event",
-						"payment_hash": invoice.RHash,
+						"payment_hash": hex.EncodeToString(invoice.RHash),
 					})
 				}
 
@@ -334,7 +335,7 @@ func (client *DefaultClient) SubscribeToLndInvoices(ctx context.Context, handler
 				captureErr(client.logger, err, log.JSON{
 					"subroutine":   "invoice consumer",
 					"message":      "error acking event",
-					"payment_hash": invoice.RHash,
+					"payment_hash": hex.EncodeToString(invoice.RHash),
 				})
 			}
 		}
