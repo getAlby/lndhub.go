@@ -17,6 +17,8 @@ func InitLNClient(c *service.Config, logger *lecho.Logger, ctx context.Context) 
 		return InitSingleLNDClient(c, ctx)
 	case service.LND_CLUSTER_CLIENT_TYPE:
 		return InitLNDCluster(c, logger, ctx)
+	case service.ECLAIR_CLIENT_TYPE:
+		return lnd.NewEclairClient(c.LNDAddress, c.EclairPassword, ctx)
 	default:
 		return nil, fmt.Errorf("Did not recognize LN client type %s", c.LNClientType)
 	}
