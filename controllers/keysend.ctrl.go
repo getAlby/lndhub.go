@@ -83,7 +83,8 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to check balance user_id: %v error: %v", userID, err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if !ok {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
@@ -91,7 +92,8 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Error saving invoice user_id: %v error: %v", userID, err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
 		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
@@ -101,6 +103,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	for key, value := range reqBody.CustomRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
+			c.Logger().Errorf("Invalid custom records user_id: %v error: %v", userID, err)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)

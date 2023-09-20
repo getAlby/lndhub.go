@@ -49,6 +49,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if err := c.Validate(&body); err != nil {
+		c.Logger().Errorf("Failed to validate auth user request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -56,7 +57,8 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		// To support Swagger we also look in the Form data
 		params, err := c.FormParams()
 		if err != nil {
-			return err
+			c.Logger().Errorf("Failed to get form parameters: %v", err)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		login := params.Get("login")
 		password := params.Get("password")
@@ -69,8 +71,10 @@ func (controller *AuthController) Auth(c echo.Context) error {
 	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
 	if err != nil {
 		if err.Error() == responses.AccountDeactivatedError.Message {
+			c.Logger().Errorf("Account Deactivated for user: %s", body.Login)
 			return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
 		}
+		c.Logger().Errorf("Authentication error for user: %s error: %v", body.Login, err)
 		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
 

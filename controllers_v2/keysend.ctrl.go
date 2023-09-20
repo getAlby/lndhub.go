@@ -193,6 +193,7 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
+			c.Logger().Errorf("Failed to parse custom records: user_id:%v error: %v", userID, err)
 			return nil, &responses.BadArgumentsError
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)

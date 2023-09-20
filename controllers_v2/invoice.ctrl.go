@@ -55,7 +55,8 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to retrieve outgoing invoices for user_id: %v error: %v", userId, err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	response := make([]Invoice, len(invoices))
@@ -98,7 +99,8 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to retrieve incoming invoices for user_id: %v : %v", userId, err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	response := make([]Invoice, len(invoices))

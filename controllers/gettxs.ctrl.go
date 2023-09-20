@@ -5,6 +5,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -51,7 +52,8 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to retrieve transactions: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	response := make([]OutgoingInvoice, len(invoices))
@@ -78,7 +80,8 @@ func (controller *GetTXSController) GetUserInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to retrieve invoices for user_id: %v error: %v", userId, err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	response := make([]IncomingInvoice, len(invoices))

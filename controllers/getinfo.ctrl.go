@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -77,7 +78,8 @@ func (controller *GetInfoController) GetInfo(c echo.Context) error {
 
 	info, err := controller.svc.GetInfo(c.Request().Context())
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to retrieve info: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if controller.svc.Config.CustomName != "" {
 		info.Alias = controller.svc.Config.CustomName

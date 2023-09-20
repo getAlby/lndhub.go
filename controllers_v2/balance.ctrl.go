@@ -3,6 +3,7 @@ package v2controllers
 import (
 	"net/http"
 
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
@@ -37,7 +38,8 @@ func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
 	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Error fetching balance for user_id:%v error: %v", userId, err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	return c.JSON(http.StatusOK, &BalanceResponse{
 		Balance:  balance,

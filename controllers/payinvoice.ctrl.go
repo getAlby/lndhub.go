@@ -77,6 +77,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	if decodedPaymentRequest.NumSatoshis == 0 {
 		amt, err := controller.svc.ParseInt(reqBody.Amount)
 		if err != nil || amt <= 0 {
+			c.Logger().Errorf("Invalid amount in payment request user_id:%v error: %v", userID, err)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
@@ -91,7 +92,8 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Error checking user balance user_id:%v error: %v", userID, err)
+		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
 	}
 	if !ok {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
@@ -100,7 +102,8 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Error saving invoice user_id:%v payment_request:%v", userID, paymentRequest)
+		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {

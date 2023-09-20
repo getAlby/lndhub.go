@@ -50,6 +50,7 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 
 	amount, err := svc.ParseInt(body.Amount)
 	if err != nil || amount < 0 {
+		c.Logger().Errorf("Invalid amount %v for user_id:%v error: %v", amount, userID, err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -63,7 +64,8 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 	if svc.Config.MaxAccountBalance > 0 {
 		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
+			c.Logger().Errorf("Error fetching balance for user_id:%v error: %v", userID, err)
+			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		if currentBalance+amount > svc.Config.MaxAccountBalance {
 			c.Logger().Errorf("Max account balance exceeded for user_id:%v (balance:%v + amount:%v)", userID, currentBalance, amount)
