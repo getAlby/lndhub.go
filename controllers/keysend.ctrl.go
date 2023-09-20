@@ -93,10 +93,6 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
-		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
-		return c.JSON(http.StatusBadRequest, responses.InvalidDestinationError)
-	}
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
 	for key, value := range reqBody.CustomRecords {
 		intKey, err := strconv.Atoi(key)
@@ -104,6 +100,10 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
+	}
+	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
+		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
+		return c.JSON(http.StatusBadRequest, responses.InvalidDestinationError)
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
