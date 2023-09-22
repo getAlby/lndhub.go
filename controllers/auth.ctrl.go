@@ -6,6 +6,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // AuthController : AuthController struct
@@ -49,7 +50,12 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if err := c.Validate(&body); err != nil {
-		c.Logger().Errorf("Failed to validate auth user request body: %v", err)
+		c.Logger().Errorj(
+			log.JSON{
+				"error":   err,
+				"message": "invalid request body",
+			},
+		)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -57,7 +63,12 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		// To support Swagger we also look in the Form data
 		params, err := c.FormParams()
 		if err != nil {
-			c.Logger().Errorf("Failed to get form parameters: %v", err)
+			c.Logger().Errorj(
+				log.JSON{
+					"message": "invalid form parameters",
+					"error":   err,
+				},
+			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		login := params.Get("login")
@@ -71,10 +82,21 @@ func (controller *AuthController) Auth(c echo.Context) error {
 	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
 	if err != nil {
 		if err.Error() == responses.AccountDeactivatedError.Message {
-			c.Logger().Errorf("Account Deactivated for user: %s", body.Login)
+			c.Logger().Errorj(
+				log.JSON{
+					"message":    "account deactivated",
+					"user_login": body.Login,
+				},
+			)
 			return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
 		}
-		c.Logger().Errorf("Authentication error for user: %s error: %v", body.Login, err)
+		c.Logger().Errorj(
+			log.JSON{
+				"message":    "authentication error",
+				"user_login": body.Login,
+				"error":      err,
+			},
+		)
 		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
 

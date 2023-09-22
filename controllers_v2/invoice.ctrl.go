@@ -9,6 +9,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // InvoiceController : Add invoice controller struct
@@ -55,7 +56,13 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
-		c.Logger().Errorf("Failed to retrieve outgoing invoices for user_id: %v error: %v", userId, err)
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "failed to get invoices",
+				"error":          err,
+				"lndhub_user_id": userId,
+			},
+		)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -99,7 +106,13 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
 	if err != nil {
-		c.Logger().Errorf("Failed to retrieve incoming invoices for user_id: %v : %v", userId, err)
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "failed to get invoices",
+				"error":          err,
+				"lndhub_user_id": userId,
+			},
+		)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 

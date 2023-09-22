@@ -7,6 +7,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // AddInvoiceController : Add invoice controller struct
@@ -50,7 +51,14 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 
 	amount, err := svc.ParseInt(body.Amount)
 	if err != nil || amount < 0 {
-		c.Logger().Errorf("Invalid amount %v for user_id:%v error: %v", amount, userID, err)
+		c.Logger().Errorj(
+			log.JSON{
+				"error":          err,
+				"message":        "invalid amount",
+				"lndhub_user_id": userID,
+				"amount":         amount,
+			},
+		)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
@@ -64,7 +72,13 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 	if svc.Config.MaxAccountBalance > 0 {
 		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userID)
 		if err != nil {
-			c.Logger().Errorf("Error fetching balance for user_id:%v error: %v", userID, err)
+			c.Logger().Errorj(
+				log.JSON{
+					"message":        "error fetching balance",
+					"lndhub_user_id": userID,
+					"error":          err,
+				},
+			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		if currentBalance+amount > svc.Config.MaxAccountBalance {

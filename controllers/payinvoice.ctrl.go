@@ -13,6 +13,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // PayInvoiceController : Pay invoice controller struct
@@ -57,7 +58,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
-		if strings.Contains(err.Error(),"invoice not for current active network") {
+		if strings.Contains(err.Error(), "invoice not for current active network") {
 			c.Logger().Errorf("Incorrect network user_id:%v error: %v", userID, err)
 			return c.JSON(http.StatusBadRequest, responses.IncorrectNetworkError)
 		}
@@ -77,7 +78,13 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	if decodedPaymentRequest.NumSatoshis == 0 {
 		amt, err := controller.svc.ParseInt(reqBody.Amount)
 		if err != nil || amt <= 0 {
-			c.Logger().Errorf("Invalid amount in payment request user_id:%v error: %v", userID, err)
+			c.Logger().Errorj(
+				log.JSON{
+					"message":        "invalid amount",
+					"error":          err,
+					"lndhub_user_id": userID,
+				},
+			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
@@ -92,7 +99,13 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		c.Logger().Errorf("Error checking user balance user_id:%v error: %v", userID, err)
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "error checking balance",
+				"error":          err,
+				"lndhub_user_id": userID,
+			},
+		)
 		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
 	}
 	if !ok {
@@ -102,7 +115,13 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
-		c.Logger().Errorf("Error saving invoice user_id:%v payment_request:%v", userID, paymentRequest)
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "error adding invoice",
+				"error":          err,
+				"lndhub_user_id": userID,
+			},
+		)
 		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
