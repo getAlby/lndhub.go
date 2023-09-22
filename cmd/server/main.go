@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getAlby/lndhub.go/rabbitmq"
 	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -99,12 +100,16 @@ func main() {
 		}
 	}
 	// Init new LND client
-	lndClient, err := InitLNClient(c, logger, startupCtx)
+	lnCfg, err := lnd.LoadConfig()
 	if err != nil {
-		logger.Fatalf("Error initializing the %s connection: %v", c.LNClientType, err)
+		logger.Fatalf("Error loading LN config: %v", err)
+	}
+	lndClient, err := lnd.InitLNClient(lnCfg, logger, startupCtx)
+	if err != nil {
+		logger.Fatalf("Error initializing the %s connection: %v", lnCfg.LNClientType, err)
 	}
 
-	logger.Infof("Connected to %s: %s", c.LNClientType, lndClient.GetMainPubkey())
+	logger.Infof("Connected to %s: %s", lnCfg.LNClientType, lndClient.GetMainPubkey())
 
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
