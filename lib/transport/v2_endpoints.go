@@ -1,4 +1,4 @@
-package main
+package transport
 
 import (
 	v2controllers "github.com/getAlby/lndhub.go/controllers_v2"

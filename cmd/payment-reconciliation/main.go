@@ -47,12 +47,16 @@ func main() {
 	e := echo.New()
 
 	// Init new LND client
+	lnCfg, err := lnd.LoadConfig()
+	if err != nil {
+		logger.Fatalf("Failed to load lnd config %v", err)
+	}
 	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:      c.LNDAddress,
-		MacaroonFile: c.LNDMacaroonFile,
-		MacaroonHex:  c.LNDMacaroonHex,
-		CertFile:     c.LNDCertFile,
-		CertHex:      c.LNDCertHex,
+		Address:      lnCfg.LNDAddress,
+		MacaroonFile: lnCfg.LNDMacaroonFile,
+		MacaroonHex:  lnCfg.LNDMacaroonHex,
+		CertFile:     lnCfg.LNDCertFile,
+		CertHex:      lnCfg.LNDCertHex,
 	}, startupCtx)
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)

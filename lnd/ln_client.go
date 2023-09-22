@@ -1,29 +1,48 @@
-package main
+package lnd
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
-	"github.com/getAlby/lndhub.go/lib/service"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/ziflex/lecho/v3"
+	"google.golang.org/grpc"
 )
 
-func InitLNClient(c *service.Config, logger *lecho.Logger, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
+type LightningClientWrapper interface {
+	ListChannels(ctx context.Context, req *lnrpc.ListChannelsRequest, options ...grpc.CallOption) (*lnrpc.ListChannelsResponse, error)
+	SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error)
+	AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error)
+	SubscribeInvoices(ctx context.Context, req *lnrpc.InvoiceSubscription, options ...grpc.CallOption) (SubscribeInvoicesWrapper, error)
+	SubscribePayment(ctx context.Context, req *routerrpc.TrackPaymentRequest, options ...grpc.CallOption) (SubscribePaymentWrapper, error)
+	GetInfo(ctx context.Context, req *lnrpc.GetInfoRequest, options ...grpc.CallOption) (*lnrpc.GetInfoResponse, error)
+	DecodeBolt11(ctx context.Context, bolt11 string, options ...grpc.CallOption) (*lnrpc.PayReq, error)
+	IsIdentityPubkey(pubkey string) (isOurPubkey bool)
+	GetMainPubkey() (pubkey string)
+}
+
+type SubscribeInvoicesWrapper interface {
+	Recv() (*lnrpc.Invoice, error)
+}
+type SubscribePaymentWrapper interface {
+	Recv() (*lnrpc.Payment, error)
+}
+
+func InitLNClient(c *Config, logger *lecho.Logger, ctx context.Context) (result LightningClientWrapper, err error) {
 	switch c.LNClientType {
-	case service.LND_CLIENT_TYPE:
+	case LND_CLIENT_TYPE:
 		return InitSingleLNDClient(c, ctx)
-	case service.LND_CLUSTER_CLIENT_TYPE:
+	case LND_CLUSTER_CLIENT_TYPE:
 		return InitLNDCluster(c, logger, ctx)
 	default:
 		return nil, fmt.Errorf("Did not recognize LN client type %s", c.LNClientType)
 	}
 }
 
-func InitSingleLNDClient(c *service.Config, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
-	client, err := lnd.NewLNDclient(lnd.LNDoptions{
+func InitSingleLNDClient(c *Config, ctx context.Context) (result LightningClientWrapper, err error) {
+	client, err := NewLNDclient(LNDoptions{
 		Address:      c.LNDAddress,
 		MacaroonFile: c.LNDMacaroonFile,
 		MacaroonHex:  c.LNDMacaroonHex,
@@ -40,8 +59,8 @@ func InitSingleLNDClient(c *service.Config, ctx context.Context) (result lnd.Lig
 	client.IdentityPubkey = getInfo.IdentityPubkey
 	return client, nil
 }
-func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context) (result lnd.LightningClientWrapper, err error) {
-	nodes := []lnd.LightningClientWrapper{}
+func InitLNDCluster(c *Config, logger *lecho.Logger, ctx context.Context) (result LightningClientWrapper, err error) {
+	nodes := []LightningClientWrapper{}
 	//interpret lnd address, macaroon file & cert file as comma seperated values
 	addresses := strings.Split(c.LNDAddress, ",")
 	macaroons := strings.Split(c.LNDMacaroonFile, ",")
@@ -50,7 +69,7 @@ func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context
 		return nil, fmt.Errorf("Error parsing LND cluster config: addresses, macaroons or certs array length mismatch")
 	}
 	for i := 0; i < len(addresses); i++ {
-		n, err := lnd.NewLNDclient(lnd.LNDoptions{
+		n, err := NewLNDclient(LNDoptions{
 			Address:      addresses[i],
 			MacaroonFile: macaroons[i],
 			CertFile:     certs[i],
@@ -66,7 +85,7 @@ func InitLNDCluster(c *service.Config, logger *lecho.Logger, ctx context.Context
 		nodes = append(nodes, n)
 	}
 	logger.Infof("Initialized LND cluster with %d nodes", len(nodes))
-	cluster := &lnd.LNDCluster{
+	cluster := &LNDCluster{
 		Nodes:               nodes,
 		ActiveChannelRatio:  c.LNDClusterActiveChannelRatio,
 		ActiveNode:          nodes[0],

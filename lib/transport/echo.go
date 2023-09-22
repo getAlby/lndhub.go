@@ -1,6 +1,7 @@
-package main
+package transport
 
 import (
+	"embed"
 	"fmt"
 	"log"
 	"strconv"
@@ -21,7 +22,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func initEcho(c *service.Config, logger *lecho.Logger) (e *echo.Echo) {
+//go:embed templates/index.html
+var indexHtml string
+
+//go:embed static/*
+var staticContent embed.FS
+
+func InitEcho(c *service.Config, logger *lecho.Logger) (e *echo.Echo) {
 
 	// New Echo app
 	e = echo.New()
@@ -45,7 +52,8 @@ func initEcho(c *service.Config, logger *lecho.Logger) (e *echo.Echo) {
 	}
 	return e
 }
-func createLoggingMiddleware(logger *lecho.Logger) echo.MiddlewareFunc {
+
+func CreateLoggingMiddleware(logger *lecho.Logger) echo.MiddlewareFunc {
 	return lecho.Middleware(lecho.Config{
 		Logger: logger,
 		Enricher: func(c echo.Context, logger zerolog.Context) zerolog.Context {
@@ -54,7 +62,7 @@ func createLoggingMiddleware(logger *lecho.Logger) echo.MiddlewareFunc {
 	})
 }
 
-func createRateLimitMiddleware(requestsPerSecond int, burst int) echo.MiddlewareFunc {
+func CreateRateLimitMiddleware(requestsPerSecond int, burst int) echo.MiddlewareFunc {
 	config := middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
 			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(requestsPerSecond), Burst: burst},
@@ -96,7 +104,7 @@ func createCacheClient() *cache.Client {
 	return cacheClient
 }
 
-func startPrometheusEcho(logger *lecho.Logger, svc *service.LndhubService, e *echo.Echo) {
+func StartPrometheusEcho(logger *lecho.Logger, svc *service.LndhubService, e *echo.Echo) {
 	// Create Prometheus server and Middleware
 	echoPrometheus := echo.New()
 	echoPrometheus.HideBanner = true
