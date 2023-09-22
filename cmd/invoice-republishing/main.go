@@ -11,15 +11,11 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/rabbitmq"
-	"github.com/getsentry/sentry-go"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/sirupsen/logrus"
 )
 
-// WARNING!
-// Code has been refactored and not tested in it's currenc configuration yet
-// Test before use
 func main() {
 
 	c := &service.Config{}
@@ -60,6 +56,8 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	//small hack to get the script to work decently
+	defaultClient := rabbitmqClient.(*rabbitmq.DefaultClient)
 
 	// close the connection gently at the end of the runtime
 	defer rabbitmqClient.Close()
@@ -78,18 +76,6 @@ func main() {
 		InvoicePubSub:  service.NewPubsub(),
 	}
 	ctx := context.Background()
-	go func() {
-		err = svc.RabbitMQClient.StartPublishInvoices(ctx,
-			svc.SubscribeIncomingOutgoingInvoices,
-			svc.EncodeInvoiceWithUserLogin,
-		)
-		if err != nil {
-			svc.Logger.Error(err)
-			sentry.CaptureException(err)
-		}
-
-		svc.Logger.Info("Rabbit invoice publisher done")
-	}()
 	dryRun := os.Getenv("DRY_RUN") == "true"
 	errCount := 0
 	for _, inv := range result {
@@ -97,10 +83,9 @@ func main() {
 		if dryRun {
 			continue
 		}
-		svc.InvoicePubSub.Publish(inv.Type, inv)
+		err = defaultClient.PublishToLndhubExchange(ctx, inv, svc.EncodeInvoiceWithUserLogin)
 		if err != nil {
-			errCount += 1
-			logger.Error(err)
+			logrus.WithError(err).Error("errror publishing to lndhub exchange")
 		}
 	}
 	logger.Infof("Published %d invoices, # errors %d", len(result), errCount)
