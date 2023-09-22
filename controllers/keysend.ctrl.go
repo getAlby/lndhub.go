@@ -13,6 +13,7 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -83,7 +84,14 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 
 	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		return err
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "failed to check balance",
+				"error":          err,
+				"lndhub_user_id": userID,
+			},
+		)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if !ok {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
@@ -91,7 +99,14 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
 	if err != nil {
-		return err
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "failed to add invoice",
+				"error":          err,
+				"lndhub_user_id": userID,
+			},
+		)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
 		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
@@ -101,6 +116,13 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	for key, value := range reqBody.CustomRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
+			c.Logger().Errorj(
+				log.JSON{
+					"message":        "invalid custom records",
+					"error":          err,
+					"lndhub_user_id": userID,
+				},
+			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
