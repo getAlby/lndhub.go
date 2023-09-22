@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lib/transport"
 	"github.com/getsentry/sentry-go"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -29,12 +29,6 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/uptrace/bun/migrate"
 )
-
-//go:embed templates/index.html
-var indexHtml string
-
-//go:embed static/*
-var staticContent embed.FS
 
 // @title        LndHub.go
 // @version      0.9.0
@@ -148,7 +142,7 @@ func main() {
 	}
 
 	//init echo server
-	e := initEcho(c, logger)
+	e := transport.InitEcho(c, logger)
 	//if Datadog is configured, add datadog middleware
 	if c.DatadogAgentUrl != "" {
 		tracer.Start(tracer.WithAgentAddr(c.DatadogAgentUrl))
@@ -156,14 +150,14 @@ func main() {
 		e.Use(ddEcho.Middleware(ddEcho.WithServiceName("lndhub.go")))
 	}
 
-	logMw := createLoggingMiddleware(logger)
+	logMw := transport.CreateLoggingMiddleware(logger)
 	// strict rate limit for requests for sending payments
-	strictRateLimitMiddleware := createRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
+	strictRateLimitMiddleware := transport.CreateRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 
-	RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
-	RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
+	transport.RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
+	transport.RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host
@@ -174,7 +168,7 @@ func main() {
 	// Subscribe to LND invoice updates in the background
 	backgroundWg.Add(1)
 	go func() {
-		err = StartInvoiceRoutine(svc, backGroundCtx)
+		err = svc.StartInvoiceRoutine(backGroundCtx)
 		if err != nil {
 			sentry.CaptureException(err)
 			//we want to restart in case of an error here
@@ -187,7 +181,7 @@ func main() {
 	// Check the status of all pending outgoing payments
 	backgroundWg.Add(1)
 	go func() {
-		err = StartPendingPaymentRoutine(svc, backGroundCtx)
+		err = svc.StartPendingPaymentRoutine(backGroundCtx)
 		if err != nil {
 			sentry.CaptureException(err)
 			//in case of an error here no restart is necessary
@@ -228,7 +222,7 @@ func main() {
 	//Start Prometheus server if necessary
 	var echoPrometheus *echo.Echo
 	if svc.Config.EnablePrometheus {
-		go startPrometheusEcho(logger, svc, e)
+		go transport.StartPrometheusEcho(logger, svc, e)
 	}
 
 	// Start server
