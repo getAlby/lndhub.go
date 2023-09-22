@@ -15,8 +15,8 @@ COPY . .
 RUN go build -o main ./cmd/server
 
 # Build the utility scripts
-RUN go build -o main ./cmd/invoice-republishing
-RUN go build -o main ./cmd/payment-reconciliation
+RUN go build ./cmd/invoice-republishing
+RUN go build ./cmd/payment-reconciliation
 
 # Start a new, final image to reduce size.
 FROM alpine as final
