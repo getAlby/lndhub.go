@@ -12,6 +12,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getsentry/sentry-go"
 	"github.com/uptrace/bun"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
@@ -141,6 +142,7 @@ func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd
 		return nil, err
 	}
 	if volume > svc.Config.MaxVolume {
+		sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
 		return &responses.TooMuchVolumeError, nil
 	}
 	return nil, nil
