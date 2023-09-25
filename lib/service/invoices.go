@@ -123,9 +123,6 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 		return sendPaymentResponse, err
 	}
 
-	// Save invoice details before executing payment
-	svc.InvoicePubSub.Publish(common.InvoiceTypeOutgoing, *invoice)
-
 	// Execute the payment
 	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, sendPaymentRequest)
 	if err != nil {
@@ -163,24 +160,25 @@ func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrp
 		}, nil
 	}
 
-	preImage, err := makePreimageHex()
-	if err != nil {
-		return nil, err
-	}
-	pHash := sha256.New()
-	pHash.Write(preImage)
 	// Prepare the LNRPC call
 	//See: https://github.com/hsjoberg/blixt-wallet/blob/9fcc56a7dc25237bc14b85e6490adb9e044c009c/src/lndmobile/index.ts#L251-L270
 	destBytes, err := hex.DecodeString(invoice.DestinationPubkeyHex)
 	if err != nil {
 		return nil, err
 	}
-	invoice.RHash = hex.EncodeToString(pHash.Sum(nil))
+	preImage, err := hex.DecodeString(invoice.Preimage)
+	if err != nil {
+		return nil, err
+	}
 	invoice.DestinationCustomRecords[KEYSEND_CUSTOM_RECORD] = preImage
+	paymentHash, err := hex.DecodeString(invoice.RHash)
+	if err != nil {
+		return nil, err
+	}
 	return &lnrpc.SendRequest{
 		Dest:              destBytes,
 		Amt:               invoice.Amount,
-		PaymentHash:       pHash.Sum(nil),
+		PaymentHash:       paymentHash,
 		FeeLimit:          &feeLimit,
 		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
 		DestCustomRecords: invoice.DestinationCustomRecords,
@@ -455,6 +453,18 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 		Memo:                 lnPayReq.PayReq.Description,
 		Keysend:              lnPayReq.Keysend,
 		ExpiresAt:            bun.NullTime{Time: time.Unix(lnPayReq.PayReq.Timestamp, 0).Add(time.Duration(lnPayReq.PayReq.Expiry) * time.Second)},
+	}
+
+	if lnPayReq.Keysend {
+		preImage, err := makePreimageHex()
+		if err != nil {
+			return nil, err
+		}
+		pHash := sha256.New()
+		pHash.Write(preImage)
+	
+		invoice.RHash = hex.EncodeToString(pHash.Sum(nil))
+		invoice.Preimage = hex.EncodeToString(preImage)
 	}
 
 	// Save invoice
