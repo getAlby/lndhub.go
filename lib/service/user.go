@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -135,6 +136,13 @@ func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd
 	if currentBalance >= minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
 	}
+	volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+	if err != nil {
+		return nil, err
+	}
+	if volume > svc.Config.MaxVolume {
+		return &responses.TooMuchVolumeError, nil
+	}
 	return nil, nil
 }
 
@@ -188,4 +196,18 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 		return nil, err
 	}
 	return invoices, nil
+}
+
+func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64, period time.Duration) (result int64, err error) {
+
+	err = svc.DB.NewSelect().Table("invoices").
+		ColumnExpr("sum(invoices.amount) as result").
+		Where("invoices.user_id = ?", userId).
+		Where("invoices.state = ?", common.InvoiceStateSettled).
+		Where("invoices.settled_at >= ?", time.Now().Add(-1*period)).
+		Scan(ctx, &result)
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
 }
