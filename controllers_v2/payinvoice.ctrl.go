@@ -111,7 +111,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 	if resp != nil {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
-		return c.JSON(http.StatusInternalServerError, responses.NotEnoughBalanceError)
+		return c.JSON(http.StatusInternalServerError, resp)
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if err != nil {
