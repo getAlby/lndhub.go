@@ -45,3 +45,14 @@ func TestCalcFeeWithInvoiceMoreThan1000(t *testing.T) {
 	expectedFee := int64(16)
 	assert.Equal(t, expectedFee, feeLimit)
 }
+
+func TestCalcFeeWithMaxGlobalFee(t *testing.T) {
+	invoice := &models.Invoice{
+		Amount: 1500,
+	}
+	svc.Config.MaxFeeAmount = 1
+
+	feeLimit := svc.CalcFeeLimit("dummy", invoice.Amount)
+	expectedFee := svc.Config.MaxFeeAmount
+	assert.Equal(t, expectedFee, feeLimit)
+}
