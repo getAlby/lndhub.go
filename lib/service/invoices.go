@@ -123,6 +123,9 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 		return sendPaymentResponse, err
 	}
 
+	// Save invoice details before executing payment
+	svc.InvoicePubSub.Publish(common.InvoiceTypeOutgoing, *invoice)
+
 	// Execute the payment
 	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, sendPaymentRequest)
 	if err != nil {
@@ -172,6 +175,7 @@ func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrp
 	if err != nil {
 		return nil, err
 	}
+	invoice.RHash = hex.EncodeToString(pHash.Sum(nil))
 	invoice.DestinationCustomRecords[KEYSEND_CUSTOM_RECORD] = preImage
 	return &lnrpc.SendRequest{
 		Dest:              destBytes,
