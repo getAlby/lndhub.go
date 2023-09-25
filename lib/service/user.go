@@ -133,7 +133,7 @@ func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
 	}
-	if currentBalance >= minimumBalance {
+	if currentBalance < minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
 	}
 	volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
