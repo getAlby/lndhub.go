@@ -10,6 +10,9 @@ import (
 
 var svc = &LndhubService{
 	LndClient: &lnd.LNDWrapper{IdentityPubkey: "123pubkey"},
+	Config: &Config{
+		MaxFeeAmount: 1e6,
+	},
 }
 
 func TestCalcFeeWithInvoiceLessThan1000(t *testing.T) {
