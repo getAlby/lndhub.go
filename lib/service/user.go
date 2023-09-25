@@ -8,6 +8,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/uptrace/bun"
@@ -121,17 +122,20 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	return &user, nil
 }
 
-func (svc *LndhubService) BalanceCheck(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (ok bool, err error) {
+func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
 	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	minimumBalance := lnpayReq.PayReq.NumSatoshis
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
 	}
-	return currentBalance >= minimumBalance, nil
+	if currentBalance >= minimumBalance {
+		return &responses.NotEnoughBalanceError, nil
+	}
+	return nil, nil
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {

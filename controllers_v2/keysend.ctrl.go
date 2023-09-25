@@ -171,12 +171,12 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 			HttpStatusCode: 400,
 		}
 	}
-	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
+	resp, err := controller.svc.CheckPaymentAllowed(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
 		controller.svc.Logger.Error(err)
 		return nil, &responses.GeneralServerError
 	}
-	if !ok {
+	if resp != nil {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
 		return nil, &responses.NotEnoughBalanceError
 	}
