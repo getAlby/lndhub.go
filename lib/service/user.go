@@ -137,13 +137,16 @@ func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd
 	if currentBalance < minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
 	}
-	volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
-	if err != nil {
-		return nil, err
-	}
-	if volume > svc.Config.MaxVolume {
-		sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
-		return &responses.TooMuchVolumeError, nil
+	//only check for volume if configured
+	if svc.Config.MaxVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			return nil, err
+		}
+		if volume > svc.Config.MaxVolume {
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
+		}
 	}
 	return nil, nil
 }
