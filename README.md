@@ -79,9 +79,9 @@ lncli bakemacaroon --save_to=lndhub.macaroon info:read invoices:read invoices:wr
 ```
 
 ## Developing
-
+To run the server:
 ```shell
-go run .
+go run cmd/server/main.go
 ```
 
 ### Building
