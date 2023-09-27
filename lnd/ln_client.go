@@ -61,12 +61,16 @@ func InitSingleLNDClient(c *Config, ctx context.Context) (result LightningClient
 }
 func InitLNDCluster(c *Config, logger *lecho.Logger, ctx context.Context) (result LightningClientWrapper, err error) {
 	nodes := []LightningClientWrapper{}
-	//interpret lnd address, macaroon file & cert file as comma seperated values
+	//interpret lnd address, macaroon file, cert file, pubkeys as comma seperated values
 	addresses := strings.Split(c.LNDAddress, ",")
 	macaroons := strings.Split(c.LNDMacaroonFile, ",")
+	pubkeys := strings.Split(c.LNDClusterPubkeys, ",")
 	certs := strings.Split(c.LNDCertFile, ",")
-	if len(addresses) != len(macaroons) || len(addresses) != len(certs) || len(certs) != len(macaroons) {
-		return nil, fmt.Errorf("Error parsing LND cluster config: addresses, macaroons or certs array length mismatch")
+	if len(addresses) != len(macaroons) ||
+		len(addresses) != len(certs) ||
+		len(certs) != len(macaroons) ||
+		len(pubkeys) != len(macaroons) {
+		return nil, fmt.Errorf("Error parsing LND cluster config: addresses, macaroons, certs or pubkeys array length mismatch")
 	}
 	for i := 0; i < len(addresses); i++ {
 		n, err := NewLNDclient(LNDoptions{
@@ -77,11 +81,7 @@ func InitLNDCluster(c *Config, logger *lecho.Logger, ctx context.Context) (resul
 		if err != nil {
 			return nil, err
 		}
-		getInfo, err := n.GetInfo(ctx, &lnrpc.GetInfoRequest{})
-		if err != nil {
-			return nil, err
-		}
-		n.IdentityPubkey = getInfo.IdentityPubkey
+		n.IdentityPubkey = pubkeys[i]
 		nodes = append(nodes, n)
 	}
 	logger.Infof("Initialized LND cluster with %d nodes", len(nodes))
