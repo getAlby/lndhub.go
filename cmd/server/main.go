@@ -71,7 +71,8 @@ func main() {
 
 	// Migrate the DB
 	//Todo: use timeout for startupcontext
-	startupCtx := context.Background()
+	startupCtx, startupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer startupCancel()
 	migrator := migrate.NewMigrator(dbConn, migrations.Migrations)
 	err = migrator.Init(startupCtx)
 	if err != nil {
