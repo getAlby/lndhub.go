@@ -51,7 +51,6 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		DatabaseMaxConns:        1,
 		DatabaseMaxIdleConns:    1,
 		DatabaseConnMaxLifetime: 10,
-		MaxFeeAmount:            1e6,
 		JWTSecret:               []byte("SECRET"),
 		JWTAccessTokenExpiry:    3600,
 		JWTRefreshTokenExpiry:   3600,
