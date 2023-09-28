@@ -208,7 +208,6 @@ func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64,
 	err = svc.DB.NewSelect().Table("invoices").
 		ColumnExpr("sum(invoices.amount) as result").
 		Where("invoices.user_id = ?", userId).
-		Where("invoices.state = ?", common.InvoiceStateSettled).
 		Where("invoices.settled_at >= ?", time.Now().Add(-1*period)).
 		Scan(ctx, &result)
 	if err != nil {
