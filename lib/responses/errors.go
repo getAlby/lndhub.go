@@ -64,6 +64,13 @@ var NotEnoughBalanceError = ErrorResponse{
 	HttpStatusCode: 400,
 }
 
+var TooMuchVolumeError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "transaction volume too high. please contact support for further assistance.",
+	HttpStatusCode: 400,
+}
+
 var AccountDeactivatedError = ErrorResponse{
 	Error:          true,
 	Code:           1,

@@ -44,5 +44,3 @@ jobs:
             run:  go test -p 1 -v -covermode=atomic -coverprofile=coverage.out -cover -coverpkg=./... ./...
             env:
               RABBITMQ_URI: amqp://root:password@localhost:5672
-          - name: Upload coverage reports to Codecov
-            uses: codecov/codecov-action@v3
