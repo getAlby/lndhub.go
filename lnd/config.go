@@ -19,6 +19,7 @@ type Config struct {
 	LNDCertHex                   string  `envconfig:"LND_CERT_HEX"`
 	LNDClusterLivenessPeriod     int     `envconfig:"LND_CLUSTER_LIVENESS_PERIOD" default:"10"`
 	LNDClusterActiveChannelRatio float64 `envconfig:"LND_CLUSTER_ACTIVE_CHANNEL_RATIO" default:"0.5"`
+	LNDClusterPubkeys            string  `envconfig:"LND_CLUSTER_PUBKEYS"` //comma-seperated list of public keys of the cluster
 }
 
 func LoadConfig() (c *Config, err error) {
