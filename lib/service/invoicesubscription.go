@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -27,12 +26,6 @@ func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invo
 	if err != nil {
 		return nil, err
 	}
-	preImage, err := makePreimageHex()
-	if err != nil {
-		return nil, err
-	}
-	pHash := sha256.New()
-	pHash.Write(preImage)
 	expiry := time.Hour * 24
 	incomingInvoice := models.Invoice{
 		Type:                     common.InvoiceTypeIncoming,
@@ -43,8 +36,8 @@ func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invo
 		State:                    common.InvoiceStateInitialized,
 		ExpiresAt:                bun.NullTime{Time: time.Now().Add(expiry)},
 		Keysend:                  true,
-		RHash:                    hex.EncodeToString(pHash.Sum(nil)),
-		Preimage:                 hex.EncodeToString(preImage),
+		RHash:                    invoice.RHash,
+		Preimage:                 invoice.Preimage,
 		DestinationCustomRecords: invoice.DestinationCustomRecords,
 		DestinationPubkeyHex:     svc.LndClient.GetMainPubkey(),
 		AddIndex:                 invoice.AddIndex,

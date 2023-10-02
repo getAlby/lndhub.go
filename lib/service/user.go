@@ -5,11 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getsentry/sentry-go"
 	"github.com/uptrace/bun"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
@@ -121,17 +124,31 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	return &user, nil
 }
 
-func (svc *LndhubService) BalanceCheck(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (ok bool, err error) {
+func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
 	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	minimumBalance := lnpayReq.PayReq.NumSatoshis
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
 	}
-	return currentBalance >= minimumBalance, nil
+	if currentBalance < minimumBalance {
+		return &responses.NotEnoughBalanceError, nil
+	}
+	//only check for volume if configured
+	if svc.Config.MaxVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			return nil, err
+		}
+		if volume > svc.Config.MaxVolume {
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
+		}
+	}
+	return nil, nil
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
@@ -184,4 +201,17 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 		return nil, err
 	}
 	return invoices, nil
+}
+
+func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64, period time.Duration) (result int64, err error) {
+
+	err = svc.DB.NewSelect().Table("invoices").
+		ColumnExpr("sum(invoices.amount) as result").
+		Where("invoices.user_id = ?", userId).
+		Where("invoices.settled_at >= ?", time.Now().Add(-1*period)).
+		Scan(ctx, &result)
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
 }
