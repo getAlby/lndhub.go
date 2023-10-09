@@ -65,6 +65,10 @@ func (controller *GetTXSController) GetTXS(c echo.Context) error {
 
 	response := make([]OutgoingInvoice, len(invoices))
 	for i, invoice := range invoices {
+		//only return settled invoices
+		if invoice.State != common.InvoiceStateSettled {
+			continue
+		}
 		rhash, _ := lib.ToJavaScriptBuffer(invoice.RHash)
 		response[i] = OutgoingInvoice{
 			RHash:           rhash,
