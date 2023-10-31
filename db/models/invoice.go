@@ -22,8 +22,8 @@ type Invoice struct {
 	DestinationCustomRecords map[uint64][]byte `json:"custom_records,omitempty"`
 	RHash                    string            `json:"r_hash"`
 	Preimage                 string            `json:"preimage" bun:",nullzero"`
-	Internal                 bool              `json:"-" bun:",notnull"`
-	Keysend                  bool              `json:"keysend" bun:",notnull"`
+	Internal                 bool              `json:"-" bun:",notnull,default:false"`
+	Keysend                  bool              `json:"keysend" bun:",notnull,default:false"`
 	State                    string            `json:"state" bun:",default:'initialized'"`
 	ErrorMessage             string            `json:"error_message,omitempty" bun:",nullzero"`
 	AddIndex                 uint64            `json:"-" bun:",nullzero"`
