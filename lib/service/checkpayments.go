@@ -23,6 +23,7 @@ func (svc *LndhubService) GetPendingPaymentsUntil(ctx context.Context, ts time.T
 		Where("type = 'outgoing'").
 		Where("r_hash != ''").
 		Where("created_at >= (now() - interval '2 weeks') ").
+		Where("created_at < ? ", ts).
 		Scan(ctx)
 	return payments, err
 }
