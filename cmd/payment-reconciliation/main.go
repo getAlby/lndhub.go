@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/lib"
@@ -71,7 +72,10 @@ func main() {
 		InvoicePubSub: service.NewPubsub(),
 	}
 
-	err = svc.CheckAllPendingOutgoingPayments(startupCtx)
+	//for this job, we only search for payments older than a day to avoid current in-flight payments
+	ts := time.Now().Add(-1 * 24 * time.Hour)
+	pending, err := svc.GetPendingPaymentsUntil(startupCtx, ts)
+	err = svc.CheckPendingOutgoingPayments(startupCtx, pending)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Error(err)

@@ -7,12 +7,25 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 )
+
+func (svc *LndhubService) GetPendingPaymentsUntil(ctx context.Context, ts time.Time) ([]models.Invoice, error) {
+	payments := []models.Invoice{}
+	err := svc.DB.NewSelect().
+		Model(&payments).
+		Where("state = 'initialized'").
+		Where("type = 'outgoing'").
+		Where("r_hash != ''").
+		Where("created_at >= (now() - interval '2 weeks') ").
+		Scan(ctx)
+	return payments, err
+}
 
 func (svc *LndhubService) GetAllPendingPayments(ctx context.Context) ([]models.Invoice, error) {
 	payments := []models.Invoice{}
