@@ -19,12 +19,7 @@ func (svc *LndhubService) GetAllPendingPayments(ctx context.Context) ([]models.I
 	err := svc.DB.NewSelect().Model(&payments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("r_hash != ''").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
 	return payments, err
 }
-func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (err error) {
-	pendingPayments, err := svc.GetAllPendingPayments(ctx)
-	if err != nil {
-		return err
-	}
-
+func (svc *LndhubService) CheckPendingOutgoingPayments(ctx context.Context, pendingPayments []models.Invoice) (err error) {
 	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
 	var wg sync.WaitGroup

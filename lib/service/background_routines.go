@@ -27,6 +27,10 @@ func (svc *LndhubService) StartPendingPaymentRoutine(ctx context.Context) (err e
 	if svc.RabbitMQClient != nil {
 		return svc.RabbitMQClient.FinalizeInitializedPayments(ctx, svc)
 	} else {
-		return svc.CheckAllPendingOutgoingPayments(ctx)
+		pending, err := svc.GetAllPendingPayments(ctx)
+		if err != nil {
+			return err
+		}
+		return svc.CheckPendingOutgoingPayments(ctx, pending)
 	}
 }
