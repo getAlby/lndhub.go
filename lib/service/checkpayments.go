@@ -34,7 +34,6 @@ func (svc *LndhubService) GetAllPendingPayments(ctx context.Context) ([]models.I
 	return payments, err
 }
 func (svc *LndhubService) CheckPendingOutgoingPayments(ctx context.Context, pendingPayments []models.Invoice) (err error) {
-	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
 	//call trackoutgoingpaymentstatus for each one
 	var wg sync.WaitGroup
 	for _, inv := range pendingPayments {

@@ -31,6 +31,7 @@ func (svc *LndhubService) StartPendingPaymentRoutine(ctx context.Context) (err e
 		if err != nil {
 			return err
 		}
+		svc.Logger.Infof("Found %d pending payments", len(pending))
 		return svc.CheckPendingOutgoingPayments(ctx, pending)
 	}
 }
