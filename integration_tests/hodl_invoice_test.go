@@ -121,7 +121,10 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 
 	//start payment checking loop
 	go func() {
-		err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+		ctx := context.Background()
+		pending, err := suite.service.GetAllPendingPayments(ctx)
+		assert.NoError(suite.T(), err)
+		err = suite.service.CheckPendingOutgoingPayments(ctx, pending)
 		assert.NoError(suite.T(), err)
 	}()
 	//wait a bit for routine to start
@@ -194,7 +197,10 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	assert.Equal(suite.T(), common.InvoiceStateInitialized, inv.State)
 	//start payment checking loop
 	go func() {
-		err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+		ctx := context.Background()
+		pending, err := suite.service.GetAllPendingPayments(ctx)
+		assert.NoError(suite.T(), err)
+		err = suite.service.CheckPendingOutgoingPayments(ctx, pending)
 		assert.NoError(suite.T(), err)
 	}()
 	//wait a bit for routine to start
@@ -273,7 +279,10 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 
 	//start payment checking loop
 	go func() {
-		err = suite.service.CheckAllPendingOutgoingPayments(context.Background())
+		ctx := context.Background()
+		pending, err := suite.service.GetAllPendingPayments(ctx)
+		assert.NoError(suite.T(), err)
+		err = suite.service.CheckPendingOutgoingPayments(ctx, pending)
 		assert.NoError(suite.T(), err)
 	}()
 	//wait a bit for routine to start

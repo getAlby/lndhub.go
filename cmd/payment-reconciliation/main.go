@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/lib"
@@ -16,6 +17,9 @@ import (
 )
 
 // script to reconcile pending payments between the backup node and the database
+// normally, this reconciliation should happen through rabbitmq but there are
+// cases where it doesn't happen and in that case this script can be run as a a
+// cron job as a redundant reconcilation mechanism.
 func main() {
 
 	c := &service.Config{}
@@ -71,7 +75,13 @@ func main() {
 		InvoicePubSub: service.NewPubsub(),
 	}
 
-	err = svc.CheckAllPendingOutgoingPayments(startupCtx)
+	//for this job, we only search for payments older than a day to avoid current in-flight payments
+	ts := time.Now().Add(-1 * 24 * time.Hour)
+	pending, err := svc.GetPendingPaymentsUntil(startupCtx, ts)
+	svc.Logger.Infof("Found %d pending payments", len(pending))
+	startupCtx, cancel := context.WithTimeout(startupCtx, 2*time.Minute)
+	defer cancel()
+	err = svc.CheckPendingOutgoingPayments(startupCtx, pending)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Error(err)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
@@ -14,18 +15,25 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 )
 
+func (svc *LndhubService) GetPendingPaymentsUntil(ctx context.Context, ts time.Time) ([]models.Invoice, error) {
+	payments := []models.Invoice{}
+	err := svc.DB.NewSelect().
+		Model(&payments).
+		Where("state = 'initialized'").
+		Where("type = 'outgoing'").
+		Where("r_hash != ''").
+		Where("created_at >= (now() - interval '2 weeks') ").
+		Where("created_at < ? ", ts).
+		Scan(ctx)
+	return payments, err
+}
+
 func (svc *LndhubService) GetAllPendingPayments(ctx context.Context) ([]models.Invoice, error) {
 	payments := []models.Invoice{}
 	err := svc.DB.NewSelect().Model(&payments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("r_hash != ''").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
 	return payments, err
 }
-func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (err error) {
-	pendingPayments, err := svc.GetAllPendingPayments(ctx)
-	if err != nil {
-		return err
-	}
-
-	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
+func (svc *LndhubService) CheckPendingOutgoingPayments(ctx context.Context, pendingPayments []models.Invoice) (err error) {
 	//call trackoutgoingpaymentstatus for each one
 	var wg sync.WaitGroup
 	for _, inv := range pendingPayments {
