@@ -17,6 +17,9 @@ import (
 )
 
 // script to reconcile pending payments between the backup node and the database
+// normally, this reconciliation should happen through rabbitmq but there are
+// cases where it doesn't happen and in that case this script can be run as a a
+// cron job as a redundant reconcilation mechanism.
 func main() {
 
 	c := &service.Config{}
