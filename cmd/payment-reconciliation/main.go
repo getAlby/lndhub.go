@@ -78,12 +78,16 @@ func main() {
 	//for this job, we only search for payments older than a day to avoid current in-flight payments
 	ts := time.Now().Add(-1 * 24 * time.Hour)
 	pending, err := svc.GetPendingPaymentsUntil(startupCtx, ts)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Fatal(err)
+	}
 	svc.Logger.Infof("Found %d pending payments", len(pending))
 	startupCtx, cancel := context.WithTimeout(startupCtx, 2*time.Minute)
 	defer cancel()
 	err = svc.CheckPendingOutgoingPayments(startupCtx, pending)
 	if err != nil {
 		sentry.CaptureException(err)
-		svc.Logger.Error(err)
+		svc.Logger.Fatal(err)
 	}
 }
