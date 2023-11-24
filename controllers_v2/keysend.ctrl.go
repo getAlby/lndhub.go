@@ -81,20 +81,8 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	syntheticPayReq := &lnd.LNPayReq{
-		PayReq: &lnrpc.PayReq{
-			NumSatoshis: reqBody.Amount,
-		},
-		Keysend: true,
-	}
-	resp, err := controller.svc.CheckPaymentAllowed(context.Background(), syntheticPayReq, userID)
-	if resp != nil {
-		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, syntheticPayReq.PayReq.NumSatoshis)
-		return c.JSON(resp.HttpStatusCode, resp)
-	}
-	if err != nil {
-		errResp := responses.GeneralServerError
-		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
+	errResp := controller.checkKeysendPaymentAllowed(context.Background(), reqBody.Amount, userID)
+	if errResp != nil {
 		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	result, errResp := controller.SingleKeySend(c.Request().Context(), &reqBody, userID)
@@ -135,20 +123,8 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 		}
 	}
 	totalAmount := func(keysends []KeySendRequestBody) int64 { var total int64; for _, keysend := range keysends { total += keysend.Amount }; return total }(reqBody.Keysends)
-	syntheticPayReq := &lnd.LNPayReq{
-		PayReq: &lnrpc.PayReq{
-			NumSatoshis: totalAmount,
-		},
-		Keysend: true,
-	}
-	resp, err := controller.svc.CheckPaymentAllowed(context.Background(), syntheticPayReq, userID)
-	if resp != nil {
-		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, syntheticPayReq.PayReq.NumSatoshis)
-		return c.JSON(resp.HttpStatusCode, resp)
-	}
-	if err != nil {
-		errResp := responses.GeneralServerError
-		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
+	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID)
+	if errResp != nil {
 		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	result := &MultiKeySendResponseBody{
@@ -179,6 +155,26 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 		status = http.StatusInternalServerError
 	}
 	return c.JSON(status, result)
+}
+
+func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Context, amount, userID int64) (resp *responses.ErrorResponse) {
+	syntheticPayReq := &lnd.LNPayReq{
+		PayReq: &lnrpc.PayReq{
+			NumSatoshis: amount,
+		},
+		Keysend: true,
+	}
+	resp, err := controller.svc.CheckPaymentAllowed(ctx, syntheticPayReq, userID)
+	if resp != nil {
+		controller.svc.Logger.Errorf("User does not have enough balance user_id:%v amount:%v", userID, syntheticPayReq.PayReq.NumSatoshis)
+		return resp
+	}
+	if err != nil {
+		errResp := responses.GeneralServerError
+		controller.svc.Logger.Errorf("Failed to send keysend: %s", errResp.Message)
+		return &errResp
+	}
+	return nil
 }
 
 func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody *KeySendRequestBody, userID int64) (result *KeySendResponseBody, resp *responses.ErrorResponse) {
