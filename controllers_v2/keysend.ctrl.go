@@ -129,7 +129,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	}
 	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID)
 	if errResp != nil {
-		c.Logger().Errorf("Failed to making keysend split payment: %s", errResp.Message)
+		c.Logger().Errorf("Failed to make keysend split payments: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	result := &MultiKeySendResponseBody{
