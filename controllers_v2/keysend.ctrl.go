@@ -81,7 +81,11 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
+	errResp := controller.checkKeysendPaymentAllowed(context.Background(), reqBody.Amount, userID)
+	if errResp != nil {
+		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
+		return c.JSON(errResp.HttpStatusCode, errResp)
+	}
 	result, errResp := controller.SingleKeySend(c.Request().Context(), &reqBody, userID)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
@@ -119,6 +123,15 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 	}
+	var totalAmount int64
+	for _, keysend := range reqBody.Keysends {
+		totalAmount += keysend.Amount
+	}
+	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID)
+	if errResp != nil {
+		c.Logger().Errorf("Failed to make keysend split payments: %s", errResp.Message)
+		return c.JSON(errResp.HttpStatusCode, errResp)
+	}
 	result := &MultiKeySendResponseBody{
 		Keysends: []KeySendResult{},
 	}
@@ -149,6 +162,25 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	return c.JSON(status, result)
 }
 
+func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Context, amount, userID int64) (resp *responses.ErrorResponse) {
+	syntheticPayReq := &lnd.LNPayReq{
+		PayReq: &lnrpc.PayReq{
+			NumSatoshis: amount,
+		},
+		Keysend: true,
+	}
+	resp, err := controller.svc.CheckPaymentAllowed(ctx, syntheticPayReq, userID)
+	if resp != nil {
+		controller.svc.Logger.Errorf("User does not have enough balance user_id:%v amount:%v", userID, syntheticPayReq.PayReq.NumSatoshis)
+		return resp
+	}
+	if err != nil {
+		controller.svc.Logger.Error(err)
+		return &responses.GeneralServerError
+	}
+	return nil
+}
+
 func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody *KeySendRequestBody, userID int64) (result *KeySendResponseBody, resp *responses.ErrorResponse) {
 	lnPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
@@ -171,15 +203,6 @@ func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody 
 			Message:        fmt.Sprintf("Internal keysend payments require the custom record %d to be present.", service.TLV_WALLET_ID),
 			HttpStatusCode: 400,
 		}
-	}
-	resp, err := controller.svc.CheckPaymentAllowed(ctx, lnPayReq, userID)
-	if err != nil {
-		controller.svc.Logger.Error(err)
-		return nil, &responses.GeneralServerError
-	}
-	if resp != nil {
-		controller.svc.Logger.Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
-		return nil, resp
 	}
 	invoice, err := controller.svc.AddOutgoingInvoice(ctx, userID, "", lnPayReq)
 	if err != nil {
