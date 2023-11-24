@@ -122,7 +122,10 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 	}
-	totalAmount := func(keysends []KeySendRequestBody) int64 { var total int64; for _, keysend := range keysends { total += keysend.Amount }; return total }(reqBody.Keysends)
+	var totalAmount int64
+	for _, keysend := range reqBody.Keysends {
+		totalAmount += keysend.Amount
+	}
 	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID)
 	if errResp != nil {
 		return c.JSON(errResp.HttpStatusCode, errResp)
