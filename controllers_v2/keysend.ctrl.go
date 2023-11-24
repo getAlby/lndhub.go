@@ -83,6 +83,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	errResp := controller.checkKeysendPaymentAllowed(context.Background(), reqBody.Amount, userID)
 	if errResp != nil {
+		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	result, errResp := controller.SingleKeySend(c.Request().Context(), &reqBody, userID)
@@ -128,6 +129,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	}
 	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID)
 	if errResp != nil {
+		c.Logger().Errorf("Failed to making keysend split payment: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	result := &MultiKeySendResponseBody{
@@ -173,9 +175,8 @@ func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Cont
 		return resp
 	}
 	if err != nil {
-		errResp := responses.GeneralServerError
-		controller.svc.Logger.Errorf("Failed to send keysend: %s", errResp.Message)
-		return &errResp
+		controller.svc.Logger.Error(err)
+		return &responses.GeneralServerError
 	}
 	return nil
 }
