@@ -178,6 +178,21 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
+	resp, err := controller.svc.CheckVolumeAllowed(c.Request().Context(), userID)
+	if err != nil {
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "error creating invoice",
+				"error":          err,
+				"lndhub_user_id": userID,
+			},
+		)
+		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+	}
+	if resp != nil {
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
 
 	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)

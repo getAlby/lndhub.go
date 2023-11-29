@@ -137,6 +137,10 @@ func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd
 	if currentBalance < minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
 	}
+	return svc.CheckVolumeAllowed(ctx, userId)
+}
+
+func (svc *LndhubService) CheckVolumeAllowed(ctx context.Context, userId int64) (result *responses.ErrorResponse, err error) {
 	//only check for volume if configured
 	if svc.Config.MaxVolume > 0 {
 		volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
