@@ -69,22 +69,20 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 		}
 	}
 
-	if svc.Config.MaxAccountBalance > 0 {
-		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userID)
-		if err != nil {
-			c.Logger().Errorj(
-				log.JSON{
-					"message":        "error fetching balance",
-					"lndhub_user_id": userID,
-					"error":          err,
-				},
-			)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
-		if currentBalance+amount > svc.Config.MaxAccountBalance {
-			c.Logger().Errorf("Max account balance exceeded for user_id:%v (balance:%v + amount:%v)", userID, currentBalance, amount)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
+	resp, err := svc.CheckUserBalance(c.Request().Context(), amount, userID)
+	if err != nil {
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "error fetching balance",
+				"lndhub_user_id": userID,
+				"error":          err,
+			},
+		)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	if resp != nil {
+		c.Logger().Errorf("Failed to create invoice: %v", err)
+		return c.JSON(http.StatusBadRequest, resp)
 	}
 
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)

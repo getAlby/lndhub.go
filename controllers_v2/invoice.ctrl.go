@@ -177,6 +177,22 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		c.Logger().Errorf("Invalid addinvoice request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
+ 
+	resp, err := controller.svc.CheckUserBalance(c.Request().Context(), body.Amount, userID)
+	if err != nil {
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "error fetching balance",
+				"lndhub_user_id": userID,
+				"error":          err,
+			},
+		)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	if resp != nil {
+		c.Logger().Errorf("Failed to create invoice: %v", err)
+		return c.JSON(http.StatusBadRequest, resp)
+	}
 
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
 

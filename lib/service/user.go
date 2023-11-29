@@ -165,6 +165,19 @@ func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
 	return limit
 }
 
+func (svc *LndhubService) CheckUserBalance(ctx context.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
+	if svc.Config.MaxAccountBalance > 0 {
+		currentBalance, err := svc.CurrentUserBalance(ctx, userId)
+		if err != nil {
+			return nil, err
+		}
+		if currentBalance+amount > svc.Config.MaxAccountBalance {
+			return &responses.BadArgumentsError, fmt.Errorf("Max account balance exceeded for user_id:%d (balance:%d + amount:%d)", userId, currentBalance, amount)
+		}
+	}
+	return nil, nil
+}
+
 func (svc *LndhubService) CurrentUserBalance(ctx context.Context, userId int64) (int64, error) {
 	var balance int64
 
