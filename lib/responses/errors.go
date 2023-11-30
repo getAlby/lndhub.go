@@ -64,6 +64,20 @@ var NotEnoughBalanceError = ErrorResponse{
 	HttpStatusCode: 400,
 }
 
+var ReceiveExceededError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "max receive amount exceeded. please contact support for further assistance.",
+	HttpStatusCode: 400,
+}
+
+var BalanceExceededError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "max account balance exceeded. please contact support for further assistance.",
+	HttpStatusCode: 400,
+}
+
 var TooMuchVolumeError = ErrorResponse{
 	Error:          true,
 	Code:           2,

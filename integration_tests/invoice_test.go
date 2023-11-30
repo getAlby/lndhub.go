@@ -92,8 +92,8 @@ func (suite *InvoiceTestSuite) TestPreimageEntropy() {
 	user, _ := suite.service.FindUserByLogin(context.Background(), suite.aliceLogin.Login)
 	preimageChars := map[byte]int{}
 	for i := 0; i < 1000; i++ {
-		inv, err := suite.service.AddIncomingInvoice(context.Background(), user.ID, 10, "test entropy", "")
-		assert.NoError(suite.T(), err)
+		inv, errResp := suite.service.AddIncomingInvoice(context.Background(), user.ID, 10, "test entropy", "")
+		assert.Nil(suite.T(), errResp)
 		primgBytes, _ := hex.DecodeString(inv.Preimage)
 		for _, char := range primgBytes {
 			preimageChars[char] += 1
