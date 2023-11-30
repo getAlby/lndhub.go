@@ -190,7 +190,7 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}
 	if resp != nil {
-		return c.JSON(http.StatusInternalServerError, resp)
+		return c.JSON(resp.HttpStatusCode, resp)
 	}
 
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)

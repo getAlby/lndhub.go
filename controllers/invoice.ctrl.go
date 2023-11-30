@@ -37,7 +37,7 @@ func (controller *InvoiceController) Invoice(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}
 	if resp != nil {
-		return c.JSON(http.StatusInternalServerError, resp)
+		return c.JSON(resp.HttpStatusCode, resp)
 	}
 
 	return AddInvoice(c, controller.svc, user.ID)
