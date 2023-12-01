@@ -194,6 +194,65 @@ func (suite *PaymentTestSuite) TestVolumeExceeded() {
 	suite.service.Config.MaxVolumePeriod = 0
 	suite.service.Config.MaxVolume = 1e6
 }
+
+func (suite *PaymentTestSuite) TestOutgoingExceededChecks() {
+	//this will cause the payment to fail as the account was already funded
+	//with 1000 sats
+	suite.service.Config.MaxSendAmount = 100
+	aliceFundingSats := 1000
+	//fund alice account
+	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
+	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
+	assert.NoError(suite.T(), err)
+
+	//wait a bit for the payment to be processed
+	time.Sleep(10 * time.Millisecond)
+
+	//try to make external payment
+	//which should fail
+	//create external invoice
+	externalSatRequested := 500
+	externalInvoice := lnrpc.Invoice{
+		Memo:  "integration tests: external pay from user",
+		Value: int64(externalSatRequested),
+	}
+	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	//pay external invoice
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max volume check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp := &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.SendExceededError.Message, resp.Message)
+
+	suite.service.Config.MaxSendAmount = 2000
+	rec = httptest.NewRecorder()
+	externalInvoice = lnrpc.Invoice{
+		Memo:  "integration tests: external pay from user",
+		Value: int64(externalSatRequested),
+	}
+	invoice, err = suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+	}))
+	suite.echo.ServeHTTP(rec, req)
+	assert.Equal(suite.T(), http.StatusOK, rec.Code)
+
+	//change the config back
+	suite.service.Config.MaxSendAmount = 0
+}
+
 func (suite *PaymentTestSuite) TestInternalPayment() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500

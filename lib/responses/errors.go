@@ -71,6 +71,13 @@ var TooMuchVolumeError = ErrorResponse{
 	HttpStatusCode: 400,
 }
 
+var SendExceededError = ErrorResponse{
+	Error:          true,
+	Code:           2,
+	Message:        "max send amount exceeded. please contact support for further assistance.",
+	HttpStatusCode: 400,
+}
+
 var AccountDeactivatedError = ErrorResponse{
 	Error:          true,
 	Code:           1,

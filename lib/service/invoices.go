@@ -13,6 +13,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -439,7 +440,14 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	return nil
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, *responses.ErrorResponse) {
+	if svc.Config.MaxSendAmount > 0 {
+		if lnPayReq.PayReq.NumSatoshis > svc.Config.MaxSendAmount {
+			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
+			return nil, &responses.SendExceededError
+		}
+	}
+
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
@@ -458,7 +466,8 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 	if lnPayReq.Keysend {
 		preImage, err := makePreimageHex()
 		if err != nil {
-			return nil, err
+			svc.Logger.Errorf("Error adding invoice: user_id:%v error: %v", userID, err)
+			return nil, &responses.GeneralServerError
 		}
 		pHash := sha256.New()
 		pHash.Write(preImage)
@@ -470,7 +479,8 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 	// Save invoice
 	_, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
-		return nil, err
+		svc.Logger.Errorf("Error adding invoice: user_id:%v error: %v", userID, err)
+		return nil, &responses.GeneralServerError
 	}
 	return &invoice, nil
 }
