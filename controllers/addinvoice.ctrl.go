@@ -5,7 +5,6 @@ import (
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
-	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
@@ -62,38 +61,11 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	if svc.Config.MaxReceiveAmount > 0 {
-		if amount > svc.Config.MaxReceiveAmount {
-			c.Logger().Errorf("Max receive amount exceeded for user_id:%v (amount:%v)", userID, amount)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
-	}
-
-	if svc.Config.MaxAccountBalance > 0 {
-		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userID)
-		if err != nil {
-			c.Logger().Errorj(
-				log.JSON{
-					"message":        "error fetching balance",
-					"lndhub_user_id": userID,
-					"error":          err,
-				},
-			)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
-		if currentBalance+amount > svc.Config.MaxAccountBalance {
-			c.Logger().Errorf("Max account balance exceeded for user_id:%v (balance:%v + amount:%v)", userID, currentBalance, amount)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
-	}
-
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)
 
-	invoice, err := svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
-	if err != nil {
-		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
-		sentry.CaptureException(err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	invoice, errResp := svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)
+	if errResp != nil {
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	responseBody := AddInvoiceResponseBody{}
 	responseBody.RHash = invoice.RHash

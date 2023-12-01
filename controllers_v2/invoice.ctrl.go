@@ -7,7 +7,6 @@ import (
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
-	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
@@ -180,11 +179,9 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)
-	if err != nil {
-		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
-		sentry.CaptureException(err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	invoice, errResp := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)
+	if errResp != nil {
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	responseBody := AddInvoiceResponseBody{
 		PaymentHash:    invoice.RHash,
