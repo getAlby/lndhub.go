@@ -90,13 +90,6 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
 
-	if controller.svc.Config.MaxSendAmount > 0 {
-		if lnPayReq.PayReq.NumSatoshis > controller.svc.Config.MaxSendAmount {
-			c.Logger().Errorf("Max send amount exceeded for user_id:%v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
-	}
-
 	resp, err := controller.svc.CheckPaymentAllowed(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
 		c.Logger().Errorj(
@@ -113,16 +106,9 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, resp)
 	}
 
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
-	if err != nil {
-		c.Logger().Errorj(
-			log.JSON{
-				"message":        "error adding invoice",
-				"error":          err,
-				"lndhub_user_id": userID,
-			},
-		)
-		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
+	invoice, errResp := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
+	if errResp != nil {
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {

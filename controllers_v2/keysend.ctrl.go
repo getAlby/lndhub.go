@@ -204,10 +204,9 @@ func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody 
 			HttpStatusCode: 400,
 		}
 	}
-	invoice, err := controller.svc.AddOutgoingInvoice(ctx, userID, "", lnPayReq)
-	if err != nil {
-		controller.svc.Logger.Error(err)
-		return nil, &responses.GeneralServerError
+	invoice, errResp := controller.svc.AddOutgoingInvoice(ctx, userID, "", lnPayReq)
+	if errResp != nil {
+		return nil, errResp
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
 		controller.svc.Logger.Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))

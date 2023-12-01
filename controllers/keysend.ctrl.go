@@ -66,13 +66,6 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		Keysend: true,
 	}
 
-	if controller.svc.Config.MaxSendAmount > 0 {
-		if lnPayReq.PayReq.NumSatoshis > controller.svc.Config.MaxSendAmount {
-			c.Logger().Errorf("Max send amount exceeded for user_id:%v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
-	}
-
 	if controller.svc.LndClient.IsIdentityPubkey(reqBody.Destination) && reqBody.CustomRecords[strconv.Itoa(service.TLV_WALLET_ID)] == "" {
 		return c.JSON(http.StatusBadRequest, &responses.ErrorResponse{
 			Error:          true,
@@ -97,16 +90,9 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
 		return c.JSON(http.StatusBadRequest, resp)
 	}
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
-	if err != nil {
-		c.Logger().Errorj(
-			log.JSON{
-				"message":        "failed to add invoice",
-				"error":          err,
-				"lndhub_user_id": userID,
-			},
-		)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	invoice, errResp := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
+	if errResp != nil {
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
 		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
