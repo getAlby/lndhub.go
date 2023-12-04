@@ -169,14 +169,13 @@ func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Cont
 		},
 		Keysend: true,
 	}
-	resp, err := controller.svc.CheckPaymentAllowed(ctx, syntheticPayReq, userID)
-	if resp != nil {
-		controller.svc.Logger.Errorf("User does not have enough balance user_id:%v amount:%v", userID, syntheticPayReq.PayReq.NumSatoshis)
-		return resp
-	}
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(ctx, syntheticPayReq, userID)
 	if err != nil {
-		controller.svc.Logger.Error(err)
 		return &responses.GeneralServerError
+	}
+	if resp != nil {
+		controller.svc.Logger.Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, syntheticPayReq.PayReq.NumSatoshis)
+		return resp
 	}
 	return nil
 }

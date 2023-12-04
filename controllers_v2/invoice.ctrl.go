@@ -177,6 +177,15 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
+	resp, err := controller.svc.CheckIncomingPaymentAllowed(c.Request().Context(), body.Amount, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+	}
+	if resp != nil {
+		c.Logger().Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, body.Amount)
+		return c.JSON(resp.HttpStatusCode, resp)
+	}
+
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
 
 	invoice, errResp := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)

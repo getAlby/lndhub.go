@@ -98,20 +98,13 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
-	resp, err := controller.svc.CheckPaymentAllowed(c.Request().Context(), lnPayReq, userID)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c.Request().Context(), lnPayReq, userID)
 	if err != nil {
-		c.Logger().Errorj(
-			log.JSON{
-				"message":        "error checking balance",
-				"error":          err,
-				"lndhub_user_id": userID,
-			},
-		)
-		return err
+		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
 	}
 	if resp != nil {
-		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
-		return c.JSON(http.StatusInternalServerError, resp)
+		c.Logger().Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, lnPayReq.PayReq.NumSatoshis)
+		return c.JSON(resp.HttpStatusCode, resp)
 	}
 	invoice, errResp := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
 	if errResp != nil {
