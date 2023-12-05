@@ -22,6 +22,14 @@ type Config struct {
 	LNDClusterPubkeys            string  `envconfig:"LND_CLUSTER_PUBKEYS"` //comma-seperated list of public keys of the cluster
 }
 
+type Limits struct {
+	MaxSendVolume     int64
+	MaxSendAmount     int64
+	MaxReceiveVolume  int64
+	MaxReceiveAmount  int64
+	MaxAccountBalance int64
+}
+
 func LoadConfig() (c *Config, err error) {
 	c = &Config{}
 	err = envconfig.Process("", c)

@@ -18,6 +18,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -51,7 +52,7 @@ func (suite *InvoiceTestSuite) SetupSuite() {
 	suite.aliceLogin = users[0]
 	suite.aliceToken = userTokens[0]
 	suite.echo.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice)
-	suite.echo.POST("/v2/invoices", v2controllers.NewInvoiceController(svc).AddInvoice, tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	suite.echo.POST("/v2/invoices", v2controllers.NewInvoiceController(svc).AddInvoice, tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
 }
 
 func (suite *InvoiceTestSuite) TearDownTest() {

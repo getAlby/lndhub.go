@@ -13,6 +13,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
 	passwordvalidator "github.com/wagslane/go-password-validator"
@@ -125,9 +126,9 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	return &user, nil
 }
 
-func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
-	if svc.Config.MaxSendAmount > 0 {
-		if lnpayReq.PayReq.NumSatoshis > svc.Config.MaxSendAmount {
+func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64, limits *lnd.Limits) (result *responses.ErrorResponse, err error) {
+	if limits.MaxSendAmount > 0 {
+		if lnpayReq.PayReq.NumSatoshis > limits.MaxSendAmount {
 			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userId, lnpayReq.PayReq.NumSatoshis)
 			return &responses.SendExceededError, nil
 		}
@@ -153,18 +154,18 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpay
 		return &responses.NotEnoughBalanceError, nil
 	}
 
-	return svc.CheckVolumeAllowed(ctx, userId, common.InvoiceTypeOutgoing)
+	return svc.CheckVolumeAllowed(ctx, userId, limits.MaxSendVolume, common.InvoiceTypeOutgoing)
 }
 
-func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
-	if svc.Config.MaxReceiveAmount > 0 {
-		if amount > svc.Config.MaxReceiveAmount {
+func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amount, userId int64, limits *lnd.Limits) (result *responses.ErrorResponse, err error) {
+	if limits.MaxReceiveAmount > 0 {
+		if amount > limits.MaxReceiveAmount {
 			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
 			return &responses.ReceiveExceededError, nil 
 		}
 	}
 
-	if svc.Config.MaxAccountBalance > 0 {
+	if limits.MaxAccountBalance > 0 {
 		currentBalance, err := svc.CurrentUserBalance(ctx, userId)
 		if err != nil {
 			svc.Logger.Errorj(
@@ -176,22 +177,16 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amoun
 			)
 			return nil, err
 		}
-		if currentBalance+amount > svc.Config.MaxAccountBalance {
+		if currentBalance+amount > limits.MaxAccountBalance {
 			svc.Logger.Errorf("Max account balance exceeded for user_id %d", userId)
 			return &responses.BalanceExceededError, nil
 		}
 	}
 
-	return svc.CheckVolumeAllowed(ctx, userId, common.InvoiceTypeIncoming)
+	return svc.CheckVolumeAllowed(ctx, userId, limits.MaxReceiveVolume, common.InvoiceTypeIncoming)
 }
 
-func (svc *LndhubService) CheckVolumeAllowed(ctx context.Context, userId int64, invoiceType string) (result *responses.ErrorResponse, err error) {
-	var maxVolume int64
-	if invoiceType == common.InvoiceTypeIncoming {
-			maxVolume = svc.Config.MaxReceiveVolume
-	} else {
-			maxVolume = svc.Config.MaxSendVolume
-	}
+func (svc *LndhubService) CheckVolumeAllowed(ctx context.Context, userId, maxVolume int64, invoiceType string) (result *responses.ErrorResponse, err error) {
 	if maxVolume > 0 {
 		volume, err := svc.GetVolumeOverPeriod(ctx, userId, invoiceType, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
 		if err != nil {
@@ -278,4 +273,25 @@ func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64,
 		return 0, err
 	}
 	return result, nil
+}
+
+func (svc *LndhubService) GetLimitsFromContext(c echo.Context) (limits *lnd.Limits) {
+	limits = &lnd.Limits{}
+	if val, ok := c.Get("MaxSendVolume").(int64); ok {
+    limits.MaxSendVolume = val
+	}
+	if val, ok := c.Get("MaxSendAmount").(int64); ok {
+			limits.MaxSendAmount = val
+	}
+	if val, ok := c.Get("MaxReceiveVolume").(int64); ok {
+			limits.MaxReceiveVolume = val
+	}
+	if val, ok := c.Get("MaxReceiveAmount").(int64); ok {
+			limits.MaxReceiveAmount = val
+	}
+	if val, ok := c.Get("MaxAccountBalance").(int64); ok {
+			limits.MaxAccountBalance = val
+	}
+
+	return limits
 }

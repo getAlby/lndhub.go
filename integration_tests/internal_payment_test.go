@@ -17,6 +17,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -69,7 +70,8 @@ func (suite *PaymentTestSuite) SetupSuite() {
 	suite.aliceToken = userTokens[0]
 	suite.bobLogin = users[1]
 	suite.bobToken = userTokens[1]
-	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
+	
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.service).PayInvoice)

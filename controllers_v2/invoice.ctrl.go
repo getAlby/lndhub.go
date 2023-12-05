@@ -165,6 +165,8 @@ type AddInvoiceResponseBody struct {
 // @Security     OAuth2Password
 func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
+	limits := controller.svc.GetLimitsFromContext(c)
+
 	var body AddInvoiceRequestBody
 
 	if err := c.Bind(&body); err != nil {
@@ -177,7 +179,7 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	resp, err := controller.svc.CheckIncomingPaymentAllowed(c.Request().Context(), body.Amount, userID)
+	resp, err := controller.svc.CheckIncomingPaymentAllowed(c.Request().Context(), body.Amount, userID, limits)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}

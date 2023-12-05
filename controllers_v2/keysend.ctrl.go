@@ -71,6 +71,7 @@ type KeySendResponseBody struct {
 // @Security     OAuth2Password
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
+	limits := controller.svc.GetLimitsFromContext(c)
 	reqBody := KeySendRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
 		c.Logger().Errorf("Failed to load keysend request body: %v", err)
@@ -81,7 +82,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	errResp := controller.checkKeysendPaymentAllowed(context.Background(), reqBody.Amount, userID)
+	errResp := controller.checkKeysendPaymentAllowed(context.Background(), reqBody.Amount, userID, limits)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
@@ -108,6 +109,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 // @Security     OAuth2Password
 func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
+	limits := controller.svc.GetLimitsFromContext(c)
 	reqBody := MultiKeySendRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
 		c.Logger().Errorf("Failed to load keysend request body: %v", err)
@@ -127,7 +129,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	for _, keysend := range reqBody.Keysends {
 		totalAmount += keysend.Amount
 	}
-	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID)
+	errResp := controller.checkKeysendPaymentAllowed(context.Background(), totalAmount, userID, limits)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to make keysend split payments: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
@@ -162,14 +164,14 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	return c.JSON(status, result)
 }
 
-func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Context, amount, userID int64) (resp *responses.ErrorResponse) {
+func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Context, amount, userID int64, limits *lnd.Limits) (resp *responses.ErrorResponse) {
 	syntheticPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
 			NumSatoshis: amount,
 		},
 		Keysend: true,
 	}
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(ctx, syntheticPayReq, userID)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(ctx, syntheticPayReq, userID, limits)
 	if err != nil {
 		return &responses.GeneralServerError
 	}

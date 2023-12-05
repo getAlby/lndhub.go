@@ -16,6 +16,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -64,7 +65,7 @@ func (suite *RabbitMQTestSuite) SetupSuite() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	suite.echo = e
-	suite.echo.Use(tokens.Middleware(suite.svc.Config.JWTSecret))
+	suite.echo.Use(tokens.Middleware([]byte(suite.svc.Config.JWTSecret), &lnd.Limits{}))
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.svc).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.svc).PayInvoice)
 	go func() {
