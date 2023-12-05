@@ -277,6 +277,5 @@ func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64,
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println(result, "volume ")
 	return result, nil
 }

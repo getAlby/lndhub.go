@@ -233,7 +233,7 @@ func (suite *PaymentTestSuite) TestOutgoingExceededChecks() {
 	//try to make external payment
 	//which should fail
 	//create external invoice
-	externalSatRequested := 500
+	externalSatRequested := 400
 	externalInvoice := lnrpc.Invoice{
 		Memo:  "integration tests: external pay from user",
 		Value: int64(externalSatRequested),
