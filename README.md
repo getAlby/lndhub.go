@@ -54,7 +54,8 @@ vim .env # edit your config
 + `MAX_RECEIVE_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) for which an invoice can be created
 + `MAX_SEND_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) of an invoice that can be paid
 + `MAX_ACCOUNT_BALANCE`: (default: 0 = no limit) Set maximum balance (in satoshi) for each account
-+ `MAX_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for each account
++ `MAX_SEND_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for sending for each account
++ `MAX_RECEIVE_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for receiving for each account
 
 ### Macaroon
 
