@@ -126,7 +126,8 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	return &user, nil
 }
 
-func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64, limits *models.Limits) (result *responses.ErrorResponse, err error) {
+func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
+	limits := svc.GetLimits(c)
 	if limits.MaxSendAmount > 0 {
 		if lnpayReq.PayReq.NumSatoshis > limits.MaxSendAmount {
 			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userId, lnpayReq.PayReq.NumSatoshis)
@@ -135,7 +136,7 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpay
 	}
 
 	if limits.MaxSendVolume > 0 {
-		volume, err := svc.GetVolumeOverPeriod(ctx, userId, common.InvoiceTypeOutgoing, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		volume, err := svc.GetVolumeOverPeriod(c.Request().Context(), userId, common.InvoiceTypeOutgoing, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
 		if err != nil {
 			svc.Logger.Errorj(
 				log.JSON{
@@ -153,7 +154,7 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpay
 		}
 	}
 
-	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
+	currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userId)
 	if err != nil {
 		svc.Logger.Errorj(
 			log.JSON{
@@ -176,7 +177,8 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpay
 	return nil, nil
 }
 
-func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amount, userId int64, limits *models.Limits) (result *responses.ErrorResponse, err error) {
+func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
+	limits := svc.GetLimits(c)
 	if limits.MaxReceiveAmount > 0 {
 		if amount > limits.MaxReceiveAmount {
 			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
@@ -185,7 +187,7 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amoun
 	}
 
 	if limits.MaxReceiveVolume > 0 {
-		volume, err := svc.GetVolumeOverPeriod(ctx, userId, common.InvoiceTypeIncoming, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		volume, err := svc.GetVolumeOverPeriod(c.Request().Context(), userId, common.InvoiceTypeIncoming, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
 		if err != nil {
 			svc.Logger.Errorj(
 				log.JSON{
@@ -204,7 +206,7 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amoun
 	}
 
 	if limits.MaxAccountBalance > 0 {
-		currentBalance, err := svc.CurrentUserBalance(ctx, userId)
+		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userId)
 		if err != nil {
 			svc.Logger.Errorj(
 				log.JSON{
@@ -290,8 +292,8 @@ func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64,
 	return result, nil
 }
 
-func (svc *LndhubService) GetLimits(c echo.Context) (limits *models.Limits) {
-	limits = &models.Limits{
+func (svc *LndhubService) GetLimits(c echo.Context) (limits *lnd.Limits) {
+	limits = &lnd.Limits{
 		MaxSendVolume:     svc.Config.MaxSendVolume,
     MaxSendAmount:     svc.Config.MaxSendAmount,
     MaxReceiveVolume:  svc.Config.MaxReceiveVolume,

@@ -43,7 +43,6 @@ type PayInvoiceResponseBody struct {
 
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-	limits := controller.svc.GetLimits(c)
 	reqBody := PayInvoiceRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
 		c.Logger().Errorf("Failed to load payinvoice request body: user_id:%v error: %v", userID, err)
@@ -91,7 +90,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
 
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c.Request().Context(), lnPayReq, userID, limits)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}

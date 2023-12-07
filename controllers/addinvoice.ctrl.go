@@ -37,7 +37,6 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 
 func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error {
 	var body AddInvoiceRequestBody
-	limits := svc.GetLimits(c)
 
 	if err := c.Bind(&body); err != nil {
 		c.Logger().Errorf("Failed to load addinvoice request body: %v", err)
@@ -62,7 +61,7 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	resp, err := svc.CheckIncomingPaymentAllowed(c.Request().Context(), amount, userID, limits)
+	resp, err := svc.CheckIncomingPaymentAllowed(c, amount, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}
