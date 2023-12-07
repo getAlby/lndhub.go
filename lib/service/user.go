@@ -133,6 +133,25 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpay
 		}
 	}
 
+	if svc.Config.MaxSendVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(ctx, userId, common.InvoiceTypeOutgoing, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching volume",
+					"error":          err,
+					"lndhub_user_id": userId,
+				},
+			)
+			return nil, err
+		}
+		if volume > svc.Config.MaxSendVolume {
+			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
+		}
+	}
+
 	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
 	if err != nil {
 		svc.Logger.Errorj(
@@ -153,7 +172,7 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpay
 		return &responses.NotEnoughBalanceError, nil
 	}
 
-	return svc.CheckVolumeAllowed(ctx, userId, common.InvoiceTypeOutgoing)
+	return nil, nil
 }
 
 func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
@@ -161,6 +180,25 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amoun
 		if amount > svc.Config.MaxReceiveAmount {
 			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
 			return &responses.ReceiveExceededError, nil 
+		}
+	}
+
+	if svc.Config.MaxReceiveVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(ctx, userId, common.InvoiceTypeIncoming, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching volume",
+					"error":          err,
+					"lndhub_user_id": userId,
+				},
+			)
+			return nil, err
+		}
+		if volume > svc.Config.MaxReceiveVolume {
+			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
 		}
 	}
 
@@ -182,37 +220,8 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amoun
 		}
 	}
 
-	return svc.CheckVolumeAllowed(ctx, userId, common.InvoiceTypeIncoming)
-}
-
-func (svc *LndhubService) CheckVolumeAllowed(ctx context.Context, userId int64, invoiceType string) (result *responses.ErrorResponse, err error) {
-	var maxVolume int64
-	if invoiceType == common.InvoiceTypeIncoming {
-			maxVolume = svc.Config.MaxReceiveVolume
-	} else {
-			maxVolume = svc.Config.MaxSendVolume
-	}
-	if maxVolume > 0 {
-		volume, err := svc.GetVolumeOverPeriod(ctx, userId, invoiceType, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
-		if err != nil {
-			svc.Logger.Errorj(
-				log.JSON{
-					"message":        "error fetching volume",
-					"error":          err,
-					"lndhub_user_id": userId,
-				},
-			)
-			return nil, err
-		}
-		if volume > maxVolume {
-			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
-			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
-			return &responses.TooMuchVolumeError, nil
-		}
-	}
 	return nil, nil
 }
-
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
 	if svc.LndClient.IsIdentityPubkey(destination) {
