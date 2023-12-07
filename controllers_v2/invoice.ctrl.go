@@ -165,7 +165,7 @@ type AddInvoiceResponseBody struct {
 // @Security     OAuth2Password
 func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-	limits := controller.svc.GetLimitsFromContext(c)
+	limits := controller.svc.GetLimits(c)
 
 	var body AddInvoiceRequestBody
 

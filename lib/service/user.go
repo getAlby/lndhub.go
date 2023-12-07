@@ -275,8 +275,14 @@ func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64,
 	return result, nil
 }
 
-func (svc *LndhubService) GetLimitsFromContext(c echo.Context) (limits *lnd.Limits) {
-	limits = &lnd.Limits{}
+func (svc *LndhubService) GetLimits(c echo.Context) (limits *lnd.Limits) {
+	limits = &lnd.Limits{
+		MaxSendVolume:     svc.Config.MaxSendVolume,
+    MaxSendAmount:     svc.Config.MaxSendAmount,
+    MaxReceiveVolume:  svc.Config.MaxReceiveVolume,
+    MaxReceiveAmount:  svc.Config.MaxReceiveAmount,
+    MaxAccountBalance: svc.Config.MaxAccountBalance,
+	}
 	if val, ok := c.Get("MaxSendVolume").(int64); ok {
     limits.MaxSendVolume = val
 	}

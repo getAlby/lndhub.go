@@ -46,7 +46,7 @@ type KeySendResponseBody struct {
 
 func (controller *KeySendController) KeySend(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-	limits := controller.svc.GetLimitsFromContext(c)
+	limits := controller.svc.GetLimits(c)
 	reqBody := KeySendRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
 		c.Logger().Errorf("Failed to load keysend request body: %v", err)

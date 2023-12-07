@@ -15,7 +15,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -53,7 +52,7 @@ func (suite *GetTxTestSuite) SetupSuite() {
 	e.HTTPErrorHandler = responses.HTTPErrorHandler
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 	suite.echo = e
-	suite.echo.Use(tokens.Middleware([]byte(suite.Service.Config.JWTSecret), &lnd.Limits{}))
+	suite.echo.Use(tokens.Middleware([]byte(suite.Service.Config.JWTSecret)))
 	suite.echo.GET("/gettxs", controllers.NewGetTXSController(suite.Service).GetTXS)
 	suite.echo.GET("/getuserinvoices", controllers.NewGetTXSController(svc).GetUserInvoices)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.Service).AddInvoice)

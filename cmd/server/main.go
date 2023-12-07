@@ -153,17 +153,9 @@ func main() {
 	logMw := transport.CreateLoggingMiddleware(logger)
 	// strict rate limit for requests for sending payments
 	strictRateLimitMiddleware := transport.CreateRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
-
-	limits := &lnd.Limits{
-		MaxSendVolume: c.MaxSendVolume,
-		MaxSendAmount: c.MaxSendAmount,
-		MaxReceiveVolume: c.MaxReceiveVolume,
-		MaxReceiveAmount: c.MaxReceiveAmount,
-		MaxAccountBalance: c.MaxAccountBalance,
-	}
 	
-	secured := e.Group("", tokens.Middleware(c.JWTSecret, limits), logMw)
-	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret, limits), strictRateLimitMiddleware, logMw)
+	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
+	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 
 	transport.RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 	transport.RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)

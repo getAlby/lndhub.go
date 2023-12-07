@@ -17,7 +17,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
@@ -72,7 +71,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPayment() {
 	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
-	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.ServeHTTP(rec, req)
@@ -103,7 +102,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentZeroAmt() {
 	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
-	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 	suite.echo.ServeHTTP(rec, req)
@@ -145,7 +144,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	req := httptest.NewRequest(http.MethodGet, "/balance", &buf)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
 	rec := httptest.NewRecorder()
-	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.GET("/getuserinvoices", controllers.NewGetTXSController(suite.service).GetUserInvoices)
 	suite.echo.ServeHTTP(rec, req)

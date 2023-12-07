@@ -52,7 +52,7 @@ type PayInvoiceResponseBody struct {
 // @Security     OAuth2Password
 func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-	limits := controller.svc.GetLimitsFromContext(c)
+	limits := controller.svc.GetLimits(c)
 	reqBody := PayInvoiceRequestBody{}
 	if err := c.Bind(&reqBody); err != nil {
 		c.Logger().Errorf("Failed to load payinvoice request body: user_id:%v error: %v", userID, err)

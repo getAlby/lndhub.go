@@ -37,7 +37,7 @@ func (controller *AddInvoiceController) AddInvoice(c echo.Context) error {
 
 func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error {
 	var body AddInvoiceRequestBody
-	limits := svc.GetLimitsFromContext(c)
+	limits := svc.GetLimits(c)
 
 	if err := c.Bind(&body); err != nil {
 		c.Logger().Errorf("Failed to load addinvoice request body: %v", err)

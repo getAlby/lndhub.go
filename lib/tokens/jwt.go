@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/golang-jwt/jwt"
@@ -26,7 +25,7 @@ type jwtCustomClaims struct {
 	jwt.StandardClaims
 }
 
-func Middleware(secret []byte, limits *lnd.Limits) echo.MiddlewareFunc {
+func Middleware(secret []byte) echo.MiddlewareFunc {
 	config := middleware.DefaultJWTConfig
 
 	config.Claims = &jwtCustomClaims{}
@@ -44,31 +43,11 @@ func Middleware(secret []byte, limits *lnd.Limits) echo.MiddlewareFunc {
 		token := c.Get("UserJwt").(*jwt.Token)
 		claims := token.Claims.(*jwtCustomClaims)
 		c.Set("UserID", claims.ID)
-		if limits.MaxSendVolume == 0 {
-			c.Set("MaxSendVolume", claims.MaxSendAmount)
-		} else {
-			c.Set("MaxSendVolume", limits.MaxSendVolume)
-		}
-		if limits.MaxSendAmount == 0 {
-			c.Set("MaxSendAmount", claims.MaxSendAmount)
-		} else {
-			c.Set("MaxSendAmount", limits.MaxSendAmount)
-		}
-		if limits.MaxReceiveVolume == 0 {
-			c.Set("MaxReceiveVolume", claims.MaxReceiveVolume)
-		} else {
-			c.Set("MaxReceiveVolume", limits.MaxReceiveVolume)
-		}
-		if limits.MaxReceiveAmount == 0 {
-			c.Set("MaxReceiveAmount", claims.MaxReceiveAmount)
-		} else {
-			c.Set("MaxReceiveAmount", limits.MaxReceiveAmount)
-		}
-		if limits.MaxAccountBalance == 0 {
-			c.Set("MaxAccountBalance", claims.MaxAccountBalance)
-		} else {
-			c.Set("MaxAccountBalance", limits.MaxAccountBalance)
-		}
+		c.Set("MaxSendVolume", claims.MaxSendVolume)
+		c.Set("MaxSendAmount", claims.MaxSendAmount)
+		c.Set("MaxReceiveVolume", claims.MaxReceiveVolume)
+		c.Set("MaxReceiveAmount", claims.MaxReceiveAmount)
+		c.Set("MaxAccountBalance", claims.MaxAccountBalance)
 		// pass UserID to sentry for exception notifications
 		if hub := sentryecho.GetHubFromContext(c); hub != nil {
 			hub.Scope().SetUser(sentry.User{ID: strconv.FormatInt(claims.ID, 10)})

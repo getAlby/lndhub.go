@@ -15,7 +15,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -74,7 +73,7 @@ func (suite *WebHookTestSuite) SetupSuite() {
 	suite.echo = e
 	suite.userLogin = users[0]
 	suite.userToken = userTokens[0]
-	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 }
 func (suite *WebHookTestSuite) TestWebHook() {

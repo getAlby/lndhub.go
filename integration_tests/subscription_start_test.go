@@ -56,7 +56,7 @@ func (suite *SubscriptionStartTestSuite) SetupSuite() {
 	suite.echo = e
 	suite.userLogin = users[0]
 	suite.userToken = userTokens[0]
-	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret), &lnd.Limits{}))
+	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
 
 }
