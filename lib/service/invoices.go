@@ -16,7 +16,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
-	"github.com/labstack/gommon/log"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
@@ -442,13 +441,6 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 }
 
 func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, *responses.ErrorResponse) {
-	if svc.Config.MaxSendAmount > 0 {
-		if lnPayReq.PayReq.NumSatoshis > svc.Config.MaxSendAmount {
-			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
-			return nil, &responses.SendExceededError
-		}
-	}
-
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
@@ -487,44 +479,6 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 }
 
 func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, *responses.ErrorResponse) {
-
-	if svc.Config.MaxReceiveAmount > 0 {
-		if amount > svc.Config.MaxReceiveAmount {
-			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userID)
-			return nil, &responses.ReceiveExceededError
-		}
-	}
-
-	if svc.Config.MaxAccountBalance > 0 {
-		currentBalance, err := svc.CurrentUserBalance(ctx, userID)
-		if err != nil {
-			svc.Logger.Errorj(
-				log.JSON{
-					"message":        "error fetching balance",
-					"lndhub_user_id": userID,
-					"error":          err,
-				},
-			)
-			return nil, &responses.GeneralServerError
-		}
-		if currentBalance+amount > svc.Config.MaxAccountBalance {
-			svc.Logger.Errorf("Max account balance exceeded for user_id %d", userID)
-			return nil, &responses.BalanceExceededError
-		}
-	}
-
-	if svc.Config.MaxVolume > 0 {
-		volume, err := svc.GetVolumeOverPeriod(ctx, userID, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
-		if err != nil {
-			return nil, &responses.GeneralServerError
-		}
-		if volume > svc.Config.MaxVolume {
-			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userID)
-			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userID))
-			return nil, &responses.TooMuchVolumeError
-		}
-	}
-
 	preimage, err := makePreimageHex()
 	if err != nil {
 		return nil, &responses.GeneralServerError

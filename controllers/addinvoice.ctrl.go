@@ -61,6 +61,15 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
+	resp, err := svc.CheckIncomingPaymentAllowed(c.Request().Context(), amount, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+	}
+	if resp != nil {
+		c.Logger().Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, amount)
+		return c.JSON(resp.HttpStatusCode, resp)
+	}
+
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Memo, amount, body.DescriptionHash)
 
 	invoice, errResp := svc.AddIncomingInvoice(c.Request().Context(), userID, amount, body.Memo, body.DescriptionHash)

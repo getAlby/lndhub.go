@@ -13,6 +13,7 @@ import (
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
+	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
@@ -124,9 +125,42 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	return &user, nil
 }
 
-func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
+func (svc *LndhubService) CheckOutgoingPaymentAllowed(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
+	if svc.Config.MaxSendAmount > 0 {
+		if lnpayReq.PayReq.NumSatoshis > svc.Config.MaxSendAmount {
+			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userId, lnpayReq.PayReq.NumSatoshis)
+			return &responses.SendExceededError, nil
+		}
+	}
+
+	if svc.Config.MaxSendVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(ctx, userId, common.InvoiceTypeOutgoing, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching volume",
+					"error":          err,
+					"lndhub_user_id": userId,
+				},
+			)
+			return nil, err
+		}
+		if volume > svc.Config.MaxSendVolume {
+			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
+		}
+	}
+
 	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
 	if err != nil {
+		svc.Logger.Errorj(
+			log.JSON{
+				"message":        "error checking balance",
+				"error":          err,
+				"lndhub_user_id": userId,
+			},
+		)
 		return nil, err
 	}
 
@@ -137,17 +171,55 @@ func (svc *LndhubService) CheckPaymentAllowed(ctx context.Context, lnpayReq *lnd
 	if currentBalance < minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
 	}
-	//only check for volume if configured
-	if svc.Config.MaxVolume > 0 {
-		volume, err := svc.GetVolumeOverPeriod(ctx, userId, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+
+	return nil, nil
+}
+
+func (svc *LndhubService) CheckIncomingPaymentAllowed(ctx context.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
+	if svc.Config.MaxReceiveAmount > 0 {
+		if amount > svc.Config.MaxReceiveAmount {
+			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
+			return &responses.ReceiveExceededError, nil 
+		}
+	}
+
+	if svc.Config.MaxReceiveVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(ctx, userId, common.InvoiceTypeIncoming, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
 		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching volume",
+					"error":          err,
+					"lndhub_user_id": userId,
+				},
+			)
 			return nil, err
 		}
-		if volume > svc.Config.MaxVolume {
+		if volume > svc.Config.MaxReceiveVolume {
+			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
 			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
 			return &responses.TooMuchVolumeError, nil
 		}
 	}
+
+	if svc.Config.MaxAccountBalance > 0 {
+		currentBalance, err := svc.CurrentUserBalance(ctx, userId)
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching balance",
+					"lndhub_user_id": userId,
+					"error":          err,
+				},
+			)
+			return nil, err
+		}
+		if currentBalance+amount > svc.Config.MaxAccountBalance {
+			svc.Logger.Errorf("Max account balance exceeded for user_id %d", userId)
+			return &responses.BalanceExceededError, nil
+		}
+	}
+
 	return nil, nil
 }
 
@@ -203,11 +275,12 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 	return invoices, nil
 }
 
-func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64, period time.Duration) (result int64, err error) {
+func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64, invoiceType string, period time.Duration) (result int64, err error) {
 
 	err = svc.DB.NewSelect().Table("invoices").
 		ColumnExpr("sum(invoices.amount) as result").
 		Where("invoices.user_id = ?", userId).
+		Where("invoices.type = ?", invoiceType).
 		Where("invoices.settled_at >= ?", time.Now().Add(-1*period)).
 		Scan(ctx, &result)
 	if err != nil {
