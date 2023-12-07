@@ -21,6 +21,14 @@ type User struct {
 	Deactivated bool
 }
 
+type Limits struct {
+	MaxSendVolume     int64
+	MaxSendAmount     int64
+	MaxReceiveVolume  int64
+	MaxReceiveAmount  int64
+	MaxAccountBalance int64
+}
+
 func (u *User) BeforeAppendModel(ctx context.Context, query bun.Query) error {
 	switch query.(type) {
 	case *bun.UpdateQuery:

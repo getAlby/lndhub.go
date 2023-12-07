@@ -45,7 +45,7 @@ const (
 )
 
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
-	dbUri := "postgresql://im-adithya:password@localhost:5432/lndhub?sslmode=disable"
+	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	c := &service.Config{
 		DatabaseUri:             dbUri,
 		DatabaseMaxConns:        1,

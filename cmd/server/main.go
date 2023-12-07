@@ -153,7 +153,6 @@ func main() {
 	logMw := transport.CreateLoggingMiddleware(logger)
 	// strict rate limit for requests for sending payments
 	strictRateLimitMiddleware := transport.CreateRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
-	
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 

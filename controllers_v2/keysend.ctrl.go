@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/getAlby/lndhub.go/common"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/getAlby/lndhub.go/lnd"
@@ -164,7 +165,7 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	return c.JSON(status, result)
 }
 
-func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Context, amount, userID int64, limits *lnd.Limits) (resp *responses.ErrorResponse) {
+func (controller *KeySendController) checkKeysendPaymentAllowed(ctx context.Context, amount, userID int64, limits *models.Limits) (resp *responses.ErrorResponse) {
 	syntheticPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
 			NumSatoshis: amount,
