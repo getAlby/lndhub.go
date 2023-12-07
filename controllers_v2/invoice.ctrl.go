@@ -165,7 +165,6 @@ type AddInvoiceResponseBody struct {
 // @Security     OAuth2Password
 func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
-
 	var body AddInvoiceRequestBody
 
 	if err := c.Bind(&body); err != nil {
