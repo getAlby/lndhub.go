@@ -69,7 +69,6 @@ func (suite *PaymentTestSuite) SetupSuite() {
 	suite.aliceToken = userTokens[0]
 	suite.bobLogin = users[1]
 	suite.bobToken = userTokens[1]
-	
 	suite.echo.Use(tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 	suite.echo.GET("/balance", controllers.NewBalanceController(suite.service).Balance)
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.service).AddInvoice)
