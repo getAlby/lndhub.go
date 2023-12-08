@@ -182,7 +182,7 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 	if limits.MaxReceiveAmount > 0 {
 		if amount > limits.MaxReceiveAmount {
 			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
-			return &responses.ReceiveExceededError, nil 
+			return &responses.ReceiveExceededError, nil
 		}
 	}
 
@@ -292,28 +292,28 @@ func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64,
 	return result, nil
 }
 
-func (svc *LndhubService) GetLimits(c echo.Context) (limits *lnd.Limits) {
-	limits = &lnd.Limits{
+func (svc *LndhubService) GetLimits(c echo.Context) (limits *Limits) {
+	limits = &Limits{
 		MaxSendVolume:     svc.Config.MaxSendVolume,
-    MaxSendAmount:     svc.Config.MaxSendAmount,
-    MaxReceiveVolume:  svc.Config.MaxReceiveVolume,
-    MaxReceiveAmount:  svc.Config.MaxReceiveAmount,
-    MaxAccountBalance: svc.Config.MaxAccountBalance,
+		MaxSendAmount:     svc.Config.MaxSendAmount,
+		MaxReceiveVolume:  svc.Config.MaxReceiveVolume,
+		MaxReceiveAmount:  svc.Config.MaxReceiveAmount,
+		MaxAccountBalance: svc.Config.MaxAccountBalance,
 	}
 	if val, ok := c.Get("MaxSendVolume").(int64); ok && val > 0 {
-    limits.MaxSendVolume = val
+		limits.MaxSendVolume = val
 	}
 	if val, ok := c.Get("MaxSendAmount").(int64); ok && val > 0 {
-			limits.MaxSendAmount = val
+		limits.MaxSendAmount = val
 	}
 	if val, ok := c.Get("MaxReceiveVolume").(int64); ok && val > 0 {
-			limits.MaxReceiveVolume = val
+		limits.MaxReceiveVolume = val
 	}
 	if val, ok := c.Get("MaxReceiveAmount").(int64); ok && val > 0 {
-			limits.MaxReceiveAmount = val
+		limits.MaxReceiveAmount = val
 	}
 	if val, ok := c.Get("MaxAccountBalance").(int64); ok && val > 0 {
-			limits.MaxAccountBalance = val
+		limits.MaxAccountBalance = val
 	}
 
 	return limits
