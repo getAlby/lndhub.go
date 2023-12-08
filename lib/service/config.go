@@ -37,8 +37,8 @@ type Config struct {
 	MaxSendAmount                    int64   `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance                int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
 	MaxFeeAmount                     int64   `envconfig:"MAX_FEE_AMOUNT" default:"5000"`
-	MaxSendVolume                    int64   `envconfig:"MAX_SEND_VOLUME" default:"0"`              //0 means the volume check is disabled by default
-	MaxReceiveVolume                 int64   `envconfig:"MAX_RECEIVE_VOLUME" default:"0"`              //0 means the volume check is disabled by default
+	MaxSendVolume                    int64   `envconfig:"MAX_SEND_VOLUME" default:"0"`         //0 means the volume check is disabled by default
+	MaxReceiveVolume                 int64   `envconfig:"MAX_RECEIVE_VOLUME" default:"0"`      //0 means the volume check is disabled by default
 	MaxVolumePeriod                  int64   `envconfig:"MAX_VOLUME_PERIOD" default:"2592000"` //in seconds, default 1 month
 	RabbitMQUri                      string  `envconfig:"RABBITMQ_URI"`
 	RabbitMQLndhubInvoiceExchange    string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
@@ -48,7 +48,13 @@ type Config struct {
 	RabbitMQPaymentConsumerQueueName string  `envconfig:"RABBITMQ_PAYMENT_CONSUMER_QUEUE_NAME" default:"lnd_payment_consumer"`
 	Branding                         BrandingConfig
 }
-
+type Limits struct {
+	MaxSendVolume     int64
+	MaxSendAmount     int64
+	MaxReceiveVolume  int64
+	MaxReceiveAmount  int64
+	MaxAccountBalance int64
+}
 type BrandingConfig struct {
 	Title   string        `envconfig:"BRANDING_TITLE" default:"LndHub.go - Alby Lightning"`
 	Desc    string        `envconfig:"BRANDING_DESC" default:"Alby server for the Lightning Network"`

@@ -75,7 +75,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		})
 	}
 
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c.Request().Context(), lnPayReq, userID)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}

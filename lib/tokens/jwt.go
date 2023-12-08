@@ -15,8 +15,13 @@ import (
 )
 
 type jwtCustomClaims struct {
-	ID        int64 `json:"id"`
-	IsRefresh bool  `json:"isRefresh"`
+	ID                 int64 `json:"id"`
+	IsRefresh          bool  `json:"isRefresh"`
+	MaxSendVolume      int64 `json:"maxSendVolume"`
+	MaxSendAmount      int64 `json:"maxSendAmount"`
+	MaxReceiveVolume   int64 `json:"maxReceiveVolume"`
+	MaxReceiveAmount   int64 `json:"maxReceiveAmount"`
+	MaxAccountBalance  int64 `json:"maxAccountBalance"`
 	jwt.StandardClaims
 }
 
@@ -38,6 +43,11 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 		token := c.Get("UserJwt").(*jwt.Token)
 		claims := token.Claims.(*jwtCustomClaims)
 		c.Set("UserID", claims.ID)
+		c.Set("MaxSendVolume", claims.MaxSendVolume)
+		c.Set("MaxSendAmount", claims.MaxSendAmount)
+		c.Set("MaxReceiveVolume", claims.MaxReceiveVolume)
+		c.Set("MaxReceiveAmount", claims.MaxReceiveAmount)
+		c.Set("MaxAccountBalance", claims.MaxAccountBalance)
 		// pass UserID to sentry for exception notifications
 		if hub := sentryecho.GetHubFromContext(c); hub != nil {
 			hub.Scope().SetUser(sentry.User{ID: strconv.FormatInt(claims.ID, 10)})

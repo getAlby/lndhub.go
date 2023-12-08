@@ -90,7 +90,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
 
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c.Request().Context(), lnPayReq, userID)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}
