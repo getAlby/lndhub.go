@@ -268,7 +268,7 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 
 	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
 	if invoiceType != "" {
-		query.Where("type = ? AND state <> ?", invoiceType, common.InvoiceStateInitialized)
+		query.Where("type = ? AND state NOT IN(?, ?)", invoiceType, common.InvoiceStateInitialized, common.InvoiceStateError)
 	}
 	query.OrderExpr("id DESC").Limit(100)
 	err := query.Scan(ctx)
