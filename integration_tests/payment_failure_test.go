@@ -130,7 +130,7 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 
 	userId := getUserIdFromToken(suite.userToken)
 
-	invoices, err := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeOutgoing)
+	invoices, err := invoicesFor(suite.service, userId, common.InvoiceTypeOutgoing)
 	if err != nil {
 		fmt.Printf("Error when getting invoices %v\n", err.Error())
 	}
