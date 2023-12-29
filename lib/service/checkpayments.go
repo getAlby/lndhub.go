@@ -71,16 +71,22 @@ func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id
 		return entry, err
 	}
 	err = svc.DB.NewSelect().Model(&feeReserveEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeFeeReserve).Limit(1).Scan(ctx)
-	if err != nil {
+	// The fee reserve transaction entry is optional thus we ignore NoRow errors.
+	if err != nil && err != sql.ErrNoRows {
 		return entry, err
 	}
-	entry.FeeReserve = &feeReserveEntry
+	if err != nil {
+		entry.FeeReserve = &feeReserveEntry
+	}
 
 	err = svc.DB.NewSelect().Model(&serviceFeeEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeServiceFee).Limit(1).Scan(ctx)
-	if err != nil {
+	// The service fee transaction entry is optional thus we ignore NoRow errors.
+	if err != nil && err != sql.ErrNoRows {
 		return entry, err
 	}
-	entry.ServiceFee = &serviceFeeEntry
+	if err != nil {
+		entry.ServiceFee = &serviceFeeEntry
+	}
 
 	return entry, err
 }
