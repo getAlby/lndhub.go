@@ -408,7 +408,7 @@ func (svc *LndhubService) AddRoutingFeeEntry(ctx context.Context, entry *models.
 		// if there was no fee reserve then this is an internal payment
 		// and no fee entry is needed
 		// if there is a fee reserve then we must use the same account id's
-		lnFeeEntry := models.TransactionEntry{
+		routingFeeEntry := models.TransactionEntry{
 			UserID:          invoice.UserID,
 			InvoiceID:       invoice.ID,
 			CreditAccountID: entry.FeeReserve.CreditAccountID,
@@ -417,7 +417,7 @@ func (svc *LndhubService) AddRoutingFeeEntry(ctx context.Context, entry *models.
 			ParentID:        entry.ID,
 			EntryType:       models.EntryTypeFee,
 		}
-		_, err = tx.NewInsert().Model(&lnFeeEntry).Exec(ctx)
+		_, err = tx.NewInsert().Model(&routingFeeEntry).Exec(ctx)
 		return err
 	}
 	return nil
