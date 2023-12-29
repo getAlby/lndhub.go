@@ -89,7 +89,11 @@ func TestCalcServiceFeeWithFreeAmounts(t *testing.T) {
 	var serviceFee int64
 	svc.Config.ServiceFee = 5
 	svc.Config.NoServiceFeeUpToAmount = 2121
+
 	serviceFee = svc.CalcServiceFee(2100)
+	assert.Equal(t, int64(0), serviceFee)
+
+	serviceFee = svc.CalcServiceFee(2121)
 	assert.Equal(t, int64(0), serviceFee)
 
 	serviceFee = svc.CalcServiceFee(2122)

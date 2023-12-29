@@ -232,7 +232,7 @@ func (svc *LndhubService) CalcServiceFee(amount int64) int64 {
 	if svc.Config.ServiceFee == 0 {
 		return 0
 	}
-	if svc.Config.NoServiceFeeUpToAmount != 0 && amount < int64(svc.Config.NoServiceFeeUpToAmount) {
+	if svc.Config.NoServiceFeeUpToAmount != 0 && amount <= int64(svc.Config.NoServiceFeeUpToAmount) {
 		return 0
 	}
 	serviceFee := int64(math.Ceil(float64(amount) * float64(svc.Config.ServiceFee) / 1000.0))
