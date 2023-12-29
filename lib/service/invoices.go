@@ -235,11 +235,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// The payment was successful.
 	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	invoice.RoutingFee = paymentResponse.PaymentRoute.TotalFees
-	if entry.ServiceFee != nil {
-		invoice.ServiceFee = entry.ServiceFee.Amount
-	}
-	invoice.Fee = invoice.RoutingFee + invoice.ServiceFee
+	invoice.SetFee(entry, paymentResponse.PaymentRoute.TotalFees)
 	invoice.RHash = paymentResponse.PaymentHashStr
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err

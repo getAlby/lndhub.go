@@ -35,6 +35,14 @@ type Invoice struct {
 	SettledAt                bun.NullTime      `json:"settled_at"`
 }
 
+func (i *Invoice) SetFee(txEntry TransactionEntry, routingFee int64) {
+	i.RoutingFee = routingFee
+	i.Fee = routingFee
+	if txEntry.ServiceFee != nil {
+		i.Fee += txEntry.ServiceFee.Amount
+	}
+}
+
 func (i *Invoice) BeforeAppendModel(ctx context.Context, query bun.Query) error {
 	switch query.(type) {
 	case *bun.UpdateQuery:
