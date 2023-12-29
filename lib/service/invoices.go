@@ -337,6 +337,7 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 			DebitAccountID:  debitAccount.ID,
 			Amount:          feeLimit,
 			EntryType:       models.EntryTypeFeeReserve,
+			ParentID:        entry.ID,
 		}
 		_, err = tx.NewInsert().Model(&feeReserveEntry).Exec(ctx)
 		if err != nil {
@@ -352,6 +353,7 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 			DebitAccountID:  debitAccount.ID,
 			Amount:          serviceFee,
 			EntryType:       models.EntryTypeServiceFee,
+			ParentID:        entry.ID,
 		}
 		_, err = tx.NewInsert().Model(&serviceFeeEntry).Exec(ctx)
 		if err != nil {
