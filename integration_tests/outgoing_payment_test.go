@@ -114,7 +114,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	assert.Equal(suite.T(), transactionEntries[1].ID, transactionEntries[5].ParentID)
 	assert.Equal(suite.T(), transactionEntries[1].ID, transactionEntries[3].ParentID)
 
-	//fetch transactions, make sure the fee is there
+	// fetch transactions, make sure the fee is there
 	// check invoices again
 	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
