@@ -170,21 +170,6 @@ func (suite *PaymentTestErrorsSuite) TestExternalFailingInvoice() {
 	//  - [6] outgoing_reversal
 	//
 
-	fmt.Printf("%v", transactionEntries[0])
-	fmt.Println("")
-	fmt.Printf("%v", transactionEntries[1])
-	fmt.Println("")
-	fmt.Printf("%v", transactionEntries[2])
-	fmt.Println("")
-	fmt.Printf("%v", transactionEntries[3])
-	fmt.Println("")
-	fmt.Printf("%v", transactionEntries[4])
-	fmt.Println("")
-	fmt.Printf("%v", transactionEntries[5])
-	fmt.Println("")
-	fmt.Printf("%v", transactionEntries[6])
-	fmt.Println("")
-
 	assert.Equal(suite.T(), 7, len(transactionEntries))
 
 	// the incoming funding
