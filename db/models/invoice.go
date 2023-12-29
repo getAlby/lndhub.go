@@ -39,6 +39,7 @@ func (i *Invoice) SetFee(txEntry TransactionEntry, routingFee int64) {
 	i.RoutingFee = routingFee
 	i.Fee = routingFee
 	if txEntry.ServiceFee != nil {
+		i.ServiceFee = txEntry.ServiceFee.Amount
 		i.Fee += txEntry.ServiceFee.Amount
 	}
 }

@@ -99,3 +99,17 @@ func TestCalcServiceFeeWithFreeAmounts(t *testing.T) {
 	serviceFee = svc.CalcServiceFee(2122)
 	assert.Equal(t, int64(11), serviceFee)
 }
+
+func TestSetFeeOnInvoice(t *testing.T) {
+	invoice := &models.Invoice{
+		Amount: 500,
+	}
+	entry := &models.TransactionEntry{}
+	entry.ServiceFee = &models.TransactionEntry{
+		Amount: 42,
+	}
+	invoice.SetFee(*entry, 21)
+	assert.Equal(t, int64(21), invoice.RoutingFee)
+	assert.Equal(t, int64(42), invoice.ServiceFee)
+	assert.Equal(t, int64(63), invoice.Fee)
+}
