@@ -235,7 +235,11 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// The payment was successful.
 	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
+	invoice.RoutingFee = paymentResponse.PaymentRoute.TotalFees
+	if entry.ServiceFee != nil {
+		invoice.ServiceFee = entry.ServiceFee.Amount
+	}
+	invoice.Fee = invoice.RoutingFee + invoice.ServiceFee
 	invoice.RHash = paymentResponse.PaymentHashStr
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
@@ -256,6 +260,13 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+	//revert the service fee if necessary
+	err = svc.RevertServiceFee(ctx, &entryToRevert, invoice, tx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert service fee entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
@@ -318,8 +329,10 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 		return entry, err
 	}
 
-	//if external payment: add fee reserve to entry
+	// add fee entries (fee reserve and service fee)
 	feeLimit := svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
+	serviceFee := svc.CalcServiceFee(invoice.Amount)
+
 	if feeLimit != 0 {
 		feeReserveEntry := models.TransactionEntry{
 			UserID:          invoice.UserID,
@@ -334,6 +347,21 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 			return entry, err
 		}
 		entry.FeeReserve = &feeReserveEntry
+	}
+	if serviceFee != 0 {
+		serviceFeeEntry := models.TransactionEntry{
+			UserID:          invoice.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: feeAccount.ID,
+			DebitAccountID:  debitAccount.ID,
+			Amount:          serviceFee,
+			EntryType:       models.EntryTypeServiceFee,
+		}
+		_, err = tx.NewInsert().Model(&serviceFeeEntry).Exec(ctx)
+		if err != nil {
+			return entry, err
+		}
+		entry.ServiceFee = &serviceFeeEntry
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -359,22 +387,39 @@ func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.Tr
 	return nil
 }
 
-func (svc *LndhubService) AddFeeEntry(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
+func (svc *LndhubService) RevertServiceFee(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
+	if entry.ServiceFee != nil {
+		entryToRevert := entry.ServiceFee
+		serviceFeeRevert := models.TransactionEntry{
+			UserID:          entryToRevert.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: entryToRevert.DebitAccountID,
+			DebitAccountID:  entryToRevert.CreditAccountID,
+			Amount:          entryToRevert.Amount,
+			EntryType:       models.EntryTypeServiceFeeReversal,
+		}
+		_, err = tx.NewInsert().Model(&serviceFeeRevert).Exec(ctx)
+		return err
+	}
+	return nil
+}
+
+func (svc *LndhubService) AddRoutingFeeEntry(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
 	if entry.FeeReserve != nil {
 		// add transaction entry for fee
 		// if there was no fee reserve then this is an internal payment
 		// and no fee entry is needed
 		// if there is a fee reserve then we must use the same account id's
-		entry := models.TransactionEntry{
+		lnFeeEntry := models.TransactionEntry{
 			UserID:          invoice.UserID,
 			InvoiceID:       invoice.ID,
 			CreditAccountID: entry.FeeReserve.CreditAccountID,
 			DebitAccountID:  entry.FeeReserve.DebitAccountID,
-			Amount:          int64(invoice.Fee),
+			Amount:          int64(invoice.RoutingFee),
 			ParentID:        entry.ID,
 			EntryType:       models.EntryTypeFee,
 		}
-		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+		_, err = tx.NewInsert().Model(&lnFeeEntry).Exec(ctx)
 		return err
 	}
 	return nil
@@ -408,7 +453,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	}
 
 	//add the real fee entry
-	err = svc.AddFeeEntry(ctx, &parentEntry, invoice, tx)
+	err = svc.AddRoutingFeeEntry(ctx, &parentEntry, invoice, tx)
 	if err != nil {
 		tx.Rollback()
 		sentry.CaptureException(err)
@@ -464,7 +509,7 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 		}
 		pHash := sha256.New()
 		pHash.Write(preImage)
-	
+
 		invoice.RHash = hex.EncodeToString(pHash.Sum(nil))
 		invoice.Preimage = hex.EncodeToString(preImage)
 	}

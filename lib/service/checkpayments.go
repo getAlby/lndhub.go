@@ -54,6 +54,7 @@ func (svc *LndhubService) CheckPendingOutgoingPayments(ctx context.Context, pend
 func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id int64) (models.TransactionEntry, error) {
 	entry := models.TransactionEntry{}
 	feeReserveEntry := models.TransactionEntry{}
+	serviceFeeEntry := models.TransactionEntry{}
 
 	err := svc.DB.NewSelect().Model(&entry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeOutgoing).Limit(1).Scan(ctx)
 	if err != nil {
@@ -74,6 +75,13 @@ func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id
 		return entry, err
 	}
 	entry.FeeReserve = &feeReserveEntry
+
+	err = svc.DB.NewSelect().Model(&serviceFeeEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeServiceFee).Limit(1).Scan(ctx)
+	if err != nil {
+		return entry, err
+	}
+	entry.ServiceFee = &serviceFeeEntry
+
 	return entry, err
 }
 
