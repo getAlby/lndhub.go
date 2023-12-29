@@ -75,7 +75,7 @@ func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return entry, err
 	}
-	if err != nil {
+	if err == nil {
 		entry.FeeReserve = &feeReserveEntry
 	}
 
@@ -84,11 +84,11 @@ func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return entry, err
 	}
-	if err != nil {
+	if err == nil {
 		entry.ServiceFee = &serviceFeeEntry
 	}
 
-	return entry, err
+	return entry, nil
 }
 
 // Should be called in a goroutine as the tracking can potentially take a long time
