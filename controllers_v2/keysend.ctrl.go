@@ -229,7 +229,15 @@ func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody 
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(ctx, invoice)
 	if err != nil {
-		controller.svc.Logger.Errorf("Payment failed: user_id:%v error: %v", userID, err)
+		controller.svc.Logger.Errorj(
+			log.JSON{
+				"message": 	"payment failed",
+				"error": err,
+				"lndhub_user_id": userID,
+				"invoice_id": invoice.ID,
+				"destination_pubkey_hex": invoice.DestinationPubkeyHex,
+			},
+		)
 		sentry.CaptureException(err)
 		return nil, &responses.ErrorResponse{
 			Error:   true,
