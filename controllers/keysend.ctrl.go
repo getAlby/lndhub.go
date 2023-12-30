@@ -111,8 +111,10 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorj(
 			log.JSON{
 				"message": 	"payment failed",
-				"lndhub_user_id": userID,
 				"error": err,
+				"lndhub_user_id": userID,
+				"invoice_id": invoice.ID,
+				"destination_pubkey_hex": invoice.DestinationPubkeyHex,
 			},
 		)
 		sentry.CaptureException(err)
