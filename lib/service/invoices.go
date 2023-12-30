@@ -403,11 +403,7 @@ func (svc *LndhubService) RevertServiceFee(ctx context.Context, entry *models.Tr
 }
 
 func (svc *LndhubService) AddRoutingFeeEntry(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
-	if entry.FeeReserve != nil {
-		// add transaction entry for fee
-		// if there was no fee reserve then this is an internal payment
-		// and no fee entry is needed
-		// if there is a fee reserve then we must use the same account id's
+	if invoice.RoutingFee != 0 {
 		routingFeeEntry := models.TransactionEntry{
 			UserID:          invoice.UserID,
 			InvoiceID:       invoice.ID,
