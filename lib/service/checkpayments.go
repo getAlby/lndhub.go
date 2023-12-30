@@ -139,6 +139,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 		if payment.Status == lnrpc.Payment_SUCCEEDED {
 			invoice.SetFee(entry, payment.FeeSat)
 			invoice.Preimage = payment.PaymentPreimage
+			invoice.RHash = payment.PaymentHash
 			svc.Logger.Infof("Completed payment detected: hash %s", payment.PaymentHash)
 			err = svc.HandleSuccessfulPayment(ctx, invoice, entry)
 			if err != nil {
