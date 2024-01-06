@@ -125,7 +125,7 @@ func main() {
 					}
 					messageJson := map[string]interface{}{
 						"message":        "reconciliation: potential missing invoice",
-						"r_hash":         hex.EncodeToString(lndInvoice.RHash),
+						"payment_hash":   hex.EncodeToString(lndInvoice.RHash),
 						"keysend":        lndInvoice.IsKeysend,
 						"custom_records": firstHtlc.CustomRecords,
 					}
