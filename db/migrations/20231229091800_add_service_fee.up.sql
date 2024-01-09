@@ -1,5 +1,5 @@
-alter table invoices ADD COLUMN service_fee bigint default 0;
-alter table invoices ADD COLUMN routing_fee bigint default 0;
+alter table invoices ADD COLUMN IF NOT EXISTS service_fee bigint default 0;
+alter table invoices ADD COLUMN IF NOT EXISTS routing_fee bigint default 0;
 
 -- maybe manually migrate existing data?
 -- alter table invoices ALTER COLUMN fee SET DEFAULT 0;
