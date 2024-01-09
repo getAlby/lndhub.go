@@ -78,7 +78,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 	return user, err
 }
 
-func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *string, password *string, deactivated *bool) (user *models.User, err error) {
+func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *string, password *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
 	user, err = svc.FindUser(ctx, userId)
 	if err != nil {
 		return nil, err
@@ -98,6 +98,14 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *s
 	}
 	if deactivated != nil {
 		user.Deactivated = *deactivated
+	}
+	// if a user gets deleted we mark it as deactivated and deleted
+	// un-deleting it is not supported currently
+	if deleted != nil {
+		if *deleted == true {
+			user.Deactivated = true
+			user.Deleted = true
+		}
 	}
 	_, err = svc.DB.NewUpdate().Model(user).WherePK().Exec(ctx)
 	if err != nil {
