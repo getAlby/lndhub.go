@@ -183,6 +183,9 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
 	}
+	if svc.Config.ServiceFee != 0 {
+		minimumBalance += svc.CalcServiceFee(lnpayReq.PayReq.NumSatoshis)
+	}
 	if currentBalance < minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
 	}
@@ -237,6 +240,16 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 	}
 
 	return nil, nil
+}
+func (svc *LndhubService) CalcServiceFee(amount int64) int64 {
+	if svc.Config.ServiceFee == 0 {
+		return 0
+	}
+	if svc.Config.NoServiceFeeUpToAmount != 0 && amount <= int64(svc.Config.NoServiceFeeUpToAmount) {
+		return 0
+	}
+	serviceFee := int64(math.Ceil(float64(amount) * float64(svc.Config.ServiceFee) / 1000.0))
+	return serviceFee
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
