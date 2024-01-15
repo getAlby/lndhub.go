@@ -79,7 +79,7 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	var invoice models.Invoice
 	rHashStr := hex.EncodeToString(rawInvoice.RHash)
 
-	svc.Logger.Infof("Invoice update: r_hash:%s state:%v", rHashStr, rawInvoice.State.String())
+	svc.Logger.Infof("Invoice update: r_hash:%s state:%v add_index:%v amount:%v", rHashStr, rawInvoice.State.String(), rawInvoice.AddIndex, rawInvoice.AmtPaidSat)
 
 	//Check if it's a keysend payment
 	//If it is, an invoice will be created on-the-fly
