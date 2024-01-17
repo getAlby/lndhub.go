@@ -26,7 +26,7 @@ jobs:
         repository: getalby/alby-deployment
         path: infrastructure
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-    # Always update dev environment
+    # Always update dev environment.
     - name: Update dev environment
       if: ${{ github.ref == 'refs/heads/main' }}
       uses: fjogeleit/yaml-update-action@v0.7.0
