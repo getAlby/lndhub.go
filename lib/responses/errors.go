@@ -60,35 +60,35 @@ var InvoiceExpiredError = ErrorResponse{
 var NotEnoughBalanceError = ErrorResponse{
 	Error:          true,
 	Code:           2,
-	Message:        "not enough balance. Make sure you have at least 1% reserved for potential fees",
+	Message:        "Not enough balance. Make sure you have at least 1% reserved for potential fees",
 	HttpStatusCode: 400,
 }
 
 var ReceiveExceededError = ErrorResponse{
 	Error:          true,
 	Code:           2,
-	Message:        "max receive amount exceeded. please contact support for further assistance.",
+	Message:        "Max receive amount exceeded. Please read more at getalby.com/usage.",
 	HttpStatusCode: 400,
 }
 
 var BalanceExceededError = ErrorResponse{
 	Error:          true,
 	Code:           2,
-	Message:        "max account balance exceeded. please contact support for further assistance.",
+	Message:        "Max account balance exceeded. Please read more at getalby.com/usage.",
 	HttpStatusCode: 400,
 }
 
 var TooMuchVolumeError = ErrorResponse{
 	Error:          true,
 	Code:           2,
-	Message:        "transaction volume too high. please contact support for further assistance.",
+	Message:        "Transaction volume too high. Please read more at getalby.com/usage.",
 	HttpStatusCode: 400,
 }
 
 var SendExceededError = ErrorResponse{
 	Error:          true,
 	Code:           2,
-	Message:        "max send amount exceeded. please contact support for further assistance.",
+	Message:        "Max send amount exceeded. Please read more at getalby.com/usage.",
 	HttpStatusCode: 400,
 }
 
