@@ -83,6 +83,11 @@ lncli bakemacaroon --save_to=lndhub.macaroon info:read invoices:read invoices:wr
 ```
 
 ## Developing
+Start a Database with Docker (tested MacOS), ensure Docker engine is running.
+```
+  chmod +x ./dev/init_db.sh
+  ./dev/init_db.sh
+```
 To run the server
 ```shell
 go run cmd/server/main.go
