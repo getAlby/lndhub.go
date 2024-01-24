@@ -48,12 +48,14 @@ CREATE TABLE accounts (
 --bun:split
 CREATE TABLE assets (
     id SERIAL PRIMARY KEY,
-    asset_id bigint NOT NULL,
+    asset_id character varying NOT NULL,
     asset_name character varying NOT NULL,
-    asset_type character varying NOT NULL,
+    asset_type int DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone
 );
+--bun:split
+INSERT INTO assets(id, asset_id, asset_name)SELECT 1, 'BTC', 'bitcoin' WHERE NOT EXISTS (SELECT id FROM assets WHERE id = 1);
 --bun:split
 CREATE TABLE transaction_entries (
     id SERIAL PRIMARY KEY,
