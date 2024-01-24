@@ -169,15 +169,23 @@ The V2 API has an endpoint to make multiple keysend payments with 1 request, whi
 Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
                    │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
 Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-four accounts
+three accounts, per
+asset.                 
+                             
+All users have one set of four
+accounts for bitcoin, where the fourth static account is for onchain fees.
+
+Accounts for (x):  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  
+                   │ Incoming (x) |  │  Current (x) │  │ Outgoing (x) |  
+                   └──────────────┘  └──────────────┘  └──────────────┘  
 
                     Every Transaction Entry is associated to one debit account and one
                                              credit account
 
                                           ┌────────────────────────┐
-                                          │Transaction Entry       │
-                                          │                        │
-                                          │+ user_id               │
+            [---------]                   │Transaction Entry       │
+            |  (x)    |                   │                        │
+            [---------]                   │+ user_id               │
             ┌────────────┐                │+ invoice_id            │
             │  Invoice   │────────────────▶+ debit_account_id      │
             └────────────┘                │+ credit_account_id     │

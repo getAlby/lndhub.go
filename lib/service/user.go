@@ -40,8 +40,8 @@ func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string, passwor
 			common.AccountTypeFees,
 		}
 		for _, accountType := range accountTypes {
-			// TODO - models.Account needs to be expanded for an asset ID
-			account := models.Account{UserID: user.ID, Type: accountType}
+			// * NOTE - initial set of accounts are assigned to bitcoin, per the Assets table
+			account := models.Account{UserID: user.ID, Type: accountType, AssetID: common.BTC_INTERNAL_ASSET_ID}
 			if _, err := tx.NewInsert().Model(&account).Exec(ctx); err != nil {
 				return err
 			}
