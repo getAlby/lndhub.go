@@ -10,6 +10,7 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 	// TODO: v2 auth endpoint: generalized oauth token generation
 	// e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	if svc.Config.AllowAccountCreation {
+		/// TAHUB_CREATE_USER / N.S. register modified endpoint
 		e.POST("/v2/users", v2controllers.NewCreateUserController(svc).CreateUser, strictRateLimitMiddleware, adminMw, logMw)
 	}
 	//require admin token for update user endpoint

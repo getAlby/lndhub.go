@@ -27,7 +27,7 @@ vim .env # edit your config
 
 ### Available configuration
 
-+ `DATABASE_URI`: The URI for the database. (eg. `postgresql://user:password@localhost:5432/lndhub?sslmode=disable`)
++ `DATABASE_URI`: The URI for the database. (eg. `postgresql://user:password@localhost:5432/tahub?sslmode=disable`)
 + `JWT_SECRET`: We use [JWT](https://jwt.io/) for access tokens. Configure your secret here
 + `JWT_ACCESS_EXPIRY`: How long the access tokens should be valid (in seconds, default 2 days)
 + `JWT_REFRESH_EXPIRY`: How long the refresh tokens should be valid (in seconds, default 7 days)

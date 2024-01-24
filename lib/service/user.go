@@ -19,38 +19,38 @@ import (
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
 
-func (svc *LndhubService) CreateUser(ctx context.Context, login string, password string) (user *models.User, err error) {
+func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *models.User, err error) {
 
 	user = &models.User{}
 
 	// generate user login/password if not provided
 	user.Login = login
-	if login == "" {
-		randLoginBytes, err := randBytesFromStr(20, alphaNumBytes)
-		if err != nil {
-			return nil, err
-		}
-		user.Login = string(randLoginBytes)
-	}
+	// if login == "" {
+	// 	randLoginBytes, err := randBytesFromStr(20, alphaNumBytes)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	user.Login = string(randLoginBytes)
+	// }
 
-	if password == "" {
-		randPasswordBytes, err := randBytesFromStr(20, alphaNumBytes)
-		if err != nil {
-			return nil, err
-		}
-		password = string(randPasswordBytes)
-	} else {
-		if svc.Config.MinPasswordEntropy > 0 {
-			entropy := passwordvalidator.GetEntropy(password)
-			if entropy < float64(svc.Config.MinPasswordEntropy) {
-				return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
-			}
-		}
-	}
+	// if password == "" {
+	// 	randPasswordBytes, err := randBytesFromStr(20, alphaNumBytes)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	password = string(randPasswordBytes)
+	// } else {
+	// 	if svc.Config.MinPasswordEntropy > 0 {
+	// 		entropy := passwordvalidator.GetEntropy(password)
+	// 		if entropy < float64(svc.Config.MinPasswordEntropy) {
+	// 			return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
+	// 		}
+	// 	}
+	// }
 
 	// we only store the hashed password but return the initial plain text password in the HTTP response
-	hashedPassword := security.HashPassword(password)
-	user.Password = hashedPassword
+	//hashedPassword := security.HashPassword(password)
+	//user.Password = hashedPassword
 
 	// Create user and the user's accounts
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
@@ -66,6 +66,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 			common.AccountTypeFees,
 		}
 		for _, accountType := range accountTypes {
+			// TODO - models.Account needs to be expanded for an asset ID
 			account := models.Account{UserID: user.ID, Type: accountType}
 			if _, err := tx.NewInsert().Model(&account).Exec(ctx); err != nil {
 				return err
@@ -74,7 +75,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 		return nil
 	})
 	//return actual password in the response, not the hashed one
-	user.Password = password
+	//user.Password = password
 	return user, err
 }
 
