@@ -18,14 +18,10 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 }
 
 type CreateUserResponseBody struct {
-	// Login    string `json:"login"`
-	// Password string `json:"password"`
 	ID       int64  `json:"id"`
 	Pubkey   string `json:"pubkey"`
 }
 type CreateUserRequestBody struct {
-	// Login    string `json:"login"`
-	// Password string `json:"password"`
 	Pubkey   string `json:"pubkey"`
 }
 
@@ -55,8 +51,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 	}
 
 	var ResponseBody CreateUserResponseBody
-	ResponseBody.Login = user.Login
-	ResponseBody.Password = user.Password
+	ResponseBody.Pubkey = user.Pubkey
 	ResponseBody.ID = user.ID
 
 	return c.JSON(http.StatusOK, &ResponseBody)
