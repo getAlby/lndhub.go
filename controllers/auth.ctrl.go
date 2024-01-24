@@ -21,7 +21,7 @@ func NewAuthController(svc *service.LndhubService) *AuthController {
 }
 
 type AuthRequestBody struct {
-	Login        string `json:"login"`
+	Pubkey       string `json:"pubkey"`
 	Password     string `json:"password"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -59,7 +59,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	if body.Login == "" || body.Password == "" {
+	if body.Pubkey == "" || body.Password == "" {
 		// To support Swagger we also look in the Form data
 		params, err := c.FormParams()
 		if err != nil {
@@ -71,21 +71,21 @@ func (controller *AuthController) Auth(c echo.Context) error {
 			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
-		login := params.Get("login")
+		pubkey := params.Get("pubkey")
 		password := params.Get("password")
-		if login != "" && password != "" {
-			body.Login = login
+		if pubkey != "" && password != "" {
+			body.Pubkey = pubkey
 			body.Password = password
 		}
 	}
 
-	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
+	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Pubkey, body.Password, body.RefreshToken)
 	if err != nil {
 		if err.Error() == responses.AccountDeactivatedError.Message {
 			c.Logger().Errorj(
 				log.JSON{
 					"message":    "account deactivated",
-					"user_login": body.Login,
+					"user_pubkey": body.Pubkey,
 				},
 			)
 			return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
@@ -93,7 +93,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		c.Logger().Errorj(
 			log.JSON{
 				"message":    "authentication error",
-				"user_login": body.Login,
+				"user_pubkey": body.Pubkey,
 				"error":      err,
 			},
 		)

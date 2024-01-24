@@ -448,7 +448,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
 		Memo:        memo,
 		//add memo as WHATSAT_MESSAGE custom record
 		CustomRecords: map[string]string{fmt.Sprint(service.TLV_WHATSAT_MESSAGE): memo,
-			fmt.Sprint(service.TLV_WALLET_ID): suite.bobLogin.Login},
+			fmt.Sprint(service.TLV_WALLET_ID): suite.bobLogin.Pubkey},
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/keysend", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

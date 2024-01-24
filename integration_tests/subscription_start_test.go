@@ -68,7 +68,7 @@ func (suite *SubscriptionStartTestSuite) TestAddIndex() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	user, err := suite.service.FindUserByLogin(ctx, suite.userLogin.Login)
+	user, err := suite.service.FindUserByPubkey(ctx, suite.userLogin.Pubkey)
 	assert.NoError(suite.T(), err)
 	//add invoice to database that is already expired
 	expiry := time.Hour * 24

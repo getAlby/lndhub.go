@@ -8,6 +8,7 @@ import (
 type User struct {
 	ID          int64          `bun:",pk,autoincrement"`
 	Pubkey      string         `bun:",unique,notnull"`
+	Password    string         `bun:",unique"`
 	Accounts    []*Account `bun:"rel:has-many,join:id=user_id"`
 	Invoices    []*Invoice `bun:"rel:has-many,join:id=user_id"`
 	Deactivated bool

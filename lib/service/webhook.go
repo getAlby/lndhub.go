@@ -62,7 +62,7 @@ func (svc *LndhubService) postToWebhook(invoice models.Invoice, url string) {
 type WebhookInvoicePayload struct {
 	ID                       int64             `json:"id"`
 	Type                     string            `json:"type"`
-	UserLogin                string            `json:"user_login"`
+	UserPubkey               string            `json:"user_pubkey"`
 	Amount                   int64             `json:"amount"`
 	Fee                      int64             `json:"fee"`
 	Memo                     string            `json:"memo"`
@@ -111,7 +111,7 @@ func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookIn
 	return WebhookInvoicePayload{
 		ID:                       invoice.ID,
 		Type:                     invoice.Type,
-		UserLogin:                user.Login,
+		UserPubkey:                user.Pubkey,
 		Amount:                   invoice.Amount,
 		Fee:                      invoice.Fee,
 		Memo:                     invoice.Memo,
