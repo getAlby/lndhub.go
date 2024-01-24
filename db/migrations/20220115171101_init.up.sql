@@ -32,30 +32,33 @@ CREATE TABLE invoices (
         REFERENCES users(id)
         ON DELETE CASCADE
 );
-
---bun:split
-
-CREATE TABLE accounts (
-    id SERIAL PRIMARY KEY,
-    user_id bigint NOT NULL,
-    type character varying NOT NULL,
-    CONSTRAINT fk_user
-        FOREIGN KEY(user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-
 --bun:split
 CREATE TABLE assets (
     id SERIAL PRIMARY KEY,
-    asset_id character varying NOT NULL,
+    ta_asset_id character varying NOT NULL,
     asset_name character varying NOT NULL,
     asset_type int DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone
 );
 --bun:split
-INSERT INTO assets(id, asset_id, asset_name)SELECT 1, 'BTC', 'bitcoin' WHERE NOT EXISTS (SELECT id FROM assets WHERE id = 1);
+INSERT INTO assets(id, ta_asset_id, asset_name) SELECT 1, 'BTC', 'bitcoin' WHERE NOT EXISTS (SELECT id FROM assets WHERE id = 1);
+--bun:split
+
+CREATE TABLE accounts (
+    id SERIAL PRIMARY KEY,
+    user_id bigint NOT NULL,
+    asset_id bigint NOT NULL,
+    type character varying NOT NULL,
+    CONSTRAINT fk_user
+        FOREIGN KEY(user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_asset
+        FOREIGN KEY(asset_id)
+        REFERENCES assets(id)
+        ON DELETE NO ACTION
+);
 --bun:split
 CREATE TABLE transaction_entries (
     id SERIAL PRIMARY KEY,
