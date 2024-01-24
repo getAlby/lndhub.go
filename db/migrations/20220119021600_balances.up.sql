@@ -1,3 +1,4 @@
+-- TODO factor in AssetID to account ledgers
 CREATE VIEW account_ledgers(
 	account_id,
 	transaction_entry_id,

@@ -18,8 +18,6 @@ func NewInvoiceController(svc *service.LndhubService) *InvoiceController {
 }
 
 func (controller *InvoiceController) Invoice(c echo.Context) error {
-	// TODO this requires extra care to transition 
-	// * what struct defines the Payload or Query Params that c.Param("user_login") comes from?
 	user, err := controller.svc.FindUserByPubkey(c.Request().Context(), c.Param("user_pubkey"))
 	if err != nil {
 		c.Logger().Errorf("Failed to find user by pubkey: pubkey %v error %v", c.Param("user_pubkey"), err)

@@ -1,7 +1,6 @@
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    email character varying UNIQUE,
-    login character varying NOT NULL UNIQUE,
+    pubkey character varying NOT NULL UNIQUE,
     password character varying NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone
@@ -47,7 +46,15 @@ CREATE TABLE accounts (
 );
 
 --bun:split
-
+CREATE TABLE assets (
+    id SERIAL PRIMARY KEY,
+    asset_id bigint NOT NULL,
+    asset_name character varying NOT NULL,
+    asset_type character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp with time zone
+);
+--bun:split
 CREATE TABLE transaction_entries (
     id SERIAL PRIMARY KEY,
     user_id bigint NOT NULL,
