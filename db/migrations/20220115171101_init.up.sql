@@ -51,7 +51,7 @@ CREATE TABLE assets (
     asset_id bigint NOT NULL,
     asset_name character varying NOT NULL,
     asset_type character varying NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone
 );
 --bun:split

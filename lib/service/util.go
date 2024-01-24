@@ -5,6 +5,13 @@ import (
 	"math/big"
 )
 
+type AssetType int64
+// https://lightning.engineering/api-docs/api/taproot-assets/universe/query-asset-stats#taprpcassettype
+const (
+	Normal     = 0
+	Collectible = 1
+)
+
 func randBytesFromStr(length int, from string) ([]byte, error) {
 	b := make([]byte, length)
 	fromLenBigInt := big.NewInt(int64(len(from)))

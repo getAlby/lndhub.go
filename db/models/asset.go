@@ -17,7 +17,7 @@ type Asset struct {
 	ID        int64     `bun:",pk,autoincrement"`
 	AssetID   string    `bun:",notnull"`
 	AssetName string    `bun:",notnull"`
-	AssetType string    `bun:",notnull"`
+	AssetType string    `bun:",notnull"` // https://lightning.engineering/api-docs/api/taproot-assets/universe/query-asset-stats#taprpcassettype
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt bun.NullTime 
 }
