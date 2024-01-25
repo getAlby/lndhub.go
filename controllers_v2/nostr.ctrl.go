@@ -8,13 +8,13 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// NoStrController : Add NoStr Event controller struct
-type NoStrController struct {
+// NostrController : Add NoStr Event controller struct
+type NostrController struct {
 	svc *service.LndhubService
 }
 
-func NewNoStrController(svc *service.LndhubService) *NoStrController {
-	return &NoStrController{svc: svc}
+func NewNostrController(svc *service.LndhubService) *NostrController {
+	return &NostrController{svc: svc}
 }
 
 
@@ -41,7 +41,7 @@ type AddNoStrResponseBody struct  {
 // @Failure      400      {object}  responses.ErrorResponse
 // @Failure      500      {object}  responses.ErrorResponse
 // @Router       /v2/event [post]
-func (controller *NoStrController) AddNoStrEvent(c echo.Context) error {
+func (controller *NostrController) AddNostrEvent(c echo.Context) error {
 	
 	var body AddNoStrResponseBody
 
