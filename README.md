@@ -175,7 +175,7 @@ three accounts, per
 asset.                 
                              
 All users have one set of four
-accounts for bitcoin, where the fourth static account is for onchain fees.
+accounts for bitcoin, where the fourth is a global account for onchain fees.
 
 Accounts for (x):  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  
                    │ Incoming (x) |  │  Current (x) │  │ Outgoing (x) |  
