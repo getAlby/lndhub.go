@@ -108,7 +108,15 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: user_id:%v error: %v", userID, err)
+		c.Logger().Errorj(
+			log.JSON{
+				"message": 	"payment failed",
+				"error": err,
+				"lndhub_user_id": userID,
+				"invoice_id": invoice.ID,
+				"destination_pubkey_hex": invoice.DestinationPubkeyHex,
+			},
+		)
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error":   true,

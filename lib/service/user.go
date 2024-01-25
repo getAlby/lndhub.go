@@ -53,7 +53,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string, passwor
 	return user, err
 }
 
-func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *string, password *string, deactivated *bool) (user *models.User, err error) {
+func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *string, password *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
 	user, err = svc.FindUser(ctx, userId)
 	if err != nil {
 		return nil, err
@@ -73,6 +73,14 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *
 	}
 	if deactivated != nil {
 		user.Deactivated = *deactivated
+	}
+	// if a user gets deleted we mark it as deactivated and deleted
+	// un-deleting it is not supported currently
+	if deleted != nil {
+		if *deleted == true {
+			user.Deactivated = true
+			user.Deleted = true
+		}
 	}
 	_, err = svc.DB.NewUpdate().Model(user).WherePK().Exec(ctx)
 	if err != nil {
@@ -123,7 +131,12 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 			return nil, err
 		}
 		if volume > limits.MaxSendVolume {
-			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
+			svc.Logger.Errorj(
+				log.JSON{
+					"message": 			"transaction volume exceeded",
+					"lndhub_user_id": 	userId,
+				},
+			)
 			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
 			return &responses.TooMuchVolumeError, nil
 		}
@@ -144,6 +157,9 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 	minimumBalance := lnpayReq.PayReq.NumSatoshis
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
+	}
+	if svc.Config.ServiceFee != 0 {
+		minimumBalance += svc.CalcServiceFee(lnpayReq.PayReq.NumSatoshis)
 	}
 	if currentBalance < minimumBalance {
 		return &responses.NotEnoughBalanceError, nil
@@ -199,6 +215,16 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 	}
 
 	return nil, nil
+}
+func (svc *LndhubService) CalcServiceFee(amount int64) int64 {
+	if svc.Config.ServiceFee == 0 {
+		return 0
+	}
+	if svc.Config.NoServiceFeeUpToAmount != 0 && amount <= int64(svc.Config.NoServiceFeeUpToAmount) {
+		return 0
+	}
+	serviceFee := int64(math.Ceil(float64(amount) * float64(svc.Config.ServiceFee) / 1000.0))
+	return serviceFee
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {

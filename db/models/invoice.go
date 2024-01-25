@@ -15,7 +15,9 @@ type Invoice struct {
 	User                     *User             `json:"-" bun:"rel:belongs-to,join:user_id=id"`
 	AssetID                  int64             `json:"-" bun:"rel:has-one,join:asset_id=id"`
 	Amount                   int64             `json:"amount" validate:"gte=0"`
-	Fee                      int64             `json:"fee" bun:",nullzero"`
+	Fee                      int64             `json:"fee"`
+	ServiceFee               int64             `json:"service_fee"`
+	RoutingFee               int64             `json:"routing_fee"`
 	Memo                     string            `json:"memo" bun:",nullzero"`
 	DescriptionHash          string            `json:"description_hash,omitempty" bun:",nullzero"`
 	PaymentRequest           string            `json:"payment_request" bun:",nullzero"`
@@ -32,6 +34,15 @@ type Invoice struct {
 	ExpiresAt                bun.NullTime      `json:"expires_at" bun:",nullzero"`
 	UpdatedAt                bun.NullTime      `json:"updated_at"`
 	SettledAt                bun.NullTime      `json:"settled_at"`
+}
+
+func (i *Invoice) SetFee(txEntry TransactionEntry, routingFee int64) {
+	i.RoutingFee = routingFee
+	i.Fee = routingFee
+	if txEntry.ServiceFee != nil {
+		i.ServiceFee = txEntry.ServiceFee.Amount
+		i.Fee += txEntry.ServiceFee.Amount
+	}
 }
 
 func (i *Invoice) BeforeAppendModel(ctx context.Context, query bun.Query) error {
