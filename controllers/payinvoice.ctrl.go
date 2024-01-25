@@ -105,7 +105,15 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)
+		c.Logger().Errorj(
+				log.JSON{
+				"message": 	"payment failed",
+				"error": err,
+				"lndhub_user_id": userID,
+				"invoice_id": invoice.ID,
+				"destination_pubkey_hex": invoice.DestinationPubkeyHex,
+			},
+		)
 		if hub := sentryecho.GetHubFromContext(c); hub != nil {
 			hub.WithScope(func(scope *sentry.Scope) {
 				scope.SetExtra("invoice_id", invoice.ID)

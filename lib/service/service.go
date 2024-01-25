@@ -60,7 +60,7 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 		}
 	}
 
-	if user.Deactivated {
+	if user.Deactivated || user.Deleted {
 		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
 	}
 
@@ -90,6 +90,7 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 		return 0, fmt.Errorf("conversion to int from %T not supported", v)
 	}
 }
+
 
 
 
@@ -241,7 +242,33 @@ func (svc *LndhubService) ValidateNosTREventPayload() echo.MiddlewareFunc {
 					"message": "Invalid event content",
 				})
 			}
+		}
+	}
+}
 
+func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			userId := c.Get("UserID").(int64)
+			if userId == 0 {
+				return echo.ErrUnauthorized
+			}
+			user, err := svc.FindUser(c.Request().Context(), userId)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
+				})
+			}
+			if user.Deactivated || user.Deleted {
+				return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
+				})
+			}
+			return next(c)
 		}
 	}
 }
