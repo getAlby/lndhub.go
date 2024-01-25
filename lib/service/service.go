@@ -92,105 +92,154 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 }
 
 
-func (svc *LndhubService) ValidateEventPayload () echo.MiddlewareFunc {
-	return func (next echo.HandlerFunc) echo.HandlerFunc {
-		return func (c echo.Context) error {
+
+func (svc *LndhubService) ValidateNosTREventPayload() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
 
 			// Validate Payload
-			var payload struct {
-				ID        string `json:"ID"`
-				Pubkey    string `json:"Pubkey"`
-				CreatedAt string `json:"CreatedAt"`
-				Kind      int    `json:"kind"`
-				Ta        string `json:"Ta"`
-				Amt       float64   `json:"Amt"`
-				Addr      string   `json:"addr"`
-				Fee       float64  `json:"fee"`
-				Content   string `json:"Content"`
-				Sig       string `json:"Sig"`
+			type Payload struct {
+				ID        string            `json:"ID"`
+				Pubkey    string            `json:"Pubkey"`
+				CreatedAt int64             `json:"CreatedAt"`
+				Kind      int               `json:"kind"`
+				Tags      [][]interface{}   `json:"tags"`
+				Content   string            `json:"Content"`
+				Sig       string            `json:"Sig"`
+				Addr      string            `json:"Addr"`
+				Fee       float64           `json:"Fee"`
 			}
 
-			if err := c.Bind(&payload); err != nil {
-				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-					"error":   true,
-					"code":    2,
-					"message": "Bad request payload",
-				})
-			}
+			var payload Payload
 
 			switch payload.Content {
-			case "TAHUB_CREATE_USER", "TAHUB_GET_BALANCES":
 			
+			case "TAHUB_CREATE_USER":
+
 				if payload.Kind != 1 {
 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 						"error":   true,
 						"code":    2,
-						"message": "Field 'Kind' must be 1",
+						"message": "Field 'kind' must be 1",
 					})
-					
 				}
-				return next((c))
+				return next(c)
+
+			case  "TAHUB_GET_BALANCES":
+
+				if payload.Kind != 1 {
+					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+						"error":   true,
+						"code":    2,
+						"message": "Field 'kind' must be 1",
+					})
+				}
+				return next(c)
+
 			case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
 				// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
 				if payload.Kind != 1 {
 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 						"error":   true,
 						"code":    2,
-						"message": "Field 'Kind' must be 1",
+						"message": "Field 'kind' must be 1",
 					})
 				}
-		
-				if len(payload.Ta) == 0 || payload.Ta == "" {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'ta' must exist and not be empty",
-					})
 					
-				}
-				if payload.Amt < 0 || payload.Amt != float64(int64(payload.Amt)) {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'amt' must be a positive integer (u64)",
-					})
-					
-				}
-				return next((c))
+				if len(payload.Tags) == 0 {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Field 'tags' must exist and not be empty",
+						})
+					}
+
+					// Check 'Ta' and 'Amt' in the 'tags' array
+					var taExists, amtExists bool
+					for _, tag := range payload.Tags {
+						if len(tag) == 2 {
+							key, ok := tag[0].(string)
+							if !ok {
+								continue
+							}
+							value, ok := tag[1].(string)
+							if !ok {
+								continue
+							}
+							if key == "ta" && value != "" {
+								taExists = true
+							} else if key == "amt" && value != "" {
+								amtExists = true
+							}
+						}
+					}
+
+					if !taExists || !amtExists {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Fields 'ta' and 'amt' must exist in 'tags' array with values",
+						})
+					}
+
+					return next(c)
+
 			case "TAHUB_SEND_ASSET":
 				// Validate specific fields for TAHUB_SEND_ASSET event
 				if payload.Kind != 1 {
 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 						"error":   true,
 						"code":    2,
-						"message": "Field 'Kind' must be 1",
+						"message": "Field 'kind' must be 1",
 					})
 				}
-		
-				if len(payload.Addr) == 0 || payload.Addr == "" {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'addr' must exist and not be empty",
-					})
-				// 	return errors.New("Field 'addr' must exist and not be empty")
-				}
-				if payload.Fee < 0 || payload.Fee != float64(int64(payload.Fee)) {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'fee' must be a positive integer (u64)",
-					})
-					// return errors.New("Field 'fee' must be a positive integer (u64)")
-				}
-				return next((c))
+					
+					if len(payload.Tags) == 0 {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Field 'tags' must exist and not be empty",
+						})
+					}
+			
+					// Check 'addr' and 'fee' in the 'tags' array
+					var addrExists, feeExists bool
+					for _, tag := range payload.Tags {
+						if len(tag) == 2 {
+							key, ok := tag[0].(string)
+							if !ok {
+								continue
+							}
+							switch key {
+							case "addr":
+								if value, ok := tag[1].(string); ok && value != "" {
+									addrExists = true
+								}
+							case "fee":
+								if value, ok := tag[1].(float64); ok && value != 0 {
+									feeExists = true
+								}
+							}
+						}
+					}
+			
+					if !addrExists || !feeExists {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Fields 'addr' and 'fee' must exist in 'tags' array and not be empty",
+						})
+					}
+			
+					return next(c)
+				
+			
 			default:
 				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 					"error":   true,
 					"code":    2,
 					"message": "Invalid event content",
 				})
-				
 			}
 
 		}

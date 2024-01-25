@@ -156,15 +156,13 @@ func main() {
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
 
 	// Appying the custom middleware to a Group
-	validateNostrPayload := e.Group("", svc.ValidateEventPayload(), logMw)
+	validateNostrPayload := e.Group("", svc.ValidateNosTREventPayload(), logMw)
 
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 
 	transport.RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
-	transport.RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
+	transport.RegisterV2Endpoints(svc, e, secured, validateNostrPayload, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 
-	// add it the transport layer
-	transport.RegisterNoStrevent(svc, e, validateNostrPayload)
 
 
 	//Swagger API spec
