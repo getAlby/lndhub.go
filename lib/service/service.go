@@ -91,6 +91,161 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 	}
 }
 
+
+
+
+func (svc *LndhubService) ValidateNosTREventPayload() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+
+			// Validate Payload
+			type Payload struct {
+				ID        string            `json:"ID"`
+				Pubkey    string            `json:"Pubkey"`
+				CreatedAt int64             `json:"CreatedAt"`
+				Kind      int               `json:"kind"`
+				Tags      [][]interface{}   `json:"tags"`
+				Content   string            `json:"Content"`
+				Sig       string            `json:"Sig"`
+				Addr      string            `json:"Addr"`
+				Fee       float64           `json:"Fee"`
+			}
+
+			var payload Payload
+
+			switch payload.Content {
+			
+			case "TAHUB_CREATE_USER":
+
+				if payload.Kind != 1 {
+					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+						"error":   true,
+						"code":    2,
+						"message": "Field 'kind' must be 1",
+					})
+				}
+				return next(c)
+
+			case  "TAHUB_GET_BALANCES":
+
+				if payload.Kind != 1 {
+					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+						"error":   true,
+						"code":    2,
+						"message": "Field 'kind' must be 1",
+					})
+				}
+				return next(c)
+
+			case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
+				// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
+				if payload.Kind != 1 {
+					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+						"error":   true,
+						"code":    2,
+						"message": "Field 'kind' must be 1",
+					})
+				}
+					
+				if len(payload.Tags) == 0 {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Field 'tags' must exist and not be empty",
+						})
+					}
+
+					// Check 'Ta' and 'Amt' in the 'tags' array
+					var taExists, amtExists bool
+					for _, tag := range payload.Tags {
+						if len(tag) == 2 {
+							key, ok := tag[0].(string)
+							if !ok {
+								continue
+							}
+							value, ok := tag[1].(string)
+							if !ok {
+								continue
+							}
+							if key == "ta" && value != "" {
+								taExists = true
+							} else if key == "amt" && value != "" {
+								amtExists = true
+							}
+						}
+					}
+
+					if !taExists || !amtExists {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Fields 'ta' and 'amt' must exist in 'tags' array with values",
+						})
+					}
+
+					return next(c)
+
+			case "TAHUB_SEND_ASSET":
+				// Validate specific fields for TAHUB_SEND_ASSET event
+				if payload.Kind != 1 {
+					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+						"error":   true,
+						"code":    2,
+						"message": "Field 'kind' must be 1",
+					})
+				}
+					
+					if len(payload.Tags) == 0 {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Field 'tags' must exist and not be empty",
+						})
+					}
+			
+					// Check 'addr' and 'fee' in the 'tags' array
+					var addrExists, feeExists bool
+					for _, tag := range payload.Tags {
+						if len(tag) == 2 {
+							key, ok := tag[0].(string)
+							if !ok {
+								continue
+							}
+							switch key {
+							case "addr":
+								if value, ok := tag[1].(string); ok && value != "" {
+									addrExists = true
+								}
+							case "fee":
+								if value, ok := tag[1].(float64); ok && value != 0 {
+									feeExists = true
+								}
+							}
+						}
+					}
+			
+					if !addrExists || !feeExists {
+						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+							"error":   true,
+							"code":    2,
+							"message": "Fields 'addr' and 'fee' must exist in 'tags' array and not be empty",
+						})
+					}
+			
+					return next(c)
+				
+			
+			default:
+				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+					"error":   true,
+					"code":    2,
+					"message": "Invalid event content",
+				})
+			}
+		}
+	}
+}
+
 func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
