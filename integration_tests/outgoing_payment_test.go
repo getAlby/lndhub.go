@@ -14,8 +14,10 @@ import (
 )
 
 func (suite *PaymentTestSuite) TestOutGoingPayment() {
+	suite.service.Config.ServiceFee = 1
 	aliceFundingSats := 1000
 	externalSatRequested := 500
+	expectedServiceFee := 1
 	// 1 sat + 1 ppm
 	suite.mlnd.fee = 1
 	//fund alice account
@@ -45,10 +47,10 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+int(suite.mlnd.fee)), aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+int(suite.mlnd.fee)+expectedServiceFee), aliceBalance)
 
 	// check that no additional transaction entry was created
-	transactonEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
+	transactionEntries, err := suite.service.TransactionEntriesFor(context.Background(), userId)
 	if err != nil {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
@@ -63,29 +65,56 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	assert.Equal(suite.T(), 1, len(outgoingInvoices))
 	assert.Equal(suite.T(), 1, len(incomingInvoices))
 
-	assert.Equal(suite.T(), 5, len(transactonEntries))
+	// check if there are 6 transaction entries:
+	//	- [0] incoming
+	//  - [1] outgoing
+	//  - [2] fee_reserve
+	//  - [3] service_fee
+	//  - [4] fee_reserve_reversal
+	//  - [5] fee
+	//
+	assert.Equal(suite.T(), 6, len(transactionEntries))
 
-	assert.Equal(suite.T(), int64(aliceFundingSats), transactonEntries[0].Amount)
-	assert.Equal(suite.T(), currentAccount.ID, transactonEntries[0].CreditAccountID)
-	assert.Equal(suite.T(), incomingAccount.ID, transactonEntries[0].DebitAccountID)
-	assert.Equal(suite.T(), int64(0), transactonEntries[0].ParentID)
-	assert.Equal(suite.T(), incomingInvoices[0].ID, transactonEntries[0].InvoiceID)
+	// the incoming funding
+	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntries[0].Amount)
+	assert.Equal(suite.T(), currentAccount.ID, transactionEntries[0].CreditAccountID)
+	assert.Equal(suite.T(), incomingAccount.ID, transactionEntries[0].DebitAccountID)
+	assert.Equal(suite.T(), int64(0), transactionEntries[0].ParentID)
+	assert.Equal(suite.T(), incomingInvoices[0].ID, transactionEntries[0].InvoiceID)
 
-	assert.Equal(suite.T(), int64(externalSatRequested), transactonEntries[1].Amount)
-	assert.Equal(suite.T(), outgoingAccount.ID, transactonEntries[1].CreditAccountID)
-	assert.Equal(suite.T(), currentAccount.ID, transactonEntries[1].DebitAccountID)
-	assert.Equal(suite.T(), int64(0), transactonEntries[1].ParentID)
-	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactonEntries[1].InvoiceID)
+	// the outgoing payment
+	assert.Equal(suite.T(), int64(externalSatRequested), transactionEntries[1].Amount)
+	assert.Equal(suite.T(), outgoingAccount.ID, transactionEntries[1].CreditAccountID)
+	assert.Equal(suite.T(), currentAccount.ID, transactionEntries[1].DebitAccountID)
+	assert.Equal(suite.T(), int64(0), transactionEntries[1].ParentID)
+	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactionEntries[1].InvoiceID)
 
-	assert.Equal(suite.T(), int64(suite.mlnd.fee), transactonEntries[4].Amount)
-	assert.Equal(suite.T(), feeAccount.ID, transactonEntries[2].CreditAccountID)
-	assert.Equal(suite.T(), currentAccount.ID, transactonEntries[2].DebitAccountID)
-	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactonEntries[2].InvoiceID)
+	// fee
+	assert.Equal(suite.T(), int64(suite.mlnd.fee), transactionEntries[5].Amount)
+	assert.Equal(suite.T(), feeAccount.ID, transactionEntries[5].CreditAccountID)
+	assert.Equal(suite.T(), currentAccount.ID, transactionEntries[5].DebitAccountID)
+	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactionEntries[5].InvoiceID)
+
+	// fee reserve + fee reserve reversal
+	assert.Equal(suite.T(), transactionEntries[4].Amount, transactionEntries[2].Amount) // the amount of the fee_reserve and the fee_reserve_reversal must be equal
+	assert.Equal(suite.T(), feeAccount.ID, transactionEntries[2].CreditAccountID)
+	assert.Equal(suite.T(), currentAccount.ID, transactionEntries[2].DebitAccountID)
+	assert.Equal(suite.T(), currentAccount.ID, transactionEntries[4].CreditAccountID)
+	assert.Equal(suite.T(), feeAccount.ID, transactionEntries[4].DebitAccountID)
+	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactionEntries[2].InvoiceID)
+	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactionEntries[4].InvoiceID)
+
+	// service fee
+	assert.Equal(suite.T(), int64(expectedServiceFee), transactionEntries[3].Amount)
+	assert.Equal(suite.T(), feeAccount.ID, transactionEntries[3].CreditAccountID)
+	assert.Equal(suite.T(), currentAccount.ID, transactionEntries[3].DebitAccountID)
+	assert.Equal(suite.T(), outgoingInvoices[0].ID, transactionEntries[3].InvoiceID)
 
 	// make sure fee entry parent id is previous entry
-	assert.Equal(suite.T(), transactonEntries[1].ID, transactonEntries[4].ParentID)
+	assert.Equal(suite.T(), transactionEntries[1].ID, transactionEntries[5].ParentID)
+	assert.Equal(suite.T(), transactionEntries[1].ID, transactionEntries[3].ParentID)
 
-	//fetch transactions, make sure the fee is there
+	// fetch transactions, make sure the fee is there
 	// check invoices again
 	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
@@ -94,7 +123,8 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	responseBody := &[]ExpectedOutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(&responseBody))
-	assert.Equal(suite.T(), int64(suite.mlnd.fee), (*responseBody)[0].Fee)
+	assert.Equal(suite.T(), int64(suite.mlnd.fee)+int64(expectedServiceFee), (*responseBody)[0].Fee)
+	suite.service.Config.ServiceFee = 0 // reset ServiceFee config (we don't expect the service fee everywhere)
 }
 
 func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {

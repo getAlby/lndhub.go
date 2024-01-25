@@ -19,6 +19,7 @@ type User struct {
 	Invoices    []*Invoice `bun:"rel:has-many,join:id=user_id"`
 	Accounts    []*Account `bun:"rel:has-many,join:id=user_id"`
 	Deactivated bool
+	Deleted     bool
 }
 
 func (u *User) BeforeAppendModel(ctx context.Context, query bun.Query) error {
