@@ -19,11 +19,11 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 	}
 	invoiceCtrl := v2controllers.NewInvoiceController(svc)
 	keysendCtrl := v2controllers.NewKeySendController(svc)
-	nostrEventCtrl := v2controllers.NewNoStrController(svc)
+	nostrEventCtrl := v2controllers.NewNostrController(svc)
 
 	// add the endpoint to the group 
 	// NOSTR EVENT Request
-	validateNostrPayload.POST("/v2/event", nostrEventCtrl.AddNoStrEvent)
+	validateNostrPayload.POST("/v2/event", nostrEventCtrl.AddNostrEvent)
 
 	secured.POST("/v2/invoices", invoiceCtrl.AddInvoice)
 	secured.GET("/v2/invoices/incoming", invoiceCtrl.GetIncomingInvoices)
