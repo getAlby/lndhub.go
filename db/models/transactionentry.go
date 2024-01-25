@@ -9,6 +9,8 @@ const (
 	EntryTypeOutgoing           = "outgoing"
 	EntryTypeFee                = "fee"
 	EntryTypeFeeReserve         = "fee_reserve"
+	EntryTypeServiceFee         = "service_fee"
+	EntryTypeServiceFeeReversal = "service_fee_reversal"
 	EntryTypeFeeReserveReversal = "fee_reserve_reversal"
 	EntryTypeOutgoingReversal   = "outgoing_reversal"
 )
@@ -24,6 +26,7 @@ type TransactionEntry struct {
 	Parent          *TransactionEntry `bun:"rel:belongs-to"`
 	CreditAccountID int64             `bun:",notnull"`
 	FeeReserve      *TransactionEntry `bun:"rel:belongs-to"`
+	ServiceFee      *TransactionEntry `bun:"rel:belongs-to"`
 	CreditAccount   *Account          `bun:"rel:belongs-to,join:credit_account_id=id"`
 	DebitAccountID  int64             `bun:",notnull"`
 	DebitAccount    *Account          `bun:"rel:belongs-to,join:debit_account_id=id"`

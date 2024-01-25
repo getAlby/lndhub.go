@@ -78,8 +78,10 @@ func (suite *KeySendTestSuite) TearDownSuite() {
 }
 
 func (suite *KeySendTestSuite) TestKeysendPayment() {
+	suite.service.Config.ServiceFee = 1
 	aliceFundingSats := 1000
 	externalSatRequested := 500
+	expectedServiceFee := 1
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
 	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
@@ -95,7 +97,8 @@ func (suite *KeySendTestSuite) TestKeysendPayment() {
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
-	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+int(suite.mlnd.fee)), aliceBalance)
+	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+int(suite.mlnd.fee)+expectedServiceFee), aliceBalance)
+	suite.service.Config.ServiceFee = 0
 }
 
 func (suite *KeySendTestSuite) TestKeysendPaymentNonExistentDestination() {
