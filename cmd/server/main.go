@@ -157,13 +157,13 @@ func main() {
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
 
 	// Appying the custom middleware to a Group
-	validateNostrPayload := e.Group("", svc.ValidateNostrEventPayload(), logMw)
+	//validateNostrPayload := e.Group("", svc.ValidateNostrEventPayload(), logMw)
 
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 
 
 	transport.RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
-	transport.RegisterV2Endpoints(svc, e, secured, validateNostrPayload, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
+	transport.RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 
 
 
