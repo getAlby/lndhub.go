@@ -17,17 +17,15 @@ func NewNostrController(svc *service.LndhubService) *NostrController {
 	return &NostrController{svc: svc}
 }
 
-type EventRequestBody struct {
-	ID        string            `json:"ID"`
-	Pubkey    string            `json:"Pubkey"`
-	CreatedAt int64             `json:"CreatedAt"`
-	Kind      int               `json:"kind"`
-	Tags      [][]interface{}   `json:"tags"`
-	Content   string            `json:"Content"`
-	Sig       string            `json:"Sig"`
-	Addr      string            `json:"Addr"`
-	Fee       float64           `json:"Fee"`
-}
+// type EventRequestBody struct {
+// 	ID        string            `json:"id"`
+// 	Pubkey    string            `json:"pubkey"`
+// 	CreatedAt int64             `json:"created_at"`
+// 	Kind      int               `json:"kind"`
+// 	Tags      [][]interface{}   `json:"tags"`
+// 	Content   string            `json:"Content"`
+// 	Sig       string            `json:"Sig"`
+// }
 
 type CreateUserEventResponseBody struct {
 	// internal tahub user id
@@ -38,7 +36,7 @@ type CreateUserEventResponseBody struct {
 
 func (controller *NostrController) AddNostrEvent(c echo.Context) error {
 	
-	var body EventRequestBody
+	var body service.EventRequestBody
 
 	if err := c.Bind(&body); err != nil {
 		c.Logger().Errorf("Failed to load AddNostrEvent request body: %v", err)

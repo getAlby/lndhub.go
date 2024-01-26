@@ -30,6 +30,16 @@ type LndhubService struct {
 	InvoicePubSub  *Pubsub
 }
 
+type EventRequestBody struct {
+	ID        string            `json:"id"`
+	Pubkey    string            `json:"pubkey"`
+	CreatedAt int64             `json:"created_at"`
+	Kind      int64               `json:"kind"`
+	Tags      [][]interface{}   `json:"tags"`
+	Content   string            `json:"content"`
+	Sig       string            `json:"sig"`
+}
+
 func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
 	var user models.User
 
@@ -94,158 +104,146 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 }
 
 
-func (svc *LndhubService) ValidateNostrEventPayload() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+// func (svc *LndhubService) ValidateNostrEventPayload() echo.MiddlewareFunc {
+// 	return func(next echo.HandlerFunc) echo.HandlerFunc {
+// 		return func(c echo.Context) error {
+// 			var payload EventRequestBody
+// 			// perform validation specific to the Event `content`
 
-			// Validate Payload
-			// TODO | CLEANUP - consolidate this code with the EventBody struct in nostr.ctrl.go
-			type Payload struct {
-				ID        string            `json:"ID"`
-				Pubkey    string            `json:"Pubkey"`
-				CreatedAt int64             `json:"CreatedAt"`
-				Kind      int               `json:"kind"`
-				Tags      [][]interface{}   `json:"tags"`
-				Content   string            `json:"Content"`
-				Sig       string            `json:"Sig"`
-				Addr      string            `json:"Addr"`
-				Fee       float64           `json:"Fee"`
-			}
+// 			// TODO validate signature for pubkey
+// 			c.Logger().Debugf("paylaod content: %v", payload.Content)
+// 			switch payload.Content {
+// 			// TODO | CLEANUP -  move these constants to common/globals.go
+// 			case "TAHUB_CREATE_USER":
 
-			var payload Payload
+// 				if payload.Kind != 1 {
+// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 						"error":   true,
+// 						"code":    2,
+// 						"message": "Field 'kind' must be 1",
+// 					})
+// 				}
+// 				return next(c)
 
-			switch payload.Content {
-			// TODO | CLEANUP -  move these constants to common/globals.go
-			case "TAHUB_CREATE_USER":
+// 			case  "TAHUB_GET_BALANCES":
 
-				if payload.Kind != 1 {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'kind' must be 1",
-					})
-				}
-				return next(c)
+// 				if payload.Kind != 1 {
+// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 						"error":   true,
+// 						"code":    2,
+// 						"message": "Field 'kind' must be 1",
+// 					})
+// 				}
+// 				return next(c)
 
-			case  "TAHUB_GET_BALANCES":
-
-				if payload.Kind != 1 {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'kind' must be 1",
-					})
-				}
-				return next(c)
-
-			case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
-				// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
-				if payload.Kind != 1 {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'kind' must be 1",
-					})
-				}
+// 			case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
+// 				// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
+// 				if payload.Kind != 1 {
+// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 						"error":   true,
+// 						"code":    2,
+// 						"message": "Field 'kind' must be 1",
+// 					})
+// 				}
 					
-				if len(payload.Tags) == 0 {
-						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-							"error":   true,
-							"code":    2,
-							"message": "Field 'tags' must exist and not be empty",
-						})
-					}
+// 				if len(payload.Tags) == 0 {
+// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 							"error":   true,
+// 							"code":    2,
+// 							"message": "Field 'tags' must exist and not be empty",
+// 						})
+// 					}
 
-					// Check 'Ta' and 'Amt' in the 'tags' array
-					var taExists, amtExists bool
-					for _, tag := range payload.Tags {
-						if len(tag) == 2 {
-							key, ok := tag[0].(string)
-							if !ok {
-								continue
-							}
-							value, ok := tag[1].(string)
-							if !ok {
-								continue
-							}
-							if key == "ta" && value != "" {
-								taExists = true
-							} else if key == "amt" && value != "" {
-								amtExists = true
-							}
-						}
-					}
+// 					// Check 'Ta' and 'Amt' in the 'tags' array
+// 					var taExists, amtExists bool
+// 					for _, tag := range payload.Tags {
+// 						if len(tag) == 2 {
+// 							key, ok := tag[0].(string)
+// 							if !ok {
+// 								continue
+// 							}
+// 							value, ok := tag[1].(string)
+// 							if !ok {
+// 								continue
+// 							}
+// 							if key == "ta" && value != "" {
+// 								taExists = true
+// 							} else if key == "amt" && value != "" {
+// 								amtExists = true
+// 							}
+// 						}
+// 					}
 
-					if !taExists || !amtExists {
-						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-							"error":   true,
-							"code":    2,
-							"message": "Fields 'ta' and 'amt' must exist in 'tags' array with values",
-						})
-					}
+// 					if !taExists || !amtExists {
+// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 							"error":   true,
+// 							"code":    2,
+// 							"message": "Fields 'ta' and 'amt' must exist in 'tags' array with values",
+// 						})
+// 					}
 
-					return next(c)
+// 					return next(c)
 
-			case "TAHUB_SEND_ASSET":
-				// Validate specific fields for TAHUB_SEND_ASSET event
-				if payload.Kind != 1 {
-					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-						"error":   true,
-						"code":    2,
-						"message": "Field 'kind' must be 1",
-					})
-				}
+// 			case "TAHUB_SEND_ASSET":
+// 				// Validate specific fields for TAHUB_SEND_ASSET event
+// 				if payload.Kind != 1 {
+// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 						"error":   true,
+// 						"code":    2,
+// 						"message": "Field 'kind' must be 1",
+// 					})
+// 				}
 					
-					if len(payload.Tags) == 0 {
-						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-							"error":   true,
-							"code":    2,
-							"message": "Field 'tags' must exist and not be empty",
-						})
-					}
+// 					if len(payload.Tags) == 0 {
+// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 							"error":   true,
+// 							"code":    2,
+// 							"message": "Field 'tags' must exist and not be empty",
+// 						})
+// 					}
 			
-					// Check 'addr' and 'fee' in the 'tags' array
-					var addrExists, feeExists bool
-					for _, tag := range payload.Tags {
-						if len(tag) == 2 {
-							key, ok := tag[0].(string)
-							if !ok {
-								continue
-							}
-							switch key {
-							case "addr":
-								if value, ok := tag[1].(string); ok && value != "" {
-									addrExists = true
-								}
-							case "fee":
-								if value, ok := tag[1].(float64); ok && value != 0 {
-									feeExists = true
-								}
-							}
-						}
-					}
+// 					// Check 'addr' and 'fee' in the 'tags' array
+// 					var addrExists, feeExists bool
+// 					for _, tag := range payload.Tags {
+// 						if len(tag) == 2 {
+// 							key, ok := tag[0].(string)
+// 							if !ok {
+// 								continue
+// 							}
+// 							switch key {
+// 							case "addr":
+// 								if value, ok := tag[1].(string); ok && value != "" {
+// 									addrExists = true
+// 								}
+// 							case "fee":
+// 								if value, ok := tag[1].(float64); ok && value != 0 {
+// 									feeExists = true
+// 								}
+// 							}
+// 						}
+// 					}
 			
-					if !addrExists || !feeExists {
-						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-							"error":   true,
-							"code":    2,
-							"message": "Fields 'addr' and 'fee' must exist in 'tags' array and not be empty",
-						})
-					}
+// 					if !addrExists || !feeExists {
+// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 							"error":   true,
+// 							"code":    2,
+// 							"message": "Fields 'addr' and 'fee' must exist in 'tags' array and not be empty",
+// 						})
+// 					}
 			
-					return next(c)
+// 					return next(c)
 				
 			
-			default:
-				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-					"error":   true,
-					"code":    2,
-					"message": "Invalid event content",
-				})
-			}
-		}
-	}
-}
+// 			default:
+// 				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
+// 					"error":   true,
+// 					"code":    2,
+// 					"message": "Invalid event content",
+// 				})
+// 			}
+// 		}
+// 	}
+// }
 
 func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

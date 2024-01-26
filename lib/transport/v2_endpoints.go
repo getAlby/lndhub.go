@@ -6,7 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo.Group, validateNostrPayload  *echo.Group, securedWithStrictRateLimit *echo.Group, strictRateLimitMiddleware echo.MiddlewareFunc, adminMw echo.MiddlewareFunc, logMw echo.MiddlewareFunc) {
+func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo.Group, securedWithStrictRateLimit *echo.Group, strictRateLimitMiddleware echo.MiddlewareFunc, adminMw echo.MiddlewareFunc, logMw echo.MiddlewareFunc) {
 	// TODO: v2 auth endpoint: generalized oauth token generation
 	// e.POST("/auth", controllers.NewAuthController(svc).Auth)
 	if svc.Config.AllowAccountCreation {
@@ -23,7 +23,7 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 
 	// add the endpoint to the group 
 	// NOSTR EVENT Request
-	validateNostrPayload.POST("/v2/event", nostrEventCtrl.AddNostrEvent)
+	e.POST("/v2/event", nostrEventCtrl.AddNostrEvent)
 
 	secured.POST("/v2/invoices", invoiceCtrl.AddInvoice)
 	secured.GET("/v2/invoices/incoming", invoiceCtrl.GetIncomingInvoices)

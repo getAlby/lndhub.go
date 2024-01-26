@@ -13,6 +13,9 @@ import (
 // 		* valid for the pubkey on the same event
 //		* matches a pubkey of one of our users
 
+//		* NOTE: this may get handled as a middlware created in service/service.go
+//				search this: ValidateNostrEventPayload
+
 // AuthController : AuthController struct
 type AuthController struct {
 	svc *service.LndhubService

@@ -20,11 +20,9 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 type CreateUserResponseBody struct {
 	ID       int64  `json:"id"`
 	Pubkey   string `json:"pubkey"`
-	Password string `json:"password"`
 }
 type CreateUserRequestBody struct {
 	Pubkey   string `json:"pubkey"`
-	Password string `json:"password"`
 }
 
 // CreateUser godoc
