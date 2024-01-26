@@ -10,13 +10,13 @@ import (
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
-	"github.com/getAlby/lndhub.go/lib/security"
+	//"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
-	passwordvalidator "github.com/wagslane/go-password-validator"
+	//passwordvalidator "github.com/wagslane/go-password-validator"
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *models.User, err error) {
@@ -53,7 +53,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *
 	return user, err
 }
 
-func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *string, password *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
+func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
 	user, err = svc.FindUser(ctx, userId)
 	if err != nil {
 		return nil, err
@@ -61,16 +61,16 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *
 	if pubkey != nil {
 		user.Pubkey = *pubkey
 	}
-	if password != nil {
-		if svc.Config.MinPasswordEntropy > 0 {
-			entropy := passwordvalidator.GetEntropy(*password)
-			if entropy < float64(svc.Config.MinPasswordEntropy) {
-				return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
-			}
-		}
-		hashedPassword := security.HashPassword(*password)
-		user.Password = hashedPassword
-	}
+	// if password != nil {
+	// 	if svc.Config.MinPasswordEntropy > 0 {
+	// 		entropy := passwordvalidator.GetEntropy(*password)
+	// 		if entropy < float64(svc.Config.MinPasswordEntropy) {
+	// 			return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
+	// 		}
+	// 	}
+	// 	hashedPassword := security.HashPassword(*password)
+	// 	user.Password = hashedPassword
+	// }
 	if deactivated != nil {
 		user.Deactivated = *deactivated
 	}

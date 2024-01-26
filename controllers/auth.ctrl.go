@@ -8,6 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
+// TODO adjust AuthController to verify that the signature on
+//		the event being handled is:
+// 		* valid for the pubkey on the same event
+//		* matches a pubkey of one of our users
 
 // AuthController : AuthController struct
 type AuthController struct {

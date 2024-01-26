@@ -157,7 +157,6 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []Expect
 		}
 		var login ExpectedCreateUserResponseBody
 		login.Pubkey = user.Pubkey
-		login.Password = user.Password
 		logins = append(logins, login)
 		token, _, err := svc.GenerateToken(context.Background(), login.Pubkey, login.Password, "")
 		if err != nil {
