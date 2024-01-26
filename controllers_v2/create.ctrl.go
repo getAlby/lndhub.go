@@ -46,7 +46,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 		c.Logger().Errorf("Failed to load create user request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	user, err := controller.svc.CreateUser(c.Request().Context(), body.Pubkey, body.Password)
+	user, err := controller.svc.CreateUser(c.Request().Context(), body.Pubkey)
 	if err != nil {
 		c.Logger().Errorf("Failed to create user: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)

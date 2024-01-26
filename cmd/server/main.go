@@ -157,7 +157,7 @@ func main() {
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
 
 	// Appying the custom middleware to a Group
-	validateNostrPayload := e.Group("", svc.ValidateNosTREventPayload(), logMw)
+	validateNostrPayload := e.Group("", svc.ValidateNostrEventPayload(), logMw)
 
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 

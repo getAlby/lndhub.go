@@ -19,11 +19,9 @@ func NewCreateUserController(svc *service.LndhubService) *CreateUserController {
 
 type CreateUserResponseBody struct {
 	Pubkey    string `json:"pubkey"`
-	Password string `json:"password"`
 }
 type CreateUserRequestBody struct {
 	Pubkey       string `json:"pubkey"`
-	Password    string `json:"password"`
 }
 
 func (controller *CreateUserController) CreateUser(c echo.Context) error {
@@ -34,7 +32,7 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 		c.Logger().Errorf("Failed to load create user request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	user, err := controller.svc.CreateUser(c.Request().Context(), body.Pubkey, body.Password)
+	user, err := controller.svc.CreateUser(c.Request().Context(), body.Pubkey)
 	if err != nil {
 		c.Logger().Errorf("Failed to create user: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
@@ -42,7 +40,6 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 
 	var ResponseBody CreateUserResponseBody
 	ResponseBody.Pubkey = user.Pubkey
-	ResponseBody.Password = user.Password
 
 	return c.JSON(http.StatusOK, &ResponseBody)
 }
