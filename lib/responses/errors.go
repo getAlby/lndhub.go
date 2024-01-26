@@ -99,6 +99,13 @@ var AccountDeactivatedError = ErrorResponse{
 	HttpStatusCode: 401,
 }
 
+var UnimplementedError = ErrorResponse{
+	Error: true,
+	Code: 999,
+	Message: "Hold on... We're not ready for that yet.",
+	HttpStatusCode: 400,
+}
+
 func HTTPErrorHandler(err error, c echo.Context) {
 	if c.Response().Committed {
 		return

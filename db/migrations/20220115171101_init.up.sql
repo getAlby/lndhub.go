@@ -1,7 +1,6 @@
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     pubkey character varying NOT NULL UNIQUE,
-    password character varying NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone
 );

@@ -92,13 +92,12 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 }
 
 
-
-
-func (svc *LndhubService) ValidateNosTREventPayload() echo.MiddlewareFunc {
+func (svc *LndhubService) ValidateNostrEventPayload() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 
 			// Validate Payload
+			// TODO | CLEANUP - consolidate this code with the EventBody struct in nostr.ctrl.go
 			type Payload struct {
 				ID        string            `json:"ID"`
 				Pubkey    string            `json:"Pubkey"`
@@ -114,7 +113,7 @@ func (svc *LndhubService) ValidateNosTREventPayload() echo.MiddlewareFunc {
 			var payload Payload
 
 			switch payload.Content {
-			
+			// TODO | CLEANUP -  move these constants to common/globals.go
 			case "TAHUB_CREATE_USER":
 
 				if payload.Kind != 1 {
