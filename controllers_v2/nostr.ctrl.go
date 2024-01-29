@@ -17,16 +17,6 @@ func NewNostrController(svc *service.LndhubService) *NostrController {
 	return &NostrController{svc: svc}
 }
 
-// type EventRequestBody struct {
-// 	ID        string            `json:"id"`
-// 	Pubkey    string            `json:"pubkey"`
-// 	CreatedAt int64             `json:"created_at"`
-// 	Kind      int               `json:"kind"`
-// 	Tags      [][]interface{}   `json:"tags"`
-// 	Content   string            `json:"Content"`
-// 	Sig       string            `json:"Sig"`
-// }
-
 type CreateUserEventResponseBody struct {
 	// internal tahub user id
 	ID     int64 `json:"id"`
@@ -54,6 +44,19 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 	}
 	// handle create user event - can assume valid thanks to middleware
 	if body.Content == "TAHUB_CREATE_USER" {
+		// check if user exists
+		existingUser, err := controller.svc.FindUserByPubkey(c.Request().Context(), body.PubKey)
+		// check if user was found
+		if existingUser != nil {
+			c.Logger().Errorf("Cannot create user that has already registered this pubkey")
+			c.JSON(http.StatusForbidden, responses.BadArgumentsError)
+		}
+		// confirm no error occurred in checking if the user exists
+		if err != nil {
+			c.Logger().Errorf("Unable to verify the pubkey has not already been registered: %v", err)
+			c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+		}
+		// create the user, by public key
 		user, err := controller.svc.CreateUser(c.Request().Context(), body.PubKey)
 		if err != nil {
 			// create user error response
