@@ -2,7 +2,7 @@ package v2controllers
 
 import (
 	"net/http"
-
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
@@ -34,22 +34,27 @@ type CreateUserEventResponseBody struct {
 	Pubkey string `json:"pubkey"`
 }
 
-func (controller *NostrController) AddNostrEvent(c echo.Context) error {
+func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 	
-	var body service.EventRequestBody
+	var body nostr.Event
 
 	if err := c.Bind(&body); err != nil {
-		c.Logger().Errorf("Failed to load AddNostrEvent request body: %v", err)
+		c.Logger().Errorf("Failed to load Nostr Event request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	if err := c.Validate(&body); err != nil {
-		c.Logger().Errorf("Invalid AddNostrEvent request body: %v", err)
+		c.Logger().Errorf("Invalid Nostr Event request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	// check signature
+	if result, err := body.CheckSignature(); (err != nil || !result) {
+		c.Logger().Errorf("Signature is not valid for the event... Consider monitoring this user if issue persists: %v", err)
+		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
 	// handle create user event - can assume valid thanks to middleware
 	if body.Content == "TAHUB_CREATE_USER" {
-		user, err := controller.svc.CreateUser(c.Request().Context(), body.Pubkey)
+		user, err := controller.svc.CreateUser(c.Request().Context(), body.PubKey)
 		if err != nil {
 			// create user error response
 			c.Logger().Errorf("Failed to create user via Nostr event: %v", err)
@@ -66,30 +71,3 @@ func (controller *NostrController) AddNostrEvent(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.UnimplementedError)
 	}
 }
-
-
-// TODO - record events in the database, requires a model
-// type Event struct  {
-// 	ID        string    `json:"ID"`
-// 	Pubkey    string    `json:"Pubkey"`
-// 	Kind      int       `json:"kind"`
-// 	Ta        string    `json:"Ta"`
-// 	Amt       float64   `json:"Amt"`
-// 	Addr      string    `json:"addr"`
-// 	Fee       float64   `json:"fee"`
-// 	Content   string    `json:"Content"`
-// 	Sig       string    `json:"Sig"`
-// }
-
-
-// NostrEventBody godoc
-// @Summary      Validate NostEvent Payload
-// @Description  Returns a new AddNoStrResponseBody
-// @Accept       json
-// @Produce      json
-// @Tags         NoStrEvent
-// @Body      AddNoStrResponseBody  True  "Add NoStr Event"
-// @Success      200      {object}  AddNoStrResponseBody
-// @Failure      400      {object}  responses.ErrorResponse
-// @Failure      500      {object}  responses.ErrorResponse
-// @Router       /v2/event [post]
