@@ -49,7 +49,7 @@ const (
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
 	dbUri, ok := os.LookupEnv("DATABASE_URI")
 	if !ok {
-		dbUri = "postgresql://user:password@localhost/lndhub?sslmode=disable"
+		dbUri = "postgresql://user:password@localhost/tahub?sslmode=disable"
 	}
 	c := &service.Config{
 		DatabaseUri:             dbUri,

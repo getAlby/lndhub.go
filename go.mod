@@ -18,6 +18,7 @@ require (
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/labstack/gommon v0.4.0
 	github.com/lightningnetwork/lnd v0.16.4-beta.rc1
+	github.com/nbd-wtf/go-nostr v0.28.3
 	github.com/rabbitmq/amqp091-go v1.8.1
 	github.com/rs/zerolog v1.29.1
 	github.com/sirupsen/logrus v1.9.3
@@ -131,7 +132,6 @@ require (
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/nbd-wtf/go-nostr v0.28.3 // indirect
 	github.com/outcaste-io/ristretto v0.2.2 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
