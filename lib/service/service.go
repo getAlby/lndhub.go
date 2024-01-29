@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/getAlby/lndhub.go/rabbitmq"
-
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/tokens"
@@ -30,15 +29,15 @@ type LndhubService struct {
 	InvoicePubSub  *Pubsub
 }
 
-type EventRequestBody struct {
-	ID        string            `json:"id"`
-	Pubkey    string            `json:"pubkey"`
-	CreatedAt int64             `json:"created_at"`
-	Kind      int64               `json:"kind"`
-	Tags      [][]interface{}   `json:"tags"`
-	Content   string            `json:"content"`
-	Sig       string            `json:"sig"`
-}
+// type EventRequestBody struct {
+// 	ID        string            `json:"id"`
+// 	Pubkey    string            `json:"pubkey"`
+// 	CreatedAt int64             `json:"created_at"`
+// 	Kind      int64               `json:"kind"`
+// 	Tags      [][]interface{}   `json:"tags"`
+// 	Content   string            `json:"content"`
+// 	Sig       string            `json:"sig"`
+// }
 
 func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
 	var user models.User
@@ -103,6 +102,10 @@ func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 	}
 }
 
+func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
+	// decode public key
+	
+}
 
 // func (svc *LndhubService) ValidateNostrEventPayload() echo.MiddlewareFunc {
 // 	return func(next echo.HandlerFunc) echo.HandlerFunc {

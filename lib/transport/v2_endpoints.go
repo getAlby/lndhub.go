@@ -23,7 +23,7 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 
 	// add the endpoint to the group 
 	// NOSTR EVENT Request
-	e.POST("/v2/event", nostrEventCtrl.AddNostrEvent)
+	e.POST("/v2/event", nostrEventCtrl.HandleNostrEvent)
 
 	secured.POST("/v2/invoices", invoiceCtrl.AddInvoice)
 	secured.GET("/v2/invoices/incoming", invoiceCtrl.GetIncomingInvoices)
