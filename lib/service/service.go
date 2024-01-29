@@ -249,6 +249,9 @@ func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
 // }
 
 func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
+	// TODO update ValidateUserMiddlware 
+	// * it has already performed a check on the pubkey for the event passed to endpoint
+	// * it must know ensure that pubkey returns a user in the database
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			userId := c.Get("UserID").(int64)
