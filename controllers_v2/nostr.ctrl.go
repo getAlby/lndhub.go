@@ -24,6 +24,11 @@ type CreateUserEventResponseBody struct {
 	Pubkey string `json:"pubkey"`
 }
 
+type GetTahubPublicKey struct {
+	TaHubPublicKey   string `json:"tahubpublickey"`
+	Pubkey string `json:"pubkey"`
+}
+
 func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 	
 	var body nostr.Event
@@ -69,7 +74,19 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 		ResponseBody.Pubkey = user.Pubkey
 
 		return c.JSON(http.StatusOK, &ResponseBody)
-	} else {
+	} else if body.content == "GET_SERVER_PUBKEY" {
+
+		if controller.svc.Config.TaHubPublicKey == "" {
+			c.Logger().Errorf("Failed to create user via Nostr event: %v", err)
+			return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+		}
+		var ResponseBody GetTahubPublicKey
+		ResponseBody.Pubkey = body.Pubkey
+		ResponseBody.TaHubPublicKey = controller.svc.Config.TaHubPublicKey
+		return c.JSON(http.StatusOK, &ResponseBody)
+
+	}
+	 else {
 		// TODO handle next events
 		return c.JSON(http.StatusBadRequest, responses.UnimplementedError)
 	}
