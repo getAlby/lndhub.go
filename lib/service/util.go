@@ -5,10 +5,13 @@ import (
 	"math/big"
 )
 
+const BTC_ASSET_ID   = "native-asset-bitcoin"
+const BTC_ASSET_NAME = "bitcoin"
+
 type AssetType int64
 // https://lightning.engineering/api-docs/api/taproot-assets/universe/query-asset-stats#taprpcassettype
 const (
-	Normal     = 0
+	Normal      = 0
 	Collectible = 1
 )
 
