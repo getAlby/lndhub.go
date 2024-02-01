@@ -56,7 +56,7 @@ func (suite *UserAuthTestSuite) TestAuth() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Pubkey:    suite.userLogin.Pubkey,
-		Password: suite.userLogin.Password,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -94,7 +94,7 @@ func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Pubkey:    suite.userLogin.Pubkey,
-		Password: suite.userLogin.Password,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -140,7 +140,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Pubkey:    suite.userLogin.Pubkey,
-		Password: suite.userLogin.Password,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -183,7 +183,7 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Pubkey:    suite.userLogin.Pubkey,
-		Password: suite.userLogin.Password,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -225,7 +225,7 @@ func (suite *UserAuthTestSuite) TestAuthWithAccessToken() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
 		Pubkey:    suite.userLogin.Pubkey,
-		Password: suite.userLogin.Password,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

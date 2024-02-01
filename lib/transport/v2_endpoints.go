@@ -32,5 +32,5 @@ func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo
 	securedWithStrictRateLimit.POST("/v2/payments/bolt11", v2controllers.NewPayInvoiceController(svc).PayInvoice)
 	securedWithStrictRateLimit.POST("/v2/payments/keysend", keysendCtrl.KeySend)
 	securedWithStrictRateLimit.POST("/v2/payments/keysend/multi", keysendCtrl.MultiKeySend)
-	secured.GET("/v2/balance", v2controllers.NewBalanceController(svc).Balance)
+	secured.GET("/v2/balance/:asset_id", v2controllers.NewBalanceController(svc).Balance)
 }

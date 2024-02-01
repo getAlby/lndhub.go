@@ -89,8 +89,8 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
-
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
+	// TODO hard-coding this error as code is likely to be discarded for our purposes
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, 1, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}

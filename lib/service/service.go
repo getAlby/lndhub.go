@@ -1,15 +1,15 @@
 package service
 
 import (
-	"context"
+	//"context"
 	"fmt"
 	"net/http"
 	"strconv"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/getAlby/lndhub.go/rabbitmq"
-	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/lib/responses"
-	"github.com/getAlby/lndhub.go/lib/tokens"
+	// "github.com/getAlby/lndhub.go/db/models"
+	// "github.com/getAlby/lndhub.go/lib/responses"
+	// "github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
@@ -39,53 +39,55 @@ type LndhubService struct {
 // 	Sig       string            `json:"sig"`
 // }
 
-func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
-	var user models.User
+// TODO do we need a modified version of this or something new in addition to validating signatures?
 
-	switch {
-	// TODO adjust this function to authenticate user with the previously registered pubkey
-	//		and the signature on the current event - when required to do so
-	case login != "" || password != "":
-		{
-			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
-			// if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
-			// 	return "", "", fmt.Errorf("bad auth")
-			// }
-		}
-	case inRefreshToken != "":
-		{
-			userId, err := tokens.GetUserIdFromToken(svc.Config.JWTSecret, inRefreshToken)
-			if err != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
+// func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
+// 	var user models.User
 
-			if err := svc.DB.NewSelect().Model(&user).Where("id = ?", userId).Scan(ctx); err != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
-		}
-	default:
-		{
-			return "", "", fmt.Errorf("login and password or refresh token is required")
-		}
-	}
+// 	switch {
+// 	// TODO adjust this function to authenticate user with the previously registered pubkey
+// 	//		and the signature on the current event - when required to do so
+// 	case login != "" || password != "":
+// 		{
+// 			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
+// 				return "", "", fmt.Errorf("bad auth")
+// 			}
+// 			// if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+// 			// 	return "", "", fmt.Errorf("bad auth")
+// 			// }
+// 		}
+// 	case inRefreshToken != "":
+// 		{
+// 			userId, err := tokens.GetUserIdFromToken(svc.Config.JWTSecret, inRefreshToken)
+// 			if err != nil {
+// 				return "", "", fmt.Errorf("bad auth")
+// 			}
 
-	if user.Deactivated || user.Deleted {
-		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
-	}
+// 			if err := svc.DB.NewSelect().Model(&user).Where("id = ?", userId).Scan(ctx); err != nil {
+// 				return "", "", fmt.Errorf("bad auth")
+// 			}
+// 		}
+// 	default:
+// 		{
+// 			return "", "", fmt.Errorf("login and password or refresh token is required")
+// 		}
+// 	}
 
-	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)
-	if err != nil {
-		return "", "", err
-	}
+// 	if user.Deactivated || user.Deleted {
+// 		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
+// 	}
 
-	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTRefreshTokenExpiry, &user)
-	if err != nil {
-		return "", "", err
-	}
-	return accessToken, refreshToken, nil
-}
+// 	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTRefreshTokenExpiry, &user)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+// 	return accessToken, refreshToken, nil
+// }
 
 func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
 	switch v := value.(type) {
@@ -247,6 +249,16 @@ func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
 // 		}
 // 	}
 // }
+
+func (svc *LndhubService) OneAssetInMultiKeysend(arr []int64) bool {
+	for i := 1; i < len(arr); i++ {
+		// compare every item to the first positioned item
+		if arr[i] != arr[0] {
+			return false
+		}
+	}
+	return true
+}
 
 func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
 	// TODO update ValidateUserMiddlware 

@@ -298,6 +298,10 @@ func (suite *PaymentTestSuite) TestOutgoingExceededChecks() {
 }
 
 func (suite *PaymentTestSuite) TestInternalPayment() {
+	// TODO this may transition to being a bitcoin specific test or, 
+	//		to handle / iterate multiple assets we include in a test environment
+	//		* asset id hard-coded for now
+	assetId := 1 // bitcoin / sats
 	aliceFundingSats := 1000
 	bobSatRequested := 500
 	// currently fee is 0 for internal payments
@@ -336,13 +340,13 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
 
 	transactionEntriesAlice, _ := suite.service.TransactionEntriesFor(context.Background(), aliceId)
-	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), aliceId)
+	aliceBalance, _ := suite.service.CurrentUserBalance(context.Background(), int64(assetId), aliceId)
 	assert.Equal(suite.T(), 2, len(transactionEntriesAlice))
 	assert.Equal(suite.T(), int64(aliceFundingSats), transactionEntriesAlice[0].Amount)
 	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesAlice[1].Amount)
 	assert.Equal(suite.T(), int64(aliceFundingSats-bobSatRequested-fee), aliceBalance)
 
-	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), int64(assetId), bobId)
 	transactionEntriesBob, _ := suite.service.TransactionEntriesFor(context.Background(), bobId)
 	assert.Equal(suite.T(), 1, len(transactionEntriesBob))
 	assert.Equal(suite.T(), int64(bobSatRequested), transactionEntriesBob[0].Amount)
@@ -366,13 +370,17 @@ func (suite *PaymentTestSuite) TestInternalPayment() {
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(payInvoiceResponse))
 	//assert bob was credited the correct amount
-	bobBalance, _ = suite.service.CurrentUserBalance(context.Background(), bobId)
+	bobBalance, _ = suite.service.CurrentUserBalance(context.Background(), int64(assetId), bobId)
 	assert.Equal(suite.T(), int64(bobSatRequested+toPayForZeroAmt), bobBalance)
 }
 
 func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 	aliceFundingSats := 1000
 	bobSatRequested := 500
+	// TODO this may transition to being a bitcoin specific test or, 
+	//		to handle / iterate multiple assets we include in a test environment
+	//		* asset id hard-coded for now
+	assetId := 1 // bitcoin / sats
 	// currently fee is 0 for internal payments
 	fee := 0
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
@@ -408,7 +416,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
 
-	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), int64(assetId), userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
@@ -427,6 +435,10 @@ func (suite *PaymentTestSuite) TestInternalPaymentFail() {
 func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
 	aliceFundingSats := 1000
 	bobAmt := 100
+	// TODO this may transition to being a bitcoin specific test or, 
+	//		to handle / iterate multiple assets we include in a test environment
+	//		* asset id hard-coded for now
+	assetId := 1 // bitcoin / sats
 	memo := "integration test internal keysend from alice"
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test internal keysend alice", suite.aliceToken)
 	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
@@ -437,7 +449,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
 
 	//check bob's balance before payment
 	bobId := getUserIdFromToken(suite.bobToken)
-	previousBobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+	previousBobBalance, _ := suite.service.CurrentUserBalance(context.Background(), int64(assetId), bobId)
 
 	//pay bob from alice using a keysend payment
 	rec := httptest.NewRecorder()
@@ -459,7 +471,7 @@ func (suite *PaymentTestSuite) TestInternalPaymentKeysend() {
 	assert.NoError(suite.T(), json.NewDecoder(rec.Body).Decode(keySendResponse))
 
 	//check bob's balance after payment
-	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), bobId)
+	bobBalance, _ := suite.service.CurrentUserBalance(context.Background(), int64(assetId), bobId)
 	assert.Equal(suite.T(), int64(bobAmt)+previousBobBalance, bobBalance)
 	//check bob's invoices for whatsat message
 	invoicesBob, _ := suite.service.InvoicesFor(context.Background(), bobId, common.InvoiceTypeIncoming)

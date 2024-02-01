@@ -2,6 +2,7 @@ package v2controllers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -33,11 +34,17 @@ type BalanceResponse struct {
 // @Success      200  {object}  BalanceResponse
 // @Failure      400  {object}  responses.ErrorResponse
 // @Failure      500  {object}  responses.ErrorResponse
-// @Router       /v2/balance [get]
+// @Router       /v2/balance/:asset_id [get]
 // @Security     OAuth2Password
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
-	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)
+	assetParam := c.Param("asset_id")
+	assetId, err := strconv.ParseInt(assetParam, 10, 64)
+	// default to bitcoin if error parsing the param
+	if  err != nil {
+		assetId = 1
+	}
+	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), assetId, userId)
 	if err != nil {
 		c.Logger().Errorj(
 			log.JSON{
