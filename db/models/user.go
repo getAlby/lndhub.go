@@ -12,6 +12,7 @@ type User struct {
 	Accounts    []*Account `bun:"rel:has-many,join:id=user_id"`
 	Invoices    []*Invoice `bun:"rel:has-many,join:id=user_id"`
 	Deactivated bool
+	Deleted     bool
 	CreatedAt   time.Time      `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt   bun.NullTime
 }

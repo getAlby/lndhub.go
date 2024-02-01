@@ -10,48 +10,20 @@ import (
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
-	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
-	passwordvalidator "github.com/wagslane/go-password-validator"
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *models.User, err error) {
 
 	user = &models.User{}
-
-	// generate user login/password if not provided
-	user.Login = login
-	// if login == "" {
-	// 	randLoginBytes, err := randBytesFromStr(20, alphaNumBytes)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	user.Login = string(randLoginBytes)
-	// }
-
-	// if password == "" {
-	// 	randPasswordBytes, err := randBytesFromStr(20, alphaNumBytes)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	password = string(randPasswordBytes)
-	// } else {
-	// 	if svc.Config.MinPasswordEntropy > 0 {
-	// 		entropy := passwordvalidator.GetEntropy(password)
-	// 		if entropy < float64(svc.Config.MinPasswordEntropy) {
-	// 			return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
-	// 		}
-	// 	}
-	// }
-
 	// we only store the hashed password but return the initial plain text password in the HTTP response
 	//hashedPassword := security.HashPassword(password)
-	//user.Password = hashedPassword
-
+	//ser.Password = hashedPassword
+	user.Pubkey = pubkey
 	// Create user and the user's accounts
 	// We use double-entry bookkeeping so we use 4 accounts: incoming, current, outgoing and fees
 	// Wrapping this in a transaction in case something fails
@@ -66,8 +38,8 @@ func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *
 			common.AccountTypeFees,
 		}
 		for _, accountType := range accountTypes {
-			// TODO - models.Account needs to be expanded for an asset ID
-			account := models.Account{UserID: user.ID, Type: accountType}
+			// * NOTE - initial set of accounts are assigned to bitcoin, per the Assets table
+			account := models.Account{UserID: user.ID, Type: accountType, AssetID: common.BTC_INTERNAL_ASSET_ID}
 			if _, err := tx.NewInsert().Model(&account).Exec(ctx); err != nil {
 				return err
 			}
@@ -79,24 +51,25 @@ func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *
 	return user, err
 }
 
-func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *string, password *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
+
+func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
 	user, err = svc.FindUser(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
-	if login != nil {
-		user.Login = *login
+	if pubkey != nil {
+		user.Pubkey = *pubkey
 	}
-	if password != nil {
-		if svc.Config.MinPasswordEntropy > 0 {
-			entropy := passwordvalidator.GetEntropy(*password)
-			if entropy < float64(svc.Config.MinPasswordEntropy) {
-				return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
-			}
-		}
-		hashedPassword := security.HashPassword(*password)
-		user.Password = hashedPassword
-	}
+	// if password != nil {
+	// 	if svc.Config.MinPasswordEntropy > 0 {
+	// 		entropy := passwordvalidator.GetEntropy(*password)
+	// 		if entropy < float64(svc.Config.MinPasswordEntropy) {
+	// 			return nil, fmt.Errorf("password entropy is too low (%f), required is %d", entropy, svc.Config.MinPasswordEntropy)
+	// 		}
+	// 	}
+	// 	hashedPassword := security.HashPassword(*password)
+	// 	user.Password = hashedPassword
+	// }
 	if deactivated != nil {
 		user.Deactivated = *deactivated
 	}
@@ -115,6 +88,7 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *s
 	return user, nil
 }
 
+
 func (svc *LndhubService) FindUser(ctx context.Context, userId int64) (*models.User, error) {
 	var user models.User
 
@@ -125,10 +99,10 @@ func (svc *LndhubService) FindUser(ctx context.Context, userId int64) (*models.U
 	return &user, nil
 }
 
-func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*models.User, error) {
+func (svc *LndhubService) FindUserByPubkey(ctx context.Context, pubkey string) (*models.User, error) {
 	var user models.User
 
-	err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Limit(1).Scan(ctx)
+	err := svc.DB.NewSelect().Model(&user).Where("pubkey = ?", pubkey).Limit(1).Scan(ctx)
 	if err != nil {
 		return &user, err
 	}

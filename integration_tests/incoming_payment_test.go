@@ -162,7 +162,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	pHash.Write(preImage)
 	err = suite.mockLND.mockPaidInvoice(nil, int64(keysendSatAmt), true, &lnrpc.InvoiceHTLC{
 		CustomRecords: map[uint64][]byte{
-			service.TLV_WALLET_ID:         []byte(suite.userLogin.Login),
+			service.TLV_WALLET_ID:         []byte(suite.userLogin.Pubkey),
 			service.KEYSEND_CUSTOM_RECORD: preImage,
 		},
 	})
@@ -200,7 +200,7 @@ func (suite *IncomingPaymentTestSuite) TestIncomingPaymentKeysend() {
 	}
 	assert.True(suite.T(), keySendPayment.Keysend)
 	login := keySendPayment.CustomRecords[service.TLV_WALLET_ID]
-	assert.Equal(suite.T(), suite.userLogin.Login, string(login))
+	assert.Equal(suite.T(), suite.userLogin.Pubkey, string(login))
 }
 
 func TestIncomingPaymentTestSuite(t *testing.T) {
