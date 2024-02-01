@@ -78,10 +78,6 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
     
 	} else if body.content == "GET_SERVER_PUBKEY" {
 
-		if controller.svc.Config.TaHubPublicKey == "" {
-			c.Logger().Errorf("Failed to create user via Nostr event: %v", err)
-			return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
-		}
 		var ResponseBody GetTahubPublicKey
 		ResponseBody.Pubkey = body.Pubkey
 		ResponseBody.TaHubPublicKey = controller.svc.Config.TaHubPublicKey
