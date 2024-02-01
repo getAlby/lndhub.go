@@ -10,11 +10,13 @@ import (
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
+
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
+
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *models.User, err error) {

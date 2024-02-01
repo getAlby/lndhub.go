@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"time"
-
 	"github.com/uptrace/bun"
 )
 type User struct {

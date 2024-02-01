@@ -29,6 +29,7 @@ type GetTahubPublicKey struct {
 	Pubkey string `json:"pubkey"`
 }
 
+
 func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 	
 	var body nostr.Event
@@ -74,6 +75,7 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 		ResponseBody.Pubkey = user.Pubkey
 
 		return c.JSON(http.StatusOK, &ResponseBody)
+    
 	} else if body.content == "GET_SERVER_PUBKEY" {
 
 		if controller.svc.Config.TaHubPublicKey == "" {
@@ -87,6 +89,7 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 
 	}
 	 else {
+
 		// TODO handle next events
 		return c.JSON(http.StatusBadRequest, responses.UnimplementedError)
 	}

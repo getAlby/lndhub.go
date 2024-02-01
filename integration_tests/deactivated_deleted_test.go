@@ -61,7 +61,7 @@ func (suite *ValidateUserSuite) TearDownSuite() {
 }
 
 func (suite *ValidateUserSuite) TestDeletedUserValidation() {
-	_, err := suite.Service.DB.NewUpdate().Table("users").Set("deleted = ?", true).Where("login = ?", suite.userLogin.Login).Exec(context.TODO())
+	_, err := suite.Service.DB.NewUpdate().Table("users").Set("deleted = ?", true).Where("login = ?", suite.userLogin.Pubkey).Exec(context.TODO())
 	assert.NoError(suite.T(), err)
 	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
@@ -69,7 +69,7 @@ func (suite *ValidateUserSuite) TestDeletedUserValidation() {
 	suite.echo.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 
-	_, err = suite.Service.DB.NewUpdate().Table("users").Set("deleted = ?", false).Where("login = ?", suite.userLogin.Login).Exec(context.TODO())
+	_, err = suite.Service.DB.NewUpdate().Table("users").Set("deleted = ?", false).Where("login = ?", suite.userLogin.Pubkey).Exec(context.TODO())
 	assert.NoError(suite.T(), err)
 	req = httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
@@ -79,7 +79,7 @@ func (suite *ValidateUserSuite) TestDeletedUserValidation() {
 }
 
 func (suite *ValidateUserSuite) TestDeactivatedUserValidation() {
-	_, err := suite.Service.DB.NewUpdate().Table("users").Set("deactivated = ?, deleted = false", true).Where("login = ?", suite.userLogin.Login).Exec(context.TODO())
+	_, err := suite.Service.DB.NewUpdate().Table("users").Set("deactivated = ?, deleted = false", true).Where("login = ?", suite.userLogin.Pubkey).Exec(context.TODO())
 	assert.NoError(suite.T(), err)
 	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
@@ -87,7 +87,7 @@ func (suite *ValidateUserSuite) TestDeactivatedUserValidation() {
 	suite.echo.ServeHTTP(rec, req)
 	assert.Equal(suite.T(), http.StatusUnauthorized, rec.Code)
 
-	_, err = suite.Service.DB.NewUpdate().Table("users").Set("deactivated = ?, deleted = false", false).Where("login = ?", suite.userLogin.Login).Exec(context.TODO())
+	_, err = suite.Service.DB.NewUpdate().Table("users").Set("deactivated = ?, deleted = false", false).Where("login = ?", suite.userLogin.Pubkey).Exec(context.TODO())
 	assert.NoError(suite.T(), err)
 	req = httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.userToken))
