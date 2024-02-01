@@ -51,7 +51,6 @@ func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *
 	return user, err
 }
 
-
 func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
 	user, err = svc.FindUser(ctx, userId)
 	if err != nil {

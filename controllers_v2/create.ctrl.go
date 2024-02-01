@@ -54,7 +54,6 @@ func (controller *CreateUserController) CreateUser(c echo.Context) error {
 
 	var ResponseBody CreateUserResponseBody
 	ResponseBody.Pubkey = user.Pubkey
-	ResponseBody.Password = user.Password
 	ResponseBody.ID = user.ID
 
 	return c.JSON(http.StatusOK, &ResponseBody)

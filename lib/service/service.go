@@ -16,7 +16,7 @@ import (
 	"github.com/labstack/gommon/random"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
-	"golang.org/x/crypto/bcrypt"
+	//"golang.org/x/crypto/bcrypt"
 )
 
 const alphaNumBytes = random.Alphanumeric
@@ -34,14 +34,16 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 	var user models.User
 
 	switch {
+	// TODO adjust this function to authenticate user with the previously registered pubkey
+	//		and the signature on the current event - when required to do so
 	case login != "" || password != "":
 		{
 			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
 				return "", "", fmt.Errorf("bad auth")
 			}
-			if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
+			// if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+			// 	return "", "", fmt.Errorf("bad auth")
+			// }
 		}
 	case inRefreshToken != "":
 		{
