@@ -2,10 +2,12 @@ package v2controllers
 
 import (
 	"net/http"
-	"github.com/nbd-wtf/go-nostr"
+	"strings"
+
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
+	"github.com/nbd-wtf/go-nostr"
 )
 
 // NostrController : Add NoStr Event controller struct
@@ -24,9 +26,8 @@ type CreateUserEventResponseBody struct {
 	Pubkey string `json:"pubkey"`
 }
 
-type GetTahubPublicKey struct {
-	TaHubPublicKey   string `json:"tahubpublickey"`
-	Pubkey string `json:"pubkey"`
+type GetServerPubkeyResponseBody struct {
+	TaHubPubkey   string `json:"tahub_pubkey"`
 }
 
 
@@ -48,18 +49,18 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 		c.Logger().Errorf("Signature is not valid for the event... Consider monitoring this user if issue persists: %v", err)
 		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
+	// TODO add NIP4 decoding here
 
 	// call our payload validator 
-	if result, err := controller.svc.validateNostrPayload(paylaod); err != nil {
-		c.Logger().Errorf("Invalid Nostr Event request body: %v", err)
+	if result, err := controller.svc.CheckEvent(body); (err != nil || !result) {
+		c.Logger().Errorf("Invalid Nostr Event content: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
-		 // Split event content
-		 parts := strings.Split(payload.Content, ":")
+	// Split event content
+	data := strings.Split(body.Content, ":")
 
 	// handle create user event - can assume valid thanks to middleware
-	if parts[0] == "TAHUB_CREATE_USER" {
+	if data[0] == "TAHUB_CREATE_USER" {
 		// check if user exists
 		existingUser, err := controller.svc.FindUserByPubkey(c.Request().Context(), body.PubKey)
 		// check if user was found
@@ -86,16 +87,14 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 
 		return c.JSON(http.StatusOK, &ResponseBody)
     
-	} else if parts[0] == "GET_SERVER_PUBKEY" {
+	} else if data[0] == "GET_SERVER_PUBKEY" {
 
-		var ResponseBody GetTahubPublicKey
-		ResponseBody.Pubkey = body.Pubkey
-		ResponseBody.TaHubPublicKey = controller.svc.Config.TaHubPublicKey
+		var ResponseBody GetServerPubkeyResponseBody
+		ResponseBody.TaHubPubkey = controller.svc.Config.TaHubPublicKey
+
 		return c.JSON(http.StatusOK, &ResponseBody)
 
-	}
-	 else {
-
+	} else {
 		// TODO handle next events
 		return c.JSON(http.StatusBadRequest, responses.UnimplementedError)
 	}

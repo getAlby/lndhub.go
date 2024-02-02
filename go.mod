@@ -8,6 +8,7 @@ toolchain go1.21.3
 
 require (
 	github.com/btcsuite/btcd v0.23.5-0.20230228185050-38331963bddd
+	github.com/btcsuite/btcutil v1.0.2
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/getsentry/sentry-go v0.22.0
 	github.com/go-playground/validator/v10 v10.15.1
@@ -52,7 +53,6 @@ require (
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.8 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
-	github.com/btcsuite/btcutil v1.0.2 // indirect
 	github.com/btcsuite/btcwallet v0.16.10-0.20230621165747-9c21f464ce13 // indirect
 	github.com/btcsuite/btcwallet/wallet/txauthor v1.3.3 // indirect
 	github.com/btcsuite/btcwallet/wallet/txrules v1.2.0 // indirect

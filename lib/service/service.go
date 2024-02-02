@@ -2,24 +2,25 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"strconv"	
-	"crypto/rand"
-	"math/big"
+	//"crypto/rand"
 	"errors"
-	"github.com/nbd-wtf/go-nostr"
-	"github.com/getAlby/lndhub.go/rabbitmq"
+	"fmt"
+	//"math/big"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/btcsuite/btcutil/bech32"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getAlby/lndhub.go/rabbitmq"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
-	"github.com/nbd-wtf/go-nostr"
-	"github.com/btcsuite/btcutil/bech32"
 	//"golang.org/x/crypto/bcrypt"
 )
 
@@ -112,83 +113,83 @@ func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
 	
 }
 
-
-func validateNostrPayload (paylaod nostr.Event) (bool, error) {
+func (svc *LndhubService) CheckEvent(payload nostr.Event) (bool, error) {
 	
 	if payload.Kind != 1 {
 		return false, errors.New("Field 'kind' must be 1")
 	}
-
+	// TODO perform checks on content
 	// check the length of the content 
-
-	if len(paylaod.Content) == 0 {
+	if len(payload.Content) == 0 {
 		return false, errors.New("Field 'Content' must have a value")
 	}
+	// Split event content
+	data := strings.Split(payload.Content, ":")
+	if len(data) == 0 {
+		return false, errors.New("Field 'Content' must at least specify the action.")
+	}
 
-	 // Split event content
-	 parts := strings.Split(payload.Content, ":")
-
-	 if len(parts) != 3 {
-		return false, errors.New("Field 'Content' must have three diffirent part")
-	 }
-
-	 switch parts[0] {
+	switch data[0] {
 
 	case "TAHUB_CREATE_USER":
 
 		return true, nil
 		
 	case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
-
+		// this action must have three parts to the content
+		if len(data) != 3 {
+			return false, errors.New("Invalid 'Content' for TAHUB_RECEIVE_ADDRESS_FOR_ASSET.")
+		}
 		// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
-		if parts[1].length == 0 {
+
+		// TODO come up with further validations for this asset_id i.e. a Taproot Asset AssetID or 'btc'
+		// validate asset ID
+		if data[1] == "" {
 			return false, errors.New("Field 'Asset ID' must have a value")
 		}
-
-		if parts[2] == "" {
-			return false, errors.New("Field 'Amt' must have a value")
-		}
-
-		_, err := strconv.ParseFloat(parts[2], 64)
-
-		if err != nil {
-			return false, errors.New("Field 'amt' must be a valid number")
+		// validate amt
+		amt, err := strconv.ParseFloat(data[2], 64)
+		if err != nil || amt > 0 {
+			return false, errors.New("Field 'amt' must be a valid number and non-zero")
 		}
 
 		return true, nil
 
 	case "TAHUB_SEND_ASSET":
+		// this action must have three parts to the content
+		if len(data) != 3 {
+			return false, errors.New("Invalid 'Content' for TAHUB_SEND_ASSET.")
+		}
 		// Validate specific fields for TAHUB_SEND_ASSET event
-			expectedAddr := parts[1]
-		
-		if parts[1].length == 0 {
+		// TODO consider other validation on the address
+		if data[1] == "" {
 				return false, errors.New("Field 'ADDR' must have a value")
 		}
-
-		_, decoded, err := bech32.Decode(addr)
-
+		// decode the address (str, bytes, err)
+		_, _, err := bech32.Decode(data[1])
 		if err != nil {
 		return false, err
 		}
-		
-		if parts[2] == "" {
-			return false, errors.New("Field 'Fee' must have a value")
+		// validate amt to send
+		amt, err := strconv.ParseFloat(data[2], 64)
+		// TODO consider amt thresholds and their implication there
+		if err != nil || amt < 0 {
+			return false, errors.New("Field 'amt' must be a valid number and non-zero")
 		}
-
-		_, err := strconv.ParseFloat(parts[2], 64)
-
-		if err != nil {
+		// validate fee for tx
+		fee, err := strconv.ParseFloat(data[3], 64)
+		// TODO consider fee thresholds, limits, etc. that make sense to validate/apply here
+		if err != nil || fee != 0 {
 			return false, errors.New("Field 'fee' must be a valid number")
 		}
 
 		return true, nil
 
 	case "TAHUB_GET_BALANCES":
-		
 		return true, nil  
 
 	default:
-		return false, errors.New("Undefined Content Name")
+		return false, errors.New("Undefined 'Content' Name")
 	}
 	
 }
