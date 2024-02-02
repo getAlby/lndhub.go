@@ -1,1 +1,2 @@
+-- TODO we may need an AssetID to express uniqueness to support taproot assets
 ALTER TABLE transaction_entries ADD CONSTRAINT unique_tx_entry_tuple UNIQUE(user_id, invoice_id, debit_account_id, credit_account_id);

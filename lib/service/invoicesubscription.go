@@ -22,7 +22,7 @@ var AlreadyProcessedKeysendError = errors.New("already processed keysend payment
 
 func (svc *LndhubService) HandleInternalKeysendPayment(ctx context.Context, invoice *models.Invoice) (result *models.Invoice, err error) {
 	//Find the payee user
-	user, err := svc.FindUserByLogin(ctx, string(invoice.DestinationCustomRecords[TLV_WALLET_ID]))
+	user, err := svc.FindUserByPubkey(ctx, string(invoice.DestinationCustomRecords[TLV_WALLET_ID]))
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +109,13 @@ func (svc *LndhubService) ProcessInvoiceUpdate(ctx context.Context, rawInvoice *
 	svc.Logger.Infof("Invoice update: invoice_id:%v settled:%v value:%v state:%v", invoice.ID, rawInvoice.Settled, rawInvoice.AmtPaidSat, rawInvoice.State)
 
 	// Get the user's current account for the transaction entry
-	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, invoice.UserID)
+	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, invoice.AssetID, invoice.UserID)
 	if err != nil {
 		svc.Logger.Errorf("Could not find current account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
 	}
 	// Get the user's incoming account for the transaction entry
-	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, invoice.UserID)
+	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, invoice.AssetID, invoice.UserID)
 	if err != nil {
 		svc.Logger.Errorf("Could not find incoming account user_id:%v invoice_id:%v", invoice.UserID, invoice.ID)
 		return err
@@ -185,11 +185,11 @@ func (svc *LndhubService) createKeysendInvoice(ctx context.Context, rawInvoice *
 	if len(rawInvoice.Htlcs) == 0 {
 		return result, fmt.Errorf("Invoice's HTLC array has length 0")
 	}
-	userLoginCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
+	userPubkeyCustomRecord := rawInvoice.Htlcs[0].CustomRecords[TLV_WALLET_ID]
 	//Find user. Our convention here is that the TLV
 	//record should contain the user's login string
 	//(LND already returns the decoded string so there is no need to hex-decode it)
-	user, err := svc.FindUserByLogin(ctx, string(userLoginCustomRecord))
+	user, err := svc.FindUserByPubkey(ctx, string(userPubkeyCustomRecord))
 	if err != nil {
 		return result, err
 	}

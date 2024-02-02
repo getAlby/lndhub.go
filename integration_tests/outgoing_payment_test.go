@@ -20,6 +20,10 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	expectedServiceFee := 1
 	// 1 sat + 1 ppm
 	suite.mlnd.fee = 1
+	// TODO this may transition to being a bitcoin specific test or, 
+	//		to handle / iterate multiple assets we include in a test environment
+	//		* asset id hard-coded for now
+	assetId := 1 // bitcoin / sats
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
 	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
@@ -43,7 +47,7 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 
 	// check that balance was reduced
 	userId := getUserIdFromToken(suite.aliceToken)
-	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), int64(assetId), userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
@@ -55,10 +59,10 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
 	// verify transaction entries data
-	feeAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeFees, userId)
-	incomingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeIncoming, userId)
-	outgoingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeOutgoing, userId)
-	currentAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeCurrent, userId)
+	feeAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeFees, int64(assetId), userId)
+	incomingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeIncoming, int64(assetId), userId)
+	outgoingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeOutgoing, int64(assetId), userId)
+	currentAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeCurrent, int64(assetId), userId)
 
 	outgoingInvoices, _ := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeOutgoing)
 	incomingInvoices, _ := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeIncoming)
@@ -133,6 +137,10 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 	externalSatRequested := 1000
 	// 1 sat + 1 ppm
 	suite.mlnd.fee = 1
+	// TODO this may transition to being a bitcoin specific test or, 
+	//		to handle / iterate multiple assets we include in a test environment
+	//		* asset id hard-coded for now
+	assetId := 1 // bitcoin / sats
 	//fund alice account
 	invoiceResponse := suite.createAddInvoiceReq(aliceFundingSats, "integration test external payment alice", suite.aliceToken)
 	err := suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
@@ -156,7 +164,7 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 	// check that balance was reduced
 	userId := getUserIdFromToken(suite.aliceToken)
 
-	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), int64(assetId), userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
@@ -169,10 +177,10 @@ func (suite *PaymentTestSuite) TestOutGoingPaymentWithNegativeBalance() {
 		fmt.Printf("Error when getting transaction entries %v\n", err.Error())
 	}
 	// verify transaction entries data
-	feeAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeFees, userId)
-	incomingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeIncoming, userId)
-	outgoingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeOutgoing, userId)
-	currentAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeCurrent, userId)
+	feeAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeFees, int64(assetId), userId)
+	incomingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeIncoming, int64(assetId), userId)
+	outgoingAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeOutgoing, int64(assetId), userId)
+	currentAccount, _ := suite.service.AccountFor(context.Background(), common.AccountTypeCurrent, int64(assetId), userId)
 
 	outgoingInvoices, _ := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeOutgoing)
 	incomingInvoices, _ := suite.service.InvoicesFor(context.Background(), userId, common.InvoiceTypeIncoming)

@@ -50,7 +50,7 @@ func (suite *InvoiceTestSuite) SetupSuite() {
 	assert.Equal(suite.T(), 1, len(userTokens))
 	suite.aliceLogin = users[0]
 	suite.aliceToken = userTokens[0]
-	suite.echo.POST("/invoice/:user_login", controllers.NewInvoiceController(svc).Invoice)
+	suite.echo.POST("/invoice/:user_pubkey", controllers.NewInvoiceController(svc).Invoice)
 	suite.echo.POST("/v2/invoices", v2controllers.NewInvoiceController(svc).AddInvoice, tokens.Middleware([]byte(suite.service.Config.JWTSecret)))
 }
 
@@ -73,11 +73,11 @@ func (suite *InvoiceTestSuite) TestZeroAmtTestSuite() {
 }
 
 func (suite *InvoiceTestSuite) TestAddInvoiceWithoutToken() {
-	user, _ := suite.service.FindUserByLogin(context.Background(), suite.aliceLogin.Login)
+	user, _ := suite.service.FindUserByPubkey(context.Background(), suite.aliceLogin.Pubkey)
 	invoicesBefore, _ := suite.service.InvoicesFor(context.Background(), user.ID, common.InvoiceTypeIncoming)
 	assert.Equal(suite.T(), 0, len(invoicesBefore))
 
-	suite.createInvoiceReq(10, "test invoice without token", suite.aliceLogin.Login)
+	suite.createInvoiceReq(10, "test invoice without token", suite.aliceLogin.Pubkey)
 
 	// check if invoice is added
 	invoicesAfter, _ := suite.service.InvoicesFor(context.Background(), user.ID, common.InvoiceTypeIncoming)
@@ -85,11 +85,11 @@ func (suite *InvoiceTestSuite) TestAddInvoiceWithoutToken() {
 }
 
 func (suite *InvoiceTestSuite) TestAddInvoiceForNonExistingUser() {
-	nonExistingLogin := suite.aliceLogin.Login + "abc"
+	nonExistingLogin := suite.aliceLogin.Pubkey + "abc"
 	suite.createInvoiceReqError(10, "test invoice without token", nonExistingLogin)
 }
 func (suite *InvoiceTestSuite) TestPreimageEntropy() {
-	user, _ := suite.service.FindUserByLogin(context.Background(), suite.aliceLogin.Login)
+	user, _ := suite.service.FindUserByPubkey(context.Background(), suite.aliceLogin.Pubkey)
 	preimageChars := map[byte]int{}
 	for i := 0; i < 1000; i++ {
 		inv, errResp := suite.service.AddIncomingInvoice(context.Background(), user.ID, 10, "test entropy", "")

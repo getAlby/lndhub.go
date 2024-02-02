@@ -27,6 +27,7 @@ func NewKeySendController(svc *service.LndhubService) *KeySendController {
 }
 
 type KeySendRequestBody struct {
+	AssetID                 int64             `json:"asset_id" validate:"required,gt=1"`
 	Amount                  int64             `json:"amount" validate:"required,gt=0"`
 	Destination             string            `json:"destination" validate:"required"`
 	Memo                    string            `json:"memo" validate:"omitempty"`
@@ -47,6 +48,7 @@ type KeySendResult struct {
 }
 
 type KeySendResponseBody struct {
+	AssetID         int64             `json:"asset_id"`
 	Amount          int64             `json:"amount"`
 	Fee             int64             `json:"fee"`
 	Description     string            `json:"description,omitempty"`
@@ -81,7 +83,7 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	errResp := controller.checkKeysendPaymentAllowed(c, reqBody.Amount, userID)
+	errResp := controller.checkKeysendPaymentAllowed(c, reqBody.Amount, reqBody.AssetID, userID)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
@@ -117,17 +119,28 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
+	// collect asset IDs
+	assetIds := []int64{}
 	for _, split := range reqBody.Keysends {
+		assetIds = append(assetIds, split.AssetID)
+
 		if err := c.Validate(&split); err != nil {
 			c.Logger().Errorf("Invalid keysend request body: %v", err)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 	}
+	// check that batch is all for the same asset (for now)
+	if !controller.svc.OneAssetInMultiKeysend(assetIds) {
+		c.Logger().Errorf("Multi keysend member payments must be in the same asset at this stage")
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+	// we can be confident each of these amounts are referring to the same denomination
 	var totalAmount int64
 	for _, keysend := range reqBody.Keysends {
 		totalAmount += keysend.Amount
 	}
-	errResp := controller.checkKeysendPaymentAllowed(c, totalAmount, userID)
+	// we can be confident each assetIds member is referring to the same asset based on performed validation
+	errResp := controller.checkKeysendPaymentAllowed(c, totalAmount, assetIds[0], userID)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to make keysend split payments: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
@@ -162,14 +175,14 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	return c.JSON(status, result)
 }
 
-func (controller *KeySendController) checkKeysendPaymentAllowed(c echo.Context, amount, userID int64) (resp *responses.ErrorResponse) {
+func (controller *KeySendController) checkKeysendPaymentAllowed(c echo.Context, amount, assetId int64, userID int64) (resp *responses.ErrorResponse) {
 	syntheticPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
 			NumSatoshis: amount,
 		},
 		Keysend: true,
 	}
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, syntheticPayReq, userID)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, syntheticPayReq, assetId, userID)
 	if err != nil {
 		return &responses.GeneralServerError
 	}

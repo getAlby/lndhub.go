@@ -25,10 +25,12 @@ func NewPayInvoiceController(svc *service.LndhubService) *PayInvoiceController {
 
 type PayInvoiceRequestBody struct {
 	Invoice string `json:"invoice" validate:"required"`
+	AssetID int64   `json:"asset_id" validate:"omitempty,gte=1"` // NOTE: this is defaulting to bitcoin balance
 	Amount  int64  `json:"amount" validate:"omitempty,gte=0"`
 }
 type PayInvoiceResponseBody struct {
 	PaymentRequest  string `json:"payment_request,omitempty"`
+	AssetID         int64  `json:"asset_id,omitempty"`
 	Amount          int64  `json:"amount,omitempty"`
 	Fee             int64  `json:"fee"`
 	Description     string `json:"description,omitempty"`
@@ -98,7 +100,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, reqBody.AssetID, userID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, responses.GeneralServerError)
 	}

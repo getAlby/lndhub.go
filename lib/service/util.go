@@ -17,3 +17,14 @@ func randBytesFromStr(length int, from string) ([]byte, error) {
 	}
 	return b, nil
 }
+
+
+func allEqual(arr []int64) bool {
+	for i := 1; i < len(arr); i++ {
+		// compare every item to the first positioned item
+		if arr[i] != arr[0] {
+			return false
+		}
+	}
+	return true
+}

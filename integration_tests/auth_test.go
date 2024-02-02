@@ -55,8 +55,8 @@ func (suite *UserAuthTestSuite) TearDownSuite() {
 func (suite *UserAuthTestSuite) TestAuth() {
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
-		Login:    suite.userLogin.Login,
-		Password: suite.userLogin.Password,
+		Pubkey:    suite.userLogin.Pubkey,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -90,11 +90,11 @@ func (suite *UserAuthTestSuite) TestAuth() {
 }
 
 func (suite *UserAuthTestSuite) TestAuthWithExpiredRefreshToken() {
-	// log in with login and password
+	// log in with pubkey and password
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
-		Login:    suite.userLogin.Login,
-		Password: suite.userLogin.Password,
+		Pubkey:    suite.userLogin.Pubkey,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -139,8 +139,8 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidSecretRefreshToken() {
 	// log in with login and password
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
-		Login:    suite.userLogin.Login,
-		Password: suite.userLogin.Password,
+		Pubkey:    suite.userLogin.Pubkey,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -182,8 +182,8 @@ func (suite *UserAuthTestSuite) TestAuthWithInvalidUserIdRefreshToken() {
 	// log in with login and password
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
-		Login:    suite.userLogin.Login,
-		Password: suite.userLogin.Password,
+		Pubkey:    suite.userLogin.Pubkey,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -224,8 +224,8 @@ func (suite *UserAuthTestSuite) TestAuthWithAccessToken() {
 	// log in with login and password
 	var buf bytes.Buffer
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAuthRequestBody{
-		Login:    suite.userLogin.Login,
-		Password: suite.userLogin.Password,
+		Pubkey:    suite.userLogin.Pubkey,
+		//Password: suite.userLogin.Password,
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/auth", &buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

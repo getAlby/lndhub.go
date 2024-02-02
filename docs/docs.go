@@ -26,7 +26,7 @@ const docTemplate = `{
     "paths": {
         "/auth": {
             "post": {
-                "description": "Exchanges a login + password for a token",
+                "description": "Exchanges a pubkey + password for a token",
                 "consumes": [
                     "application/json"
                 ],
@@ -39,7 +39,7 @@ const docTemplate = `{
                 "summary": "Authenticate",
                 "parameters": [
                     {
-                        "description": "Login and password",
+                        "description": "Pubkey and password",
                         "name": "AuthRequestBody",
                         "in": "body",
                         "schema": {

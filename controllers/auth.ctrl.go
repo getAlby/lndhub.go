@@ -8,6 +8,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
+// TODO adjust AuthController to verify that the signature on
+//		the event being handled is:
+// 		* valid for the pubkey on the same event
+//		* matches a pubkey of one of our users
+
+//		* NOTE: this may get handled as a middlware created in service/service.go
+//				search this: ValidateNostrEventPayload
 
 // AuthController : AuthController struct
 type AuthController struct {
@@ -21,8 +28,8 @@ func NewAuthController(svc *service.LndhubService) *AuthController {
 }
 
 type AuthRequestBody struct {
-	Login        string `json:"login"`
-	Password     string `json:"password"`
+	Pubkey       string `json:"pubkey"`
+	//Password     string `json:"password"`
 	RefreshToken string `json:"refresh_token"`
 }
 type AuthResponseBody struct {
@@ -59,7 +66,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	if body.Login == "" || body.Password == "" {
+	if body.Pubkey == "" {
 		// To support Swagger we also look in the Form data
 		params, err := c.FormParams()
 		if err != nil {
@@ -71,37 +78,39 @@ func (controller *AuthController) Auth(c echo.Context) error {
 			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
-		login := params.Get("login")
-		password := params.Get("password")
-		if login != "" && password != "" {
-			body.Login = login
-			body.Password = password
+		pubkey := params.Get("pubkey")
+
+		if pubkey != "" {
+			body.Pubkey = pubkey
+
 		}
 	}
 
-	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Login, body.Password, body.RefreshToken)
-	if err != nil {
-		if err.Error() == responses.AccountDeactivatedError.Message {
-			c.Logger().Errorj(
-				log.JSON{
-					"message":    "account deactivated",
-					"user_login": body.Login,
-				},
-			)
-			return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
-		}
-		c.Logger().Errorj(
-			log.JSON{
-				"message":    "authentication error",
-				"user_login": body.Login,
-				"error":      err,
-			},
-		)
-		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
-	}
+	//accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Pubkey, body.Password, body.RefreshToken)
+	// if err != nil {
+	// 	if err.Error() == responses.AccountDeactivatedError.Message {
+	// 		c.Logger().Errorj(
+	// 			log.JSON{
+	// 				"message":    "account deactivated",
+	// 				"user_pubkey": body.Pubkey,
+	// 			},
+	// 		)
+	// 		return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
+	// 	}
+	// 	c.Logger().Errorj(
+	// 		log.JSON{
+	// 			"message":    "authentication error",
+	// 			"user_pubkey": body.Pubkey,
+	// 			"error":      err,
+	// 		},
+	// 	)
+	// 	return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
+	// }
 
 	return c.JSON(http.StatusOK, &AuthResponseBody{
-		RefreshToken: refreshToken,
-		AccessToken:  accessToken,
+		//RefreshToken: refreshToken,
+		//AccessToken:  accessToken,
+		AccessToken: "",
+		RefreshToken: "",
 	})
 }

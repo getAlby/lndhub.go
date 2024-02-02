@@ -27,7 +27,7 @@ vim .env # edit your config
 
 ### Available configuration
 
-+ `DATABASE_URI`: The URI for the database. (eg. `postgresql://user:password@localhost:5432/lndhub?sslmode=disable`)
++ `DATABASE_URI`: The URI for the database. (eg. `postgresql://user:password@localhost:5432/tahub?sslmode=disable`)
 + `JWT_SECRET`: We use [JWT](https://jwt.io/) for access tokens. Configure your secret here
 + `JWT_ACCESS_EXPIRY`: How long the access tokens should be valid (in seconds, default 2 days)
 + `JWT_REFRESH_EXPIRY`: How long the refresh tokens should be valid (in seconds, default 7 days)
@@ -58,6 +58,8 @@ vim .env # edit your config
 + `MAX_RECEIVE_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for receiving for each account
 + `SERVICE_FEE`: (default: 0 = no service fee) Set the service fee for each outgoing transaction in 1/1000 (e.g. 1 means a fee of 1sat for 1000sats - rounded up to the next bigger integer)
 + `NO_SERVICE_FEE_UP_TO_AMOUNT` (default: 0 = no free transactions) the amount in sats up to which no service fee should be charged
++ `TAHUB_PUBLIC_KEY`: TAHUB Public Keys
++ `TAHUB_PRIVATE_KEY`: TAHUB Private Key
 
 ### Macaroon
 
@@ -83,6 +85,11 @@ lncli bakemacaroon --save_to=lndhub.macaroon info:read invoices:read invoices:wr
 ```
 
 ## Developing
+Start a Database with Docker (tested MacOS), ensure Docker engine is running.
+```
+  chmod +x ./dev/init_db.sh
+  ./dev/init_db.sh
+```
 To run the server
 ```shell
 go run cmd/server/main.go
@@ -166,15 +173,23 @@ The V2 API has an endpoint to make multiple keysend payments with 1 request, whi
 Accounts:          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
                    │   Incoming   │  │   Current    │  │   Outgoing   │  │     Fees     │
 Every user has     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-four accounts
+three accounts, per
+asset.                 
+                             
+All users have one set of four
+accounts for bitcoin, where the fourth is a global account for onchain fees.
+
+Accounts for (x):  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  
+                   │ Incoming (x) |  │  Current (x) │  │ Outgoing (x) |  
+                   └──────────────┘  └──────────────┘  └──────────────┘  
 
                     Every Transaction Entry is associated to one debit account and one
                                              credit account
 
                                           ┌────────────────────────┐
-                                          │Transaction Entry       │
-                                          │                        │
-                                          │+ user_id               │
+            [---------]                   │Transaction Entry       │
+            |  (x)    |                   │                        │
+            [---------]                   │+ user_id               │
             ┌────────────┐                │+ invoice_id            │
             │  Invoice   │────────────────▶+ debit_account_id      │
             └────────────┘                │+ credit_account_id     │

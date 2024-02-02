@@ -6,7 +6,7 @@ import (
 
 	"github.com/uptrace/bun"
 )
-
+// TODO determine if AssetID has a role in this migration and implement if so
 func init() {
 	Migrations.MustRegister(func(ctx context.Context, db *bun.DB) error {
 

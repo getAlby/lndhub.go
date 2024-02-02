@@ -18,9 +18,9 @@ func NewInvoiceController(svc *service.LndhubService) *InvoiceController {
 }
 
 func (controller *InvoiceController) Invoice(c echo.Context) error {
-	user, err := controller.svc.FindUserByLogin(c.Request().Context(), c.Param("user_login"))
+	user, err := controller.svc.FindUserByPubkey(c.Request().Context(), c.Param("user_pubkey"))
 	if err != nil {
-		c.Logger().Errorf("Failed to find user by login: login %v error %v", c.Param("user_login"), err)
+		c.Logger().Errorf("Failed to find user by pubkey: pubkey %v error %v", c.Param("user_pubkey"), err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 

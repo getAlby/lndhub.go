@@ -12,6 +12,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	"github.com/getAlby/lndhub.go/tapd"
 	ddEcho "gopkg.in/DataDog/dd-trace-go.v1/contrib/labstack/echo.v4"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -104,7 +105,15 @@ func main() {
 	}
 
 	logger.Infof("Connected to %s: %s", lnCfg.LNClientType, lndClient.GetMainPubkey())
-
+	// Init new TAPD client
+	tapdConfig, err := tapd.LoadConfig()
+	if err != nil {
+		logger.Fatalf("Error loading LN config: %v", err)
+	}
+	tapdClient, err := tapd.InitTAPDClient(tapdConfig, logger, startupCtx)
+	if err != nil {
+		logger.Fatalf("Error initializating the %s connection: %v", tapdConfig.TAPDClientType, err)
+	}
 	// If no RABBITMQ_URI was provided we will not attempt to create a client
 	// No rabbitmq features will be available in this case.
 	var rabbitmqClient rabbitmq.Client
@@ -136,6 +145,7 @@ func main() {
 		Config:         c,
 		DB:             dbConn,
 		LndClient:      lndClient,
+		TapdClient:     tapdClient,
 		Logger:         logger,
 		InvoicePubSub:  service.NewPubsub(),
 		RabbitMQClient: rabbitmqClient,
@@ -155,17 +165,10 @@ func main() {
 	strictRateLimitMiddleware := transport.CreateRateLimitMiddleware(c.StrictRateLimit, c.BurstRateLimit)
 
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
-
-	// Appying the custom middleware to a Group
-	validateNostrPayload := e.Group("", svc.ValidateNosTREventPayload(), logMw)
-
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
 
-
 	transport.RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
-	transport.RegisterV2Endpoints(svc, e, secured, validateNostrPayload, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
-
-
+	transport.RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host

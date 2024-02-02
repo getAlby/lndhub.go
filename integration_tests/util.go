@@ -49,7 +49,7 @@ const (
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
 	dbUri, ok := os.LookupEnv("DATABASE_URI")
 	if !ok {
-		dbUri = "postgresql://user:password@localhost/lndhub?sslmode=disable"
+		dbUri = "postgresql://user:password@localhost/tahub?sslmode=disable"
 	}
 	c := &service.Config{
 		DatabaseUri:             dbUri,
@@ -151,19 +151,18 @@ func createUsers(svc *service.LndhubService, usersToCreate int) (logins []Expect
 	logins = []ExpectedCreateUserResponseBody{}
 	tokens = []string{}
 	for i := 0; i < usersToCreate; i++ {
-		user, err := svc.CreateUser(context.Background(), "", "")
+		user, err := svc.CreateUser(context.Background(), "")
 		if err != nil {
 			return nil, nil, err
 		}
 		var login ExpectedCreateUserResponseBody
-		login.Login = user.Login
-		login.Password = user.Password
+		login.Pubkey = user.Pubkey
 		logins = append(logins, login)
-		token, _, err := svc.GenerateToken(context.Background(), login.Login, login.Password, "")
-		if err != nil {
-			return nil, nil, err
-		}
-		tokens = append(tokens, token)
+		//token, _, err := svc.GenerateToken(context.Background(), login.Pubkey, login.Password, "")
+		// if err != nil {
+		// 	return nil, nil, err
+		// }
+		//tokens = append(tokens, token)
 	}
 	return logins, tokens, nil
 }

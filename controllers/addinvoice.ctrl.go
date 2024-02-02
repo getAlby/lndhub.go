@@ -60,8 +60,8 @@ func AddInvoice(c echo.Context, svc *service.LndhubService, userID int64) error 
 		)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
-	resp, err := svc.CheckIncomingPaymentAllowed(c, amount, userID)
+	// TODO hard-coding value as code is likely to be discarded for us
+	resp, err := svc.CheckIncomingPaymentAllowed(c, amount, 1, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}

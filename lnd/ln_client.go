@@ -52,6 +52,7 @@ func InitSingleLNDClient(c *Config, ctx context.Context) (result LightningClient
 	if err != nil {
 		return nil, err
 	}
+	
 	getInfo, err := client.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		return nil, err
