@@ -105,7 +105,8 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 
 	// check to see that balance was reduced
 	userId := getUserIdFromToken(suite.userToken)
-	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	// TODO note hard-coded asset id for now
+	userBalance, err := suite.service.CurrentUserBalance(context.Background(), 1, userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
@@ -146,7 +147,8 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 	time.Sleep(time.Second)
 
 	// check that balance was reverted and invoice is in error state
-	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
+	// TODO note hard-coded asset id for now
+	userBalance, err = suite.service.CurrentUserBalance(context.Background(), 1, userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
@@ -225,7 +227,8 @@ func (suite *HodlInvoiceSuite) TestHodlInvoice() {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
 	//fetch user balance again
-	userBalance, err = suite.service.CurrentUserBalance(context.Background(), userId)
+	// TODO note hard-coded asset id for now
+	userBalance, err = suite.service.CurrentUserBalance(context.Background(), 1, userId)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(userFundingSats-externalSatRequested), userBalance)
 	// check payment is updated as succesful
@@ -316,7 +319,8 @@ func (suite *HodlInvoiceSuite) TestNegativeBalanceWithHodl() {
 		FailureReason:   0,
 	})
 	//fetch user balance again
-	userBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	// TODO note hard-coded asset ID for now
+	userBalance, err := suite.service.CurrentUserBalance(context.Background(), 1, userId)
 	assert.NoError(suite.T(), err)
 	//assert the balance did not go below 0
 	assert.False(suite.T(), userBalance < 0)

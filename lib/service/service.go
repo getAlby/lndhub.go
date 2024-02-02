@@ -1,7 +1,7 @@
 package service
 
 import (
-	"context"
+	//"context"
 	//"crypto/rand"
 	"errors"
 	"fmt"
@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
 	"github.com/btcsuite/btcutil/bech32"
-	"github.com/getAlby/lndhub.go/db/models"
-	"github.com/getAlby/lndhub.go/lib/responses"
-	"github.com/getAlby/lndhub.go/lib/tokens"
-	"github.com/getAlby/lndhub.go/lnd"
+	// "github.com/getAlby/lndhub.go/db/models"
+	// "github.com/getAlby/lndhub.go/lib/responses"
+	// "github.com/getAlby/lndhub.go/lib/tokens"
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	"github.com/getAlby/lndhub.go/tapd"
+	"github.com/nbd-wtf/go-nostr"
+	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
 	"github.com/nbd-wtf/go-nostr"
@@ -29,68 +30,11 @@ const alphaNumBytes = random.Alphanumeric
 type LndhubService struct {
 	Config         *Config
 	DB             *bun.DB
+	TapdClient     tapd.TapdClientWrapper
 	LndClient      lnd.LightningClientWrapper
 	RabbitMQClient rabbitmq.Client
 	Logger         *lecho.Logger
 	InvoicePubSub  *Pubsub
-}
-
-// type EventRequestBody struct {
-// 	ID        string            `json:"id"`
-// 	Pubkey    string            `json:"pubkey"`
-// 	CreatedAt int64             `json:"created_at"`
-// 	Kind      int64               `json:"kind"`
-// 	Tags      [][]interface{}   `json:"tags"`
-// 	Content   string            `json:"content"`
-// 	Sig       string            `json:"sig"`
-// }
-
-func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
-	var user models.User
-
-	switch {
-	// TODO adjust this function to authenticate user with the previously registered pubkey
-	//		and the signature on the current event - when required to do so
-	case login != "" || password != "":
-		{
-			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
-			// if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
-			// 	return "", "", fmt.Errorf("bad auth")
-			// }
-		}
-	case inRefreshToken != "":
-		{
-			userId, err := tokens.GetUserIdFromToken(svc.Config.JWTSecret, inRefreshToken)
-			if err != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
-
-			if err := svc.DB.NewSelect().Model(&user).Where("id = ?", userId).Scan(ctx); err != nil {
-				return "", "", fmt.Errorf("bad auth")
-			}
-		}
-	default:
-		{
-			return "", "", fmt.Errorf("login and password or refresh token is required")
-		}
-	}
-
-	if user.Deactivated || user.Deleted {
-		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
-	}
-
-	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)
-	if err != nil {
-		return "", "", err
-	}
-
-	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTRefreshTokenExpiry, &user)
-	if err != nil {
-		return "", "", err
-	}
-	return accessToken, refreshToken, nil
 }
 
 func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
@@ -194,8 +138,15 @@ func (svc *LndhubService) CheckEvent(payload nostr.Event) (bool, error) {
 	
 }
 
-
-
+func (svc *LndhubService) OneAssetInMultiKeysend(arr []int64) bool {
+	for i := 1; i < len(arr); i++ {
+		// compare every item to the first positioned item
+		if arr[i] != arr[0] {
+			return false
+		}
+	}
+	return true
+}
 
 func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
 	// TODO update ValidateUserMiddlware 
@@ -226,3 +177,53 @@ func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
 		}
 	}
 }
+
+// TODO do we need a modified version of this or something new in addition to validating signatures?
+
+// func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, inRefreshToken string) (accessToken, refreshToken string, err error) {
+// 	var user models.User
+
+// 	switch {
+// 	// TODO adjust this function to authenticate user with the previously registered pubkey
+// 	//		and the signature on the current event - when required to do so
+// 	case login != "" || password != "":
+// 		{
+// 			if err := svc.DB.NewSelect().Model(&user).Where("login = ?", login).Scan(ctx); err != nil {
+// 				return "", "", fmt.Errorf("bad auth")
+// 			}
+// 			// if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+// 			// 	return "", "", fmt.Errorf("bad auth")
+// 			// }
+// 		}
+// 	case inRefreshToken != "":
+// 		{
+// 			userId, err := tokens.GetUserIdFromToken(svc.Config.JWTSecret, inRefreshToken)
+// 			if err != nil {
+// 				return "", "", fmt.Errorf("bad auth")
+// 			}
+
+// 			if err := svc.DB.NewSelect().Model(&user).Where("id = ?", userId).Scan(ctx); err != nil {
+// 				return "", "", fmt.Errorf("bad auth")
+// 			}
+// 		}
+// 	default:
+// 		{
+// 			return "", "", fmt.Errorf("login and password or refresh token is required")
+// 		}
+// 	}
+
+// 	if user.Deactivated || user.Deleted {
+// 		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
+// 	}
+
+// 	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	refreshToken, err = tokens.GenerateRefreshToken(svc.Config.JWTSecret, svc.Config.JWTRefreshTokenExpiry, &user)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+// 	return accessToken, refreshToken, nil
+// }

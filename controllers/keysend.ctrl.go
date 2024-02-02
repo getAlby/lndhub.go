@@ -74,8 +74,8 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 			HttpStatusCode: 400,
 		})
 	}
-
-	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
+	// TODO hard-coding value as code is likely to be discarded for us
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, 1, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}

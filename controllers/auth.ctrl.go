@@ -29,7 +29,7 @@ func NewAuthController(svc *service.LndhubService) *AuthController {
 
 type AuthRequestBody struct {
 	Pubkey       string `json:"pubkey"`
-	Password     string `json:"password"`
+	//Password     string `json:"password"`
 	RefreshToken string `json:"refresh_token"`
 }
 type AuthResponseBody struct {
@@ -66,7 +66,7 @@ func (controller *AuthController) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	if body.Pubkey == "" || body.Password == "" {
+	if body.Pubkey == "" {
 		// To support Swagger we also look in the Form data
 		params, err := c.FormParams()
 		if err != nil {
@@ -79,36 +79,38 @@ func (controller *AuthController) Auth(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		pubkey := params.Get("pubkey")
-		password := params.Get("password")
-		if pubkey != "" && password != "" {
+
+		if pubkey != "" {
 			body.Pubkey = pubkey
-			body.Password = password
+
 		}
 	}
 
-	accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Pubkey, body.Password, body.RefreshToken)
-	if err != nil {
-		if err.Error() == responses.AccountDeactivatedError.Message {
-			c.Logger().Errorj(
-				log.JSON{
-					"message":    "account deactivated",
-					"user_pubkey": body.Pubkey,
-				},
-			)
-			return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
-		}
-		c.Logger().Errorj(
-			log.JSON{
-				"message":    "authentication error",
-				"user_pubkey": body.Pubkey,
-				"error":      err,
-			},
-		)
-		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
-	}
+	//accessToken, refreshToken, err := controller.svc.GenerateToken(c.Request().Context(), body.Pubkey, body.Password, body.RefreshToken)
+	// if err != nil {
+	// 	if err.Error() == responses.AccountDeactivatedError.Message {
+	// 		c.Logger().Errorj(
+	// 			log.JSON{
+	// 				"message":    "account deactivated",
+	// 				"user_pubkey": body.Pubkey,
+	// 			},
+	// 		)
+	// 		return c.JSON(http.StatusUnauthorized, responses.AccountDeactivatedError)
+	// 	}
+	// 	c.Logger().Errorj(
+	// 		log.JSON{
+	// 			"message":    "authentication error",
+	// 			"user_pubkey": body.Pubkey,
+	// 			"error":      err,
+	// 		},
+	// 	)
+	// 	return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
+	// }
 
 	return c.JSON(http.StatusOK, &AuthResponseBody{
-		RefreshToken: refreshToken,
-		AccessToken:  accessToken,
+		//RefreshToken: refreshToken,
+		//AccessToken:  accessToken,
+		AccessToken: "",
+		RefreshToken: "",
 	})
 }

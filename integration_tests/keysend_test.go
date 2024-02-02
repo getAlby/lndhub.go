@@ -93,7 +93,8 @@ func (suite *KeySendTestSuite) TestKeysendPayment() {
 	suite.createKeySendReq(int64(externalSatRequested), "key send test", "123456789012345678901234567890123456789012345678901234567890abcdef", suite.aliceToken)
 	// check that balance was reduced
 	userId := getUserIdFromToken(suite.aliceToken)
-	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	// TODO hard-code asset id for now
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), 1, userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}
@@ -155,7 +156,8 @@ func (suite *KeySendTestSuite) TestMultiKeysend() {
 	assert.Equal(suite.T(), len(keySendResponse.Keysends), 3)
 	//check that balance was reduced appropriately
 	userId := getUserIdFromToken(suite.aliceToken)
-	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), userId)
+	// TODO hard-code asset ID for now
+	aliceBalance, err := suite.service.CurrentUserBalance(context.Background(), 1, userId)
 	if err != nil {
 		fmt.Printf("Error when getting balance %v\n", err.Error())
 	}

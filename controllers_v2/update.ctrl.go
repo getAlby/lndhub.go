@@ -25,7 +25,6 @@ type UpdateUserResponseBody struct {
 }
 type UpdateUserRequestBody struct {
 	Pubkey      *string `json:"pubkey,omitempty"`
-	Password    *string `json:"password,omitempty"`
 	Deactivated *bool   `json:"deactivated,omitempty"`
 	Deleted     *bool   `json:"deleted,omitempty"`
 	ID          int64   `json:"id" validate:"required"`

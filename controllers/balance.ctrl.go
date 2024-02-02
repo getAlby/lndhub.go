@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -26,7 +27,13 @@ type BalanceResponse struct {
 
 func (controller *BalanceController) Balance(c echo.Context) error {
 	userId := c.Get("UserID").(int64)
-	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), userId)
+	assetParam := c.Param("asset_id")
+	assetId, err := strconv.ParseInt(assetParam, 10, 64)
+	// default to bitcoin if error parsing the param
+	if  err != nil {
+		assetId = 1
+	}
+	balance, err := controller.svc.CurrentUserBalance(c.Request().Context(), assetId, userId)
 	if err != nil {
 		c.Logger().Errorj(
 			log.JSON{

@@ -42,7 +42,7 @@ type ExpectedAddInvoiceResponseBody struct {
 
 type ExpectedAuthRequestBody struct {
 	Pubkey       string `json:"pubkey"`
-	Password     string `json:"password"`
+	//Password     string `json:"password"`
 	RefreshToken string `json:"refresh_token"`
 }
 
@@ -63,12 +63,12 @@ type ExpectedCheckPaymentResponseBody struct {
 
 type ExpectedCreateUserResponseBody struct {
 	Pubkey    string `json:"pubkey"`
-	Password string `json:"password"`
+	//Password string `json:"password"`
 }
 type ExpectedCreateUserRequestBody struct {
 	Pubkey       string `json:"pubkey"`
-	Password    string `json:"password"`
-	PartnerID   string `json:"partnerid"`
+	//Password    string `json:"password"`
+	//PartnerID   string `json:"partnerid"`
 	AccountType string `json:"accounttype"`
 }
 

@@ -140,12 +140,14 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 
 type AddInvoiceRequestBody struct {
 	Amount          int64  `json:"amount" validate:"gte=0"`
+	AssetId        int64     `json:"asset_id"`
 	Description     string `json:"description"`
 	DescriptionHash string `json:"description_hash" validate:"omitempty,hexadecimal,len=64"`
 }
-
+// TODO confirm that no other info is needed ehre
 type AddInvoiceResponseBody struct {
 	PaymentHash    string    `json:"payment_hash"`
+	AssetId        int64     `json:"asset_id"`
 	PaymentRequest string    `json:"payment_request"`
 	ExpiresAt      time.Time `json:"expires_at"`
 	CreatedAt      time.Time `json:"created_at"`
@@ -165,6 +167,7 @@ type AddInvoiceResponseBody struct {
 // @Security     OAuth2Password
 func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	userID := c.Get("UserID").(int64)
+
 	var body AddInvoiceRequestBody
 
 	if err := c.Bind(&body); err != nil {
@@ -177,7 +180,7 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
-	resp, err := controller.svc.CheckIncomingPaymentAllowed(c, body.Amount, userID)
+	resp, err := controller.svc.CheckIncomingPaymentAllowed(c, body.Amount, body.AssetId, userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
 	}
@@ -194,6 +197,7 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 	}
 	responseBody := AddInvoiceResponseBody{
 		PaymentHash:    invoice.RHash,
+		AssetId: 		invoice.AssetID,
 		PaymentRequest: invoice.PaymentRequest,
 		ExpiresAt:      invoice.ExpiresAt.Time,
 		CreatedAt:      invoice.CreatedAt,

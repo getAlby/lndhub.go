@@ -68,11 +68,11 @@ func (svc *LndhubService) SendInternalPayment(ctx context.Context, invoice *mode
 	}
 
 	// Get the user's current and incoming account for the transaction entry
-	recipientCreditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, incomingInvoice.UserID)
+	recipientCreditAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, incomingInvoice.AssetID, incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
-	recipientDebitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, incomingInvoice.UserID)
+	recipientDebitAccount, err := svc.AccountFor(ctx, common.AccountTypeIncoming, incomingInvoice.AssetID, incomingInvoice.UserID)
 	if err != nil {
 		return sendPaymentResponse, err
 	}
@@ -190,17 +190,17 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	userId := invoice.UserID
 
 	// Get the user's current and outgoing account for the transaction entry
-	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, userId)
+	debitAccount, err := svc.AccountFor(ctx, common.AccountTypeCurrent, invoice.AssetID, userId)
 	if err != nil {
 		svc.Logger.Errorf("Could not find current account user_id:%v", userId)
 		return nil, err
 	}
-	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, userId)
+	creditAccount, err := svc.AccountFor(ctx, common.AccountTypeOutgoing, invoice.AssetID, userId)
 	if err != nil {
 		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
 	}
-	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, userId)
+	feeAccount, err := svc.AccountFor(ctx, common.AccountTypeFees, invoice.AssetID, userId)
 	if err != nil {
 		svc.Logger.Errorf("Could not find outgoing account user_id:%v", userId)
 		return nil, err
@@ -462,7 +462,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 		return err
 	}
 
-	userBalance, err := svc.CurrentUserBalance(ctx, parentEntry.UserID)
+	userBalance, err := svc.CurrentUserBalance(ctx, invoice.AssetID, parentEntry.UserID)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not fetch user balance user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
