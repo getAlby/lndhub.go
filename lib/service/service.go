@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"github.com/nbd-wtf/go-nostr"
+
 	"github.com/getAlby/lndhub.go/rabbitmq"
+	"github.com/getAlby/lndhub.go/tapd"
+	"github.com/nbd-wtf/go-nostr"
+
 	// "github.com/getAlby/lndhub.go/db/models"
 	// "github.com/getAlby/lndhub.go/lib/responses"
 	// "github.com/getAlby/lndhub.go/lib/tokens"
@@ -23,6 +26,7 @@ const alphaNumBytes = random.Alphanumeric
 type LndhubService struct {
 	Config         *Config
 	DB             *bun.DB
+	TapdClient     tapd.TapdClientWrapper
 	LndClient      lnd.LightningClientWrapper
 	RabbitMQClient rabbitmq.Client
 	Logger         *lecho.Logger

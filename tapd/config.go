@@ -10,6 +10,7 @@ const (
 /// TODO do we need to import anything from lnd.config ?
 type TapdConfig struct {
 	TAPDClientType   string `envconfig:"TAPD_CLIENT_TYPE" default:"tapd"`
+	TAPDAddress      string `envconfig:"TAPD_ADDRESS" required:"true"`
 	TAPDMacaroonFile string `envconfig:"TAPD_MACAROON_FILE"`
 	TAPDCertFile     string `envconfig:"TAPD_CERT_FILE"`
 	TAPDMacaroonHex  string `envconfig:"TAPD_MACAROON_HEX"`
