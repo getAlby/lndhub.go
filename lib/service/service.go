@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
+	"strconv"	
+	"crypto/rand"
+	"math/big"
+	"errors"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/getAlby/lndhub.go/rabbitmq"
 	"github.com/getAlby/lndhub.go/db/models"
@@ -15,6 +18,8 @@ import (
 	"github.com/labstack/gommon/random"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
+	"github.com/nbd-wtf/go-nostr"
+	"github.com/btcsuite/btcutil/bech32"
 	//"golang.org/x/crypto/bcrypt"
 )
 
@@ -107,146 +112,89 @@ func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
 	
 }
 
-// func (svc *LndhubService) ValidateNostrEventPayload() echo.MiddlewareFunc {
-// 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-// 		return func(c echo.Context) error {
-// 			var payload EventRequestBody
-// 			// perform validation specific to the Event `content`
 
-// 			// TODO validate signature for pubkey
-// 			c.Logger().Debugf("paylaod content: %v", payload.Content)
-// 			switch payload.Content {
-// 			// TODO | CLEANUP -  move these constants to common/globals.go
-// 			case "TAHUB_CREATE_USER":
+func validateNostrPayload (paylaod nostr.Event) (bool, error) {
+	
+	if payload.Kind != 1 {
+		return false, errors.New("Field 'kind' must be 1")
+	}
 
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-// 				return next(c)
+	// check the length of the content 
 
-// 			case  "TAHUB_GET_BALANCES":
+	if len(paylaod.Content) == 0 {
+		return false, errors.New("Field 'Content' must have a value")
+	}
 
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-// 				return next(c)
+	 // Split event content
+	 parts := strings.Split(payload.Content, ":")
 
-// 			case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
-// 				// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-					
-// 				if len(payload.Tags) == 0 {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Field 'tags' must exist and not be empty",
-// 						})
-// 					}
+	 if len(parts) != 3 {
+		return false, errors.New("Field 'Content' must have three diffirent part")
+	 }
 
-// 					// Check 'Ta' and 'Amt' in the 'tags' array
-// 					var taExists, amtExists bool
-// 					for _, tag := range payload.Tags {
-// 						if len(tag) == 2 {
-// 							key, ok := tag[0].(string)
-// 							if !ok {
-// 								continue
-// 							}
-// 							value, ok := tag[1].(string)
-// 							if !ok {
-// 								continue
-// 							}
-// 							if key == "ta" && value != "" {
-// 								taExists = true
-// 							} else if key == "amt" && value != "" {
-// 								amtExists = true
-// 							}
-// 						}
-// 					}
+	 switch parts[0] {
 
-// 					if !taExists || !amtExists {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Fields 'ta' and 'amt' must exist in 'tags' array with values",
-// 						})
-// 					}
+	case "TAHUB_CREATE_USER":
 
-// 					return next(c)
+		return true, nil
+		
+	case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
 
-// 			case "TAHUB_SEND_ASSET":
-// 				// Validate specific fields for TAHUB_SEND_ASSET event
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-					
-// 					if len(payload.Tags) == 0 {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Field 'tags' must exist and not be empty",
-// 						})
-// 					}
-			
-// 					// Check 'addr' and 'fee' in the 'tags' array
-// 					var addrExists, feeExists bool
-// 					for _, tag := range payload.Tags {
-// 						if len(tag) == 2 {
-// 							key, ok := tag[0].(string)
-// 							if !ok {
-// 								continue
-// 							}
-// 							switch key {
-// 							case "addr":
-// 								if value, ok := tag[1].(string); ok && value != "" {
-// 									addrExists = true
-// 								}
-// 							case "fee":
-// 								if value, ok := tag[1].(float64); ok && value != 0 {
-// 									feeExists = true
-// 								}
-// 							}
-// 						}
-// 					}
-			
-// 					if !addrExists || !feeExists {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Fields 'addr' and 'fee' must exist in 'tags' array and not be empty",
-// 						})
-// 					}
-			
-// 					return next(c)
-				
-			
-// 			default:
-// 				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 					"error":   true,
-// 					"code":    2,
-// 					"message": "Invalid event content",
-// 				})
-// 			}
-// 		}
-// 	}
-// }
+		// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
+		if parts[1].length == 0 {
+			return false, errors.New("Field 'Asset ID' must have a value")
+		}
+
+		if parts[2] == "" {
+			return false, errors.New("Field 'Amt' must have a value")
+		}
+
+		_, err := strconv.ParseFloat(parts[2], 64)
+
+		if err != nil {
+			return false, errors.New("Field 'amt' must be a valid number")
+		}
+
+		return true, nil
+
+	case "TAHUB_SEND_ASSET":
+		// Validate specific fields for TAHUB_SEND_ASSET event
+			expectedAddr := parts[1]
+		
+		if parts[1].length == 0 {
+				return false, errors.New("Field 'ADDR' must have a value")
+		}
+
+		_, decoded, err := bech32.Decode(addr)
+
+		if err != nil {
+		return false, err
+		}
+		
+		if parts[2] == "" {
+			return false, errors.New("Field 'Fee' must have a value")
+		}
+
+		_, err := strconv.ParseFloat(parts[2], 64)
+
+		if err != nil {
+			return false, errors.New("Field 'fee' must be a valid number")
+		}
+
+		return true, nil
+
+	case "TAHUB_GET_BALANCES":
+		
+		return true, nil  
+
+	default:
+		return false, errors.New("Undefined Content Name")
+	}
+	
+}
+
+
+
 
 func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
 	// TODO update ValidateUserMiddlware 

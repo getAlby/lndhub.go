@@ -48,8 +48,18 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 		c.Logger().Errorf("Signature is not valid for the event... Consider monitoring this user if issue persists: %v", err)
 		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
 	}
+
+	// call our payload validator 
+	if result, err := controller.svc.validateNostrPayload(paylaod); err != nil {
+		c.Logger().Errorf("Invalid Nostr Event request body: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	}
+
+		 // Split event content
+		 parts := strings.Split(payload.Content, ":")
+
 	// handle create user event - can assume valid thanks to middleware
-	if body.Content == "TAHUB_CREATE_USER" {
+	if parts[0] == "TAHUB_CREATE_USER" {
 		// check if user exists
 		existingUser, err := controller.svc.FindUserByPubkey(c.Request().Context(), body.PubKey)
 		// check if user was found
@@ -76,7 +86,7 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 
 		return c.JSON(http.StatusOK, &ResponseBody)
     
-	} else if body.content == "GET_SERVER_PUBKEY" {
+	} else if parts[0] == "GET_SERVER_PUBKEY" {
 
 		var ResponseBody GetTahubPublicKey
 		ResponseBody.Pubkey = body.Pubkey
