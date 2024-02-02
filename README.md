@@ -58,6 +58,8 @@ vim .env # edit your config
 + `MAX_RECEIVE_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for receiving for each account
 + `SERVICE_FEE`: (default: 0 = no service fee) Set the service fee for each outgoing transaction in 1/1000 (e.g. 1 means a fee of 1sat for 1000sats - rounded up to the next bigger integer)
 + `NO_SERVICE_FEE_UP_TO_AMOUNT` (default: 0 = no free transactions) the amount in sats up to which no service fee should be charged
++ `TAHUB_PUBLIC_KEY`: TAHUB Public Keys
++ `TAHUB_PRIVATE_KEY`: TAHUB Private Key
 
 ### Macaroon
 

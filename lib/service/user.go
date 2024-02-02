@@ -10,13 +10,15 @@ import (
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib/responses"
+
 	//"github.com/getAlby/lndhub.go/lib/security"
+
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
-	//passwordvalidator "github.com/wagslane/go-password-validator"
+
 )
 
 func (svc *LndhubService) CreateUser(ctx context.Context, pubkey string) (user *models.User, err error) {
@@ -88,6 +90,7 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, pubkey *
 	}
 	return user, nil
 }
+
 
 func (svc *LndhubService) FindUser(ctx context.Context, userId int64) (*models.User, error) {
 	var user models.User

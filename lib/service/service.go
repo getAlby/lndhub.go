@@ -2,20 +2,24 @@ package service
 
 import (
 	//"context"
+	//"crypto/rand"
+	"errors"
 	"fmt"
+	//"math/big"
 	"net/http"
 	"strconv"
-
-	"github.com/getAlby/lndhub.go/rabbitmq"
-	"github.com/getAlby/lndhub.go/tapd"
-	"github.com/nbd-wtf/go-nostr"
-
+	"strings"
+	"github.com/btcsuite/btcutil/bech32"
 	// "github.com/getAlby/lndhub.go/db/models"
 	// "github.com/getAlby/lndhub.go/lib/responses"
 	// "github.com/getAlby/lndhub.go/lib/tokens"
+	"github.com/getAlby/lndhub.go/rabbitmq"
+	"github.com/getAlby/lndhub.go/tapd"
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/random"
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/uptrace/bun"
 	"github.com/ziflex/lecho/v3"
 	//"golang.org/x/crypto/bcrypt"
@@ -33,15 +37,146 @@ type LndhubService struct {
 	InvoicePubSub  *Pubsub
 }
 
-// type EventRequestBody struct {
-// 	ID        string            `json:"id"`
-// 	Pubkey    string            `json:"pubkey"`
-// 	CreatedAt int64             `json:"created_at"`
-// 	Kind      int64               `json:"kind"`
-// 	Tags      [][]interface{}   `json:"tags"`
-// 	Content   string            `json:"content"`
-// 	Sig       string            `json:"sig"`
-// }
+func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
+	switch v := value.(type) {
+	case float64:
+		return int64(v), nil
+	case string:
+		c, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return c, nil
+	default:
+		return 0, fmt.Errorf("conversion to int from %T not supported", v)
+	}
+}
+
+func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
+	// decode public key
+	
+}
+
+func (svc *LndhubService) CheckEvent(payload nostr.Event) (bool, error) {
+	
+	if payload.Kind != 1 {
+		return false, errors.New("Field 'kind' must be 1")
+	}
+	// TODO perform checks on content
+	// check the length of the content 
+	if len(payload.Content) == 0 {
+		return false, errors.New("Field 'Content' must have a value")
+	}
+	// Split event content
+	data := strings.Split(payload.Content, ":")
+	if len(data) == 0 {
+		return false, errors.New("Field 'Content' must at least specify the action.")
+	}
+
+	switch data[0] {
+
+	case "TAHUB_CREATE_USER":
+
+		return true, nil
+		
+	case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
+		// this action must have three parts to the content
+		if len(data) != 3 {
+			return false, errors.New("Invalid 'Content' for TAHUB_RECEIVE_ADDRESS_FOR_ASSET.")
+		}
+		// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
+
+		// TODO come up with further validations for this asset_id i.e. a Taproot Asset AssetID or 'btc'
+		// validate asset ID
+		if data[1] == "" {
+			return false, errors.New("Field 'Asset ID' must have a value")
+		}
+		// validate amt
+		amt, err := strconv.ParseFloat(data[2], 64)
+		if err != nil || amt > 0 {
+			return false, errors.New("Field 'amt' must be a valid number and non-zero")
+		}
+
+		return true, nil
+
+	case "TAHUB_SEND_ASSET":
+		// this action must have three parts to the content
+		if len(data) != 3 {
+			return false, errors.New("Invalid 'Content' for TAHUB_SEND_ASSET.")
+		}
+		// Validate specific fields for TAHUB_SEND_ASSET event
+		// TODO consider other validation on the address
+		if data[1] == "" {
+				return false, errors.New("Field 'ADDR' must have a value")
+		}
+		// decode the address (str, bytes, err)
+		_, _, err := bech32.Decode(data[1])
+		if err != nil {
+		return false, err
+		}
+		// validate amt to send
+		amt, err := strconv.ParseFloat(data[2], 64)
+		// TODO consider amt thresholds and their implication there
+		if err != nil || amt < 0 {
+			return false, errors.New("Field 'amt' must be a valid number and non-zero")
+		}
+		// validate fee for tx
+		fee, err := strconv.ParseFloat(data[3], 64)
+		// TODO consider fee thresholds, limits, etc. that make sense to validate/apply here
+		if err != nil || fee != 0 {
+			return false, errors.New("Field 'fee' must be a valid number")
+		}
+
+		return true, nil
+
+	case "TAHUB_GET_BALANCES":
+		return true, nil  
+
+	default:
+		return false, errors.New("Undefined 'Content' Name")
+	}
+	
+}
+
+func (svc *LndhubService) OneAssetInMultiKeysend(arr []int64) bool {
+	for i := 1; i < len(arr); i++ {
+		// compare every item to the first positioned item
+		if arr[i] != arr[0] {
+			return false
+		}
+	}
+	return true
+}
+
+func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
+	// TODO update ValidateUserMiddlware 
+	// * it has already performed a check on the pubkey for the event passed to endpoint
+	// * it must know ensure that pubkey returns a user in the database
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			userId := c.Get("UserID").(int64)
+			if userId == 0 {
+				return echo.ErrUnauthorized
+			}
+			user, err := svc.FindUser(c.Request().Context(), userId)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
+				})
+			}
+			if user.Deactivated || user.Deleted {
+				return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
+					"error":   true,
+					"code":    1,
+					"message": "bad auth",
+				})
+			}
+			return next(c)
+		}
+	}
+}
 
 // TODO do we need a modified version of this or something new in addition to validating signatures?
 
@@ -92,204 +227,3 @@ type LndhubService struct {
 // 	}
 // 	return accessToken, refreshToken, nil
 // }
-
-func (svc *LndhubService) ParseInt(value interface{}) (int64, error) {
-	switch v := value.(type) {
-	case float64:
-		return int64(v), nil
-	case string:
-		c, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-		return c, nil
-	default:
-		return 0, fmt.Errorf("conversion to int from %T not supported", v)
-	}
-}
-
-func (svc *LndhubService) VerfiySchnorrSig(event nostr.Event) {
-	// decode public key
-	
-}
-
-// func (svc *LndhubService) ValidateNostrEventPayload() echo.MiddlewareFunc {
-// 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-// 		return func(c echo.Context) error {
-// 			var payload EventRequestBody
-// 			// perform validation specific to the Event `content`
-
-// 			// TODO validate signature for pubkey
-// 			c.Logger().Debugf("paylaod content: %v", payload.Content)
-// 			switch payload.Content {
-// 			// TODO | CLEANUP -  move these constants to common/globals.go
-// 			case "TAHUB_CREATE_USER":
-
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-// 				return next(c)
-
-// 			case  "TAHUB_GET_BALANCES":
-
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-// 				return next(c)
-
-// 			case "TAHUB_RECEIVE_ADDRESS_FOR_ASSET":
-// 				// Validate specific fields for TAHUB_RECEIVE_ADDRESS_FOR_ASSET event
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-					
-// 				if len(payload.Tags) == 0 {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Field 'tags' must exist and not be empty",
-// 						})
-// 					}
-
-// 					// Check 'Ta' and 'Amt' in the 'tags' array
-// 					var taExists, amtExists bool
-// 					for _, tag := range payload.Tags {
-// 						if len(tag) == 2 {
-// 							key, ok := tag[0].(string)
-// 							if !ok {
-// 								continue
-// 							}
-// 							value, ok := tag[1].(string)
-// 							if !ok {
-// 								continue
-// 							}
-// 							if key == "ta" && value != "" {
-// 								taExists = true
-// 							} else if key == "amt" && value != "" {
-// 								amtExists = true
-// 							}
-// 						}
-// 					}
-
-// 					if !taExists || !amtExists {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Fields 'ta' and 'amt' must exist in 'tags' array with values",
-// 						})
-// 					}
-
-// 					return next(c)
-
-// 			case "TAHUB_SEND_ASSET":
-// 				// Validate specific fields for TAHUB_SEND_ASSET event
-// 				if payload.Kind != 1 {
-// 					return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 						"error":   true,
-// 						"code":    2,
-// 						"message": "Field 'kind' must be 1",
-// 					})
-// 				}
-					
-// 					if len(payload.Tags) == 0 {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Field 'tags' must exist and not be empty",
-// 						})
-// 					}
-			
-// 					// Check 'addr' and 'fee' in the 'tags' array
-// 					var addrExists, feeExists bool
-// 					for _, tag := range payload.Tags {
-// 						if len(tag) == 2 {
-// 							key, ok := tag[0].(string)
-// 							if !ok {
-// 								continue
-// 							}
-// 							switch key {
-// 							case "addr":
-// 								if value, ok := tag[1].(string); ok && value != "" {
-// 									addrExists = true
-// 								}
-// 							case "fee":
-// 								if value, ok := tag[1].(float64); ok && value != 0 {
-// 									feeExists = true
-// 								}
-// 							}
-// 						}
-// 					}
-			
-// 					if !addrExists || !feeExists {
-// 						return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 							"error":   true,
-// 							"code":    2,
-// 							"message": "Fields 'addr' and 'fee' must exist in 'tags' array and not be empty",
-// 						})
-// 					}
-			
-// 					return next(c)
-				
-			
-// 			default:
-// 				return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
-// 					"error":   true,
-// 					"code":    2,
-// 					"message": "Invalid event content",
-// 				})
-// 			}
-// 		}
-// 	}
-// }
-
-func (svc *LndhubService) OneAssetInMultiKeysend(arr []int64) bool {
-	for i := 1; i < len(arr); i++ {
-		// compare every item to the first positioned item
-		if arr[i] != arr[0] {
-			return false
-		}
-	}
-	return true
-}
-
-func (svc *LndhubService) ValidateUserMiddleware() echo.MiddlewareFunc {
-	// TODO update ValidateUserMiddlware 
-	// * it has already performed a check on the pubkey for the event passed to endpoint
-	// * it must know ensure that pubkey returns a user in the database
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			userId := c.Get("UserID").(int64)
-			if userId == 0 {
-				return echo.ErrUnauthorized
-			}
-			user, err := svc.FindUser(c.Request().Context(), userId)
-			if err != nil {
-				return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
-					"error":   true,
-					"code":    1,
-					"message": "bad auth",
-				})
-			}
-			if user.Deactivated || user.Deleted {
-				return echo.NewHTTPError(http.StatusUnauthorized, echo.Map{
-					"error":   true,
-					"code":    1,
-					"message": "bad auth",
-				})
-			}
-			return next(c)
-		}
-	}
-}

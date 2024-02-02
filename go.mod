@@ -10,6 +10,7 @@ require (
 	github.com/SporkHubr/echo-http-cache v0.0.0-20200706100054-1d7ae9f38029
 	github.com/btcsuite/btcd v0.24.1-0.20240123000108-62e6af035ec5
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
+	github.com/btcsuite/btcutil v1.0.2
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/getsentry/sentry-go v0.26.0
 	github.com/go-playground/validator/v10 v10.17.0

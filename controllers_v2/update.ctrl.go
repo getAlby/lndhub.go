@@ -53,7 +53,9 @@ func (controller *UpdateUserController) UpdateUser(c echo.Context) error {
 		c.Logger().Errorf("Invalid update user request body error: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
+
 	user, err := controller.svc.UpdateUser(c.Request().Context(), body.ID, body.Pubkey, body.Deactivated, body.Deleted)
+
 	if err != nil {
 		c.Logger().Errorf("Failed to update user: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
