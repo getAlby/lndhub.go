@@ -30,9 +30,8 @@ func InitTAPDClient(c *TapdConfig, logger *lecho.Logger, ctx context.Context) (T
 		return nil, err
 	}
 
-	getInfo, err := client.GetInfo(ctx, &taprpc.GetInfoRequest{})
-
-	logger.Infof("GetInfo from Tapd: %v", getInfo.BlockHeight)
+	_, err = client.GetInfo(ctx, &taprpc.GetInfoRequest{})
+	//logger.Infof("GetInfo from Tapd: %s", getInfo.Version)
 
 	if err != nil {
 		return nil, err
