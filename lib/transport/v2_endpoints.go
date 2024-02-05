@@ -5,7 +5,8 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 )
-
+// TODO for the purpose of Tahub it is worth considering trimming/refactoring this
+//		to be for Admin endpoints only.
 func RegisterV2Endpoints(svc *service.LndhubService, e *echo.Echo, secured *echo.Group, securedWithStrictRateLimit *echo.Group, strictRateLimitMiddleware echo.MiddlewareFunc, adminMw echo.MiddlewareFunc, logMw echo.MiddlewareFunc) {
 	// TODO: v2 auth endpoint: generalized oauth token generation
 	// e.POST("/auth", controllers.NewAuthController(svc).Auth)

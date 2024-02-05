@@ -14,6 +14,19 @@ type ErrorResponse struct {
 	Message        string `json:"message"`
 	HttpStatusCode int    `json:"-"`
 }
+var NostrServerError = ErrorResponse{
+	Error          : true,
+	Code           : 1,
+	Message        : "Failed to read or encode (NIP19). Contact Tahub Administrator.",
+	HttpStatusCode : 401,
+}
+
+var InvalidTahubContentError = ErrorResponse{
+	Error          : true,
+	Code           : 8,
+	Message        : "Payload is a valid event but content doesn't inform a Tahub action.",
+	HttpStatusCode : 400,
+}
 
 var GeneralServerError = ErrorResponse{
 	Error:          true,

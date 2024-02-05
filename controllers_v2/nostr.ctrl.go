@@ -8,94 +8,110 @@ import (
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip19"
 )
 
 // NostrController : Add NoStr Event controller struct
 type NostrController struct {
 	svc *service.LndhubService
+	responder responses.RelayResponder
 }
 
 func NewNostrController(svc *service.LndhubService) *NostrController {
-	return &NostrController{svc: svc}
+	return &NostrController{svc: svc, responder: responses.RelayResponder{}}
 }
 
-type CreateUserEventResponseBody struct {
-	// internal tahub user id
-	ID     int64 `json:"id"`
-	// nostr public key, discovered via the event
-	Pubkey string `json:"pubkey"`
-}
 
-type GetServerPubkeyResponseBody struct {
-	TaHubPubkey   string `json:"tahub_pubkey"`
-}
+// A utility endpoint to recover the server pubkey w/o creating a nostr event
+func (controller *NostrController) GetServerPubkey(c echo.Context) error {
+	res, err := controller.HandleGetPublicKey()
+	if err != nil {
+		c.Logger().Errorf("Failed to handle / encode public key: %v", err)
+		return c.JSON(http.StatusInternalServerError, responses.NostrServerError)
+	}
 
+	return c.JSON(http.StatusOK, &res)
+}
 
 func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
-	
+	// The main nostr event handler
 	var body nostr.Event
 
 	if err := c.Bind(&body); err != nil {
 		c.Logger().Errorf("Failed to load Nostr Event request body: %v", err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		return controller.responder.NostrErrorResponse(c, responses.BadArgumentsError.Message)
 	}
 
 	if err := c.Validate(&body); err != nil {
 		c.Logger().Errorf("Invalid Nostr Event request body: %v", err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		return controller.responder.NostrErrorResponse(c, responses.BadArgumentsError.Message)
 	}
 	// check signature
 	if result, err := body.CheckSignature(); (err != nil || !result) {
 		c.Logger().Errorf("Signature is not valid for the event... Consider monitoring this user if issue persists: %v", err)
-		return c.JSON(http.StatusUnauthorized, responses.BadAuthError)
+		return controller.responder.NostrErrorResponse(c, responses.BadAuthError.Message)
 	}
 	// TODO add NIP4 decoding here
 
 	// call our payload validator 
 	if result, err := controller.svc.CheckEvent(body); (err != nil || !result) {
 		c.Logger().Errorf("Invalid Nostr Event content: %v", err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+		return controller.responder.NostrErrorResponse(c, responses.InvalidTahubContentError.Message)
 	}
 	// Split event content
 	data := strings.Split(body.Content, ":")
-
 	// handle create user event - can assume valid thanks to middleware
 	if data[0] == "TAHUB_CREATE_USER" {
+		// TODO determine if a check against config is required
+		// 		in Tahub's case: https://github.com/nostrassets/Tahub.go/blob/a798601f63d5847b045360e45e8090081bb4cd85/lib/transport/v2_endpoints.go#L12
 		// check if user exists
 		existingUser, err := controller.svc.FindUserByPubkey(c.Request().Context(), body.PubKey)
 		// check if user was found
 		if existingUser != nil {
 			c.Logger().Errorf("Cannot create user that has already registered this pubkey")
-			c.JSON(http.StatusForbidden, responses.BadArgumentsError)
+			return controller.responder.CreateUserOk(c, body, existingUser.ID, true, "this pubkey has already been registered.")
 		}
 		// confirm no error occurred in checking if the user exists
 		if err != nil {
 			c.Logger().Errorf("Unable to verify the pubkey has not already been registered: %v", err)
-			c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+			return controller.responder.CreateUserOk(c, body, 0, true, "failed to check pubkey.")
 		}
 		// create the user, by public key
 		user, err := controller.svc.CreateUser(c.Request().Context(), body.PubKey)
 		if err != nil {
 			// create user error response
 			c.Logger().Errorf("Failed to create user via Nostr event: %v", err)
-			return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+			return controller.responder.CreateUserOk(c, body, 0, true, "failed to insert user into database.")
 		}
 		// create user success response
-		var ResponseBody CreateUserEventResponseBody
-		ResponseBody.ID = user.ID
-		ResponseBody.Pubkey = user.Pubkey
+		return controller.responder.CreateUserOk(c, body, user.ID, false, "")
+	} else if data[0] == "TAHUB_GET_SERVER_PUBKEY" {
+		// get server npub
+		res, err := controller.HandleGetPublicKey()
+		if err != nil {
+			c.Logger().Errorf("Failed to handle / encode public key: %v", err)
+			return controller.responder.GetServerPubkeyOk(c, body, "", true, responses.NostrServerError.Message)
+		}
+		// return server npub
+		return controller.responder.GetServerPubkeyOk(c, body, res.TahubNpub, false, "")
 
-		return c.JSON(http.StatusOK, &ResponseBody)
-    
-	} else if data[0] == "GET_SERVER_PUBKEY" {
-
-		var ResponseBody GetServerPubkeyResponseBody
-		ResponseBody.TaHubPubkey = controller.svc.Config.TaHubPublicKey
-
-		return c.JSON(http.StatusOK, &ResponseBody)
-
+	} else if data[0] == "TAHUB_GET_UNIVERSE_ASSETS" {
+		// get universe known assets 
+		return controller.responder.NostrErrorResponse(c, "unimplemented.")
 	} else {
 		// TODO handle next events
-		return c.JSON(http.StatusBadRequest, responses.UnimplementedError)
+		return controller.responder.NostrErrorResponse(c, "unimplemented.")
 	}
+}
+
+func (controller *NostrController) HandleGetPublicKey() (responses.GetServerPubkeyResponseBody, error) {
+	var ResponseBody responses.GetServerPubkeyResponseBody
+	ResponseBody.TahubPubkeyHex = controller.svc.Config.TahubPublicKey
+	npub, err := nip19.EncodePublicKey(controller.svc.Config.TahubPublicKey)
+	// TODO improve this
+	if err != nil {
+		return ResponseBody, err
+	}
+	ResponseBody.TahubNpub = npub
+	return ResponseBody, nil
 }

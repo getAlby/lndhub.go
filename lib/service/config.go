@@ -48,8 +48,8 @@ type Config struct {
 	RabbitMQLndPaymentExchange       string  `envconfig:"RABBITMQ_LND_PAYMENT_EXCHANGE" default:"lnd_payment"`
 	RabbitMQInvoiceConsumerQueueName string  `envconfig:"RABBITMQ_INVOICE_CONSUMER_QUEUE_NAME" default:"lnd_invoice_consumer"`
 	RabbitMQPaymentConsumerQueueName string  `envconfig:"RABBITMQ_PAYMENT_CONSUMER_QUEUE_NAME" default:"lnd_payment_consumer"`
-	TaHubPublicKey                   string  `envconfig:"TAHUB_PUBLIC_KEY"`
-	TaHubPrivateKey                  string  `envconfig:"TAHUB_PRIVATE_KEY"`
+	TahubPublicKey                   string  `envconfig:"TAHUB_PUBLIC_KEY_HEX" required:"true"`
+	TahubPrivateKey                  string  `envconfig:"TAHUB_PRIVATE_KEY_HEX" required:"true"`
 	Branding                         BrandingConfig
 }
 type Limits struct {
