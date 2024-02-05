@@ -10,11 +10,16 @@ import (
 	// "github.com/lightninglabs/taproot-assets/taprpc/assetwalletrpc"
 	// "github.com/lightninglabs/taproot-assets/taprpc/mintrpc"
 	// "github.com/lightninglabs/taproot-assets/taprpc/tapdevrpc"
-	// "github.com/lightninglabs/taproot-assets/taprpc/universerpc"	
+	"github.com/lightninglabs/taproot-assets/taprpc/universerpc"	
 )
 
 type TapdClientWrapper interface {
 	GetInfo(ctx context.Context, req *taprpc.GetInfoRequest, options ...grpc.CallOption) (*taprpc.GetInfoResponse, error)
+	ListAssets(ctx context.Context, req *taprpc.ListAssetRequest, options ...grpc.CallOption) (*taprpc.ListAssetResponse, error)
+	ListBalances(ctx context.Context, req *taprpc.ListBalancesRequest, options ...grpc.CallOption) (*taprpc.ListBalancesResponse, error)
+	//ListBalancesByAssetID(ctx context.Context, req *taprpc.ListBalancesRequest_AssetId, options ...grpc.CallOption) (*taprpc.ListBalancesResponse, error)
+	NewAddress(ctx context.Context, req *taprpc.NewAddrRequest, options ...grpc.CallOption) (*taprpc.Addr, error)
+	QueryAssetRoots(ctx context.Context, req *universerpc.AssetRootQuery, options ...grpc.CallOption) (*universerpc.QueryRootResponse, error)
 }
 
 func InitTAPDClient(c *TapdConfig, logger *lecho.Logger, ctx context.Context) (TapdClientWrapper, error) {
@@ -31,7 +36,6 @@ func InitTAPDClient(c *TapdConfig, logger *lecho.Logger, ctx context.Context) (T
 	}
 
 	_, err = client.GetInfo(ctx, &taprpc.GetInfoRequest{})
-	//logger.Infof("GetInfo from Tapd: %s", getInfo.Version)
 
 	if err != nil {
 		return nil, err
