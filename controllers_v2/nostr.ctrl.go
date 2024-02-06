@@ -2,6 +2,7 @@ package v2controllers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/getAlby/lndhub.go/lib/responses"
@@ -54,12 +55,13 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 	// TODO add NIP4 decoding here
 
 	// call our payload validator 
-	if result, err := controller.svc.CheckEvent(body); (err != nil || !result) {
+	result, decodedPayload, err := controller.svc.CheckEvent(body)
+	if err != nil || !result {
 		c.Logger().Errorf("Invalid Nostr Event content: %v", err)
 		return controller.responder.NostrErrorResponse(c, responses.InvalidTahubContentError.Message)
 	}
 	// Split event content
-	data := strings.Split(body.Content, ":")
+	data := strings.Split(decodedPayload.Content, ":")
 	// handle create user event - can assume valid thanks to middleware
 	if data[0] == "TAHUB_CREATE_USER" {
 		// TODO determine if a check against config is required
@@ -67,14 +69,20 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 		// check if user exists
 		existingUser, err := controller.svc.FindUserByPubkey(c.Request().Context(), body.PubKey)
 		// check if user was found
-		if existingUser != nil {
+		if existingUser.ID > 0 {
 			c.Logger().Errorf("Cannot create user that has already registered this pubkey")
 			return controller.responder.CreateUserOk(c, body, existingUser.ID, true, "this pubkey has already been registered.")
 		}
 		// confirm no error occurred in checking if the user exists
 		if err != nil {
-			c.Logger().Errorf("Unable to verify the pubkey has not already been registered: %v", err)
-			return controller.responder.CreateUserOk(c, body, 0, true, "failed to check pubkey.")
+			msg := err.Error()
+			// TODO consider this and try to make more robust
+			if msg != "sql: now rows in result set" {
+				c.Logger().Info("Error is related to no results in the dataset, which is acceptable.")
+			} else {
+				c.Logger().Errorf("Unable to verify the pubkey has not already been registered: %v", err)
+				return controller.responder.CreateUserOk(c, body, 0, true, "failed to check pubkey.")
+			}
 		}
 		// create the user, by public key
 		user, err := controller.svc.CreateUser(c.Request().Context(), body.PubKey)
@@ -93,11 +101,24 @@ func (controller *NostrController) HandleNostrEvent(c echo.Context) error {
 			return controller.responder.GetServerPubkeyOk(c, body, "", true, responses.NostrServerError.Message)
 		}
 		// return server npub
-		return controller.responder.GetServerPubkeyOk(c, body, res.TahubNpub, false, "")
+		return controller.responder.GetServerPubkeyOk(c, body, res.TahubPubkeyHex, false, "")
 
 	} else if data[0] == "TAHUB_GET_UNIVERSE_ASSETS" {
 		// get universe known assets 
-		return controller.responder.NostrErrorResponse(c, "unimplemented.")
+		msg, status := controller.svc.GetUniverseAssets(c.Request().Context())
+		return controller.responder.GenericOk(c, body, msg, status)
+	} else if data[0] == "TAHUB_GET_RCV_ADDR" {
+		// given an asset_id and amt, return the address
+
+		// these values are prevalidated by CheckEvent
+		assetId := data[1]
+		amt, err := strconv.ParseUint(data[2], 10, 64)
+		if err != nil {
+			c.Logger().Errorf("Failed to parse amt field in content: %v", err)
+			return controller.responder.NostrErrorResponse(c, responses.GeneralServerError.Message)
+		}
+		msg, status := controller.svc.GetAddressByAssetId(c.Request().Context(), assetId, amt)
+		return controller.responder.GenericOk(c, body, msg, status)
 	} else {
 		// TODO handle next events
 		return controller.responder.NostrErrorResponse(c, "unimplemented.")

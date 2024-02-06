@@ -39,10 +39,16 @@ func (responder *RelayResponder) GetServerPubkeyOk(c echo.Context, event nostr.E
 	var msg = fmt.Sprintf("error: %s", errMsg)
 
 	if !isError {
-		msg = fmt.Sprintf("npub: %s", serverNpub)
+		msg = fmt.Sprintf("pubkey: %s", serverNpub)
 		status = true
 	}
 
+	res := []interface{} {"OK", event.ID, status, msg}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (responder *RelayResponder) GenericOk(c echo.Context, event nostr.Event, msg string, status bool) error {
+	// TODO these messages should end up in a central location
 	res := []interface{} {"OK", event.ID, status, msg}
 	return c.JSON(http.StatusOK, res)
 }

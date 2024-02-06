@@ -9,9 +9,11 @@ import (
 // 		a few endpoints use the logMw (could be because svc has one too).
 func NostrGateway(
 	svc *service.LndhubService, 
-	e *echo.Echo, 
-	nostrRouter *echo.Group,
+	e *echo.Echo,
 ) {
 	nostrEventCtrl := v2controllers.NewNostrController(svc)
-	e.POST("/v2/event", nostrEventCtrl.HandleNostrEvent)
+	// provides means to get pubkey without creating an event
+	e.GET("/api/pubkey", nostrEventCtrl.GetServerPubkey)
+	// the nostr event handler endpoint
+	e.POST("/event", nostrEventCtrl.HandleNostrEvent)
 }

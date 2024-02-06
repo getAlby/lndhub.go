@@ -119,8 +119,8 @@ func (wrapper *TAPDWrapper) ListBalances(ctx context.Context, req *taprpc.ListBa
 	return wrapper.client.ListBalances(ctx, req, options...)
 }
 
-func (wrapper *TAPDWrapper) QueryAssetRoots(ctx context.Context, req *universerpc.AssetRootQuery, options ...grpc.CallOption) (*universerpc.QueryRootResponse, error) {
-	return wrapper.universeClient.QueryAssetRoots(ctx, req, options...)
+func (wrapper *TAPDWrapper) GetUniverseAssets(ctx context.Context, req *universerpc.AssetRootRequest, options ...grpc.CallOption) (*universerpc.AssetRootResponse, error) {
+	return wrapper.universeClient.AssetRoots(ctx, req, options...)
 }
 
 func (wrapper *TAPDWrapper) NewAddress(ctx context.Context, req *taprpc.NewAddrRequest, options ...grpc.CallOption) (*taprpc.Addr, error) {

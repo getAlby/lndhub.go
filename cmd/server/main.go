@@ -166,10 +166,10 @@ func main() {
 
 	secured := e.Group("", tokens.Middleware(c.JWTSecret), logMw)
 	securedWithStrictRateLimit := e.Group("", tokens.Middleware(c.JWTSecret), strictRateLimitMiddleware, logMw)
-
+	// inital nostr gateway
+	transport.NostrGateway(svc, e)
 	transport.RegisterLegacyEndpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
 	transport.RegisterV2Endpoints(svc, e, secured, securedWithStrictRateLimit, strictRateLimitMiddleware, tokens.AdminTokenMiddleware(c.AdminToken), logMw)
-	// inital nostr gateway
 
 	//Swagger API spec
 	docs.SwaggerInfo.Host = c.Host
