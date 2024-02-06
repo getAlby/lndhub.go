@@ -107,6 +107,22 @@ func NewTAPDClient(tapdOptions TAPDOptions, ctx context.Context) (*TAPDWrapper, 
 	}, nil
 }
 
-func (wrapper * TAPDWrapper) GetInfo(ctx context.Context, req *taprpc.GetInfoRequest, options ...grpc.CallOption) (*taprpc.GetInfoResponse, error) {
+func (wrapper *TAPDWrapper) GetInfo(ctx context.Context, req *taprpc.GetInfoRequest, options ...grpc.CallOption) (*taprpc.GetInfoResponse, error) {
 	return wrapper.client.GetInfo(ctx, req, options...)
+}
+
+func (wrapper *TAPDWrapper) ListAssets(ctx context.Context, req *taprpc.ListAssetRequest, options ...grpc.CallOption) (*taprpc.ListAssetResponse, error) {
+	return wrapper.client.ListAssets(ctx, req, options...)
+}
+
+func (wrapper *TAPDWrapper) ListBalances(ctx context.Context, req *taprpc.ListBalancesRequest, options ...grpc.CallOption) (*taprpc.ListBalancesResponse, error) {
+	return wrapper.client.ListBalances(ctx, req, options...)
+}
+
+func (wrapper *TAPDWrapper) GetUniverseAssets(ctx context.Context, req *universerpc.AssetRootRequest, options ...grpc.CallOption) (*universerpc.AssetRootResponse, error) {
+	return wrapper.universeClient.AssetRoots(ctx, req, options...)
+}
+
+func (wrapper *TAPDWrapper) NewAddress(ctx context.Context, req *taprpc.NewAddrRequest, options ...grpc.CallOption) (*taprpc.Addr, error) {
+	return wrapper.client.NewAddr(ctx, req, options...)
 }
