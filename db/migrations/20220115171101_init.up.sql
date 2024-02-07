@@ -5,6 +5,15 @@ CREATE TABLE users (
     updated_at timestamp with time zone
 );
 --bun:split
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+    event_id character varying NOT NULL,
+    from_pubkey character varying NOT NULL,
+    kind int NOT NULL,
+    content character varying NOT NULL,
+    created_at int NOT NULL
+)
+--bun:split
 CREATE TABLE assets (
     id SERIAL PRIMARY KEY,
     ta_asset_id character varying NOT NULL,

@@ -8,9 +8,7 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
-type RelayResponder struct {}
-// create a parent or interface to type the nostr responses together
-// in order to provide a type and new parameter to a standardized 
+type RelayResponder struct {} 
 // relay-compatible responder
 func (responder *RelayResponder) NostrErrorResponse(c echo.Context, errMsg string) error {
 	msg := fmt.Sprintf("error: %s", errMsg)

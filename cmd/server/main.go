@@ -175,6 +175,7 @@ func main() {
 	docs.SwaggerInfo.Host = c.Host
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
+
 	var backgroundWg sync.WaitGroup
 	backGroundCtx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
 	// Subscribe to LND invoice updates in the background
@@ -189,7 +190,19 @@ func main() {
 		svc.Logger.Info("Invoice routine done")
 		backgroundWg.Done()
 	}()
-
+	// start relay subscription
+	backgroundWg.Add(1)
+	go func() {
+		err = svc.StartRelayRoutine(backGroundCtx)
+		if err != nil {
+			// TODO add sentry
+			
+			// restart on error of relay routine
+			svc.Logger.Fatal(err)
+		}
+		svc.Logger.Info("No more NIP04 messages to address")
+		backgroundWg.Done()
+	}()
 	// Check the status of all pending outgoing payments
 	backgroundWg.Add(1)
 	go func() {
