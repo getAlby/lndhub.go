@@ -50,6 +50,7 @@ type Config struct {
 	RabbitMQPaymentConsumerQueueName string  `envconfig:"RABBITMQ_PAYMENT_CONSUMER_QUEUE_NAME" default:"lnd_payment_consumer"`
 	TahubPublicKey                   string  `envconfig:"TAHUB_PUBLIC_KEY_HEX" required:"true"`
 	TahubPrivateKey                  string  `envconfig:"TAHUB_PRIVATE_KEY_HEX" required:"true"`
+	RelayURI                         string  `envconfig:"RELAY_URI" required:"true"`
 	Branding                         BrandingConfig
 }
 type Limits struct {

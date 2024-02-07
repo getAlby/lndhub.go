@@ -18,7 +18,7 @@ type AssetRoot struct {
 	GroupKey   string `json:"group_key"`  
 }
 
-func (svc *LndhubService) GetUniverseAssets(ctx context.Context) (okMsg string, isError bool) {
+func (svc *LndhubService) GetUniverseAssets(ctx context.Context) (okMsg string, success bool) {
 	req := universerpc.AssetRootRequest{}
 	universeRoots, err := svc.TapdClient.GetUniverseAssets(ctx, &req)
 	if err != nil {
@@ -54,7 +54,7 @@ func (svc *LndhubService) GetUniverseAssets(ctx context.Context) (okMsg string, 
 	return okSuccessMsg, true
 }
 
-func (svc *LndhubService) GetAddressByAssetId(ctx context.Context, assetId string, amt uint64) (okMsg string, isError bool) {
+func (svc *LndhubService) GetAddressByAssetId(ctx context.Context, assetId string, amt uint64) (okMsg string, success bool) {
 	decoded, err := b64.StdEncoding.DecodeString(assetId)
 	if err != nil {
 		// TODO OK Relay-Compatible messages need a central location
