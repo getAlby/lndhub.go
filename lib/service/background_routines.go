@@ -7,13 +7,15 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 	//"github.com/nbd-wtf/go-nostr/nip19"
 )
-func (svc *LndhubService) StartRelayRoutine(ctx context.Context) (err error) {
+func (svc *LndhubService) StartRelayRoutine(ctx context.Context, uri string) (err error) {
 	bgCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
-	relay, err := nostr.RelayConnect(bgCtx, svc.Config.RelayURI)
+	relay, err := nostr.RelayConnect(bgCtx, uri)
 
 	if err != nil {
 		// we need to restart on error of this routine
+		defer cancel()
+		
 		return err
 	}
 	// create NIP 4 filter
