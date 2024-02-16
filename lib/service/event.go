@@ -44,8 +44,10 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 		// check if user was found
 		if existingUser.ID > 0 {
 			svc.Logger.Errorf("Cannot create user that has already registered this pubkey")
+
+			svc.RespondToNip4(ctx, "error: exists", true, decoded.PubKey, decoded.ID,)
 			// TODO further evaluate response, don't need to break routine
-			return nil
+ 			return nil
 		}
 		// confirm no error occurred in checking if the user exists
 		if err != nil {
@@ -69,7 +71,7 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 		}
 		// create user success response
 		msg := fmt.Sprintf("userid: %d", user.ID)
-		svc.RespondToNip4(ctx, msg, decoded.PubKey, decoded.ID)
+		svc.RespondToNip4(ctx, msg, false, decoded.PubKey, decoded.ID)
 
 	} else if data[0] == "TAHUB_GET_SERVER_PUBKEY" {
 		// get server npub
@@ -82,7 +84,7 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 		// return server npub
 		// TODO respond with success
 		msg := fmt.Sprintf("pubkey: %s", res.TahubPubkeyHex)
-		svc.RespondToNip4(ctx, msg, decoded.PubKey, decoded.ID)
+		svc.RespondToNip4(ctx, msg, false, decoded.PubKey, decoded.ID)
 	} else if data[0] == "TAHUB_GET_UNIVERSE_ASSETS" {
 		// get universe known assets 
 		msg, status := svc.GetUniverseAssets(ctx)
@@ -92,7 +94,7 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 			return nil
 		}
 		// TODO respond with success
-		svc.RespondToNip4(ctx, msg, decoded.PubKey, decoded.ID)
+		svc.RespondToNip4(ctx, msg, false, decoded.PubKey, decoded.ID)
 	} else if data[0] == "TAHUB_GET_RCV_ADDR" {
 		// given an asset_id and amt, return the address
 
@@ -111,7 +113,7 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 			return nil
 		}
 		// TODO respond with success
-		svc.RespondToNip4(ctx, msg, decoded.PubKey, decoded.ID)
+		svc.RespondToNip4(ctx, msg, false, decoded.PubKey, decoded.ID)
 	} else {
 		// catch all - unimplemented
 		// TODO further evaluate response, don't need to break routine
@@ -120,12 +122,25 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 	return nil
 }
 
-func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, userPubkey string, replyToEventId string) (string, bool) {
+func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, errored bool, userPubkey string, replyToEventId string) (map[string]string, bool) {
+	// responseContent collection
+	responses := make(map[string]string)
 	// default content
 	var responseContent = rawContent
 	// default status, set to true if additional error occurs
-	errProcessing := false
-
+	errProcessing := errored
+	// check for duplicate event
+	var existing = models.Event{}
+	existingEventQuery := svc.DB.NewSelect().Model(&existing).Where("event_id = ?", replyToEventId)
+	err := existingEventQuery.Scan(context.Background())
+	if err != nil || existing.EventID == replyToEventId {
+		svc.Logger.Errorf("Duplicate event found.")
+		responseContent = "tahuberror: dup event"
+		// add to responses map
+		responses["eventseen"] = responseContent
+		errProcessing = true
+		return responses, errProcessing
+	}
 	resp := nostr.Event{}
 	resp.CreatedAt = nostr.Now()
 	resp.PubKey = svc.Config.TahubPublicKey
@@ -134,21 +149,24 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 	sharedSecret, err := nip04.ComputeSharedSecret(userPubkey, svc.Config.TahubPrivateKey)
 	if err != nil {
 		svc.Logger.Errorf("Failed to compute shared secret for response to NIP4 dm: %v", err)
-		// TODO respond with rejection
 		responseContent = "tahuberror: auth, couldnt compute shared secret to respond"
+		// add to responses map
+		responses["nip4"] = responseContent
 		errProcessing = true
+		return responses, errProcessing
 	}
 	encryptedContent, err := nip04.Encrypt(responseContent, sharedSecret)
 	if err != nil {
 		svc.Logger.Errorf("Generated shared secret but failed to encrypt: %v", err)
-		// TODO respond with rejection
 		responseContent = "tahuberror: auth, failed to encrypt after computing shared secret"
+		// add to responses map
+		responses["nip4"] = responseContent
 		errProcessing = true
+		return responses, errProcessing
 	}
-	if !errProcessing {
-		// encrypt successful response
-		resp.Content = encryptedContent
-	}
+
+	// encrypt response
+	resp.Content = encryptedContent
 	// make tags
 	pTag := []string{"p", userPubkey}
 	eTag := []string{"e", replyToEventId}
@@ -156,26 +174,39 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 	resp.Tags = nostr.Tags{pTag, eTag}
 	// sign event (handles ID and signature)
 	resp.Sign(svc.Config.TahubPrivateKey)
-	// broadcast
-	broadcastCtx := context.WithValue(context.Background(), "url", svc.Config.RelayURI)
-	conn, e := nostr.RelayConnect(broadcastCtx, svc.Config.RelayURI)
-	if e != nil {
-		// failed to connect to relay
-		svc.Logger.Errorf("CRITICAL: failed to connect to relay while responding to event %s: %v", replyToEventId, e)
-		// TODO consider what to do here further
-		errProcessing = true
-		responseContent = "tahuberror: failed to connect to relay."
-	}
-	publishedErr := conn.Publish(ctx, resp)
-	if publishedErr != nil {
-		// failed to publish event to relay
-		svc.Logger.Errorf("CRITICAL: failed to publish to relay while responding to event %s: %v", replyToEventId, e)
-		// TODO consider what to do here further
-		errProcessing = true
-		responseContent = "tahuberror: failed to broadcast event to relay."
-	}
+	// broadcast TODO address warning / create type for URL
+	for _, url := range svc.Config.RelayURI {
+		broadcastCtx := context.WithValue(context.Background(), "url", url)
+		conn, e := nostr.RelayConnect(broadcastCtx, url)
+		if e != nil {
+			// failed to connect to relay
+			svc.Logger.Errorf("CRITICAL: failed to connect to relay while responding to event %s: %v", replyToEventId, e)
+			errProcessing = true
+			responseContent = "tahuberror: failed to connect to relay."
+			// add to responses map
+			responses[url] = responseContent
+			continue
+		}
+		// attempt publish to relay
+		publishedErr := conn.Publish(ctx, resp)
 
-	return responseContent, errProcessing
+		if publishedErr != nil {
+			// failed to publish event to relay
+			svc.Logger.Errorf("CRITICAL: failed to publish to relay while responding to event %s: %v", replyToEventId, e)
+			errProcessing = true
+			responseContent = "tahuberror: failed to broadcast event to relay."
+			// add to responses map
+			responses[url] = responseContent
+
+			continue
+		}
+		// broadcast to relay successful
+		svc.Logger.Infof("Successfully broadcasted response to event %s to relay %s", replyToEventId, url)
+		// add to responses map
+		responses[url] = "broadcast"
+		//return responseContent, errProcessing
+	}
+	return responses, errProcessing
 }
 
 func (svc *LndhubService) InsertEvent(ctx context.Context, payload nostr.Event) (success bool, err error) {
