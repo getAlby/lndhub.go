@@ -17,14 +17,14 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 	// check sig
 	if result, err := payload.CheckSignature(); (err != nil || !result) {
 		svc.Logger.Errorf("Signature is not valid for the event... Consider monitoring this user if issue persists: %v", err)
-		// TODO further evaluate response, don't need to break routine
+		// TODO use RespondToNip4 to respond with error message - invalid signature
 		return nil
 	}
 	// validate and decode
 	result, decoded, err := svc.CheckEvent(payload)
 	if err != nil || !result {
 		svc.Logger.Errorf("Invalid Nostr Event content: %v", err)
-		// TODO further evaluate response, don't need to break routine
+		// TODO use RespondToNip4 to respond with error message - invalid event content
 		return nil
 	}
 	// insert encoded
@@ -139,7 +139,7 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 		// add to responses map
 		responses["eventseen"] = responseContent
 		errProcessing = true
-		return responses, errProcessing
+		//return responses, errProcessing
 	}
 	resp := nostr.Event{}
 	resp.CreatedAt = nostr.Now()
@@ -153,7 +153,7 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 		// add to responses map
 		responses["nip4"] = responseContent
 		errProcessing = true
-		return responses, errProcessing
+		//return responses, errProcessing
 	}
 	encryptedContent, err := nip04.Encrypt(responseContent, sharedSecret)
 	if err != nil {
@@ -162,7 +162,7 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 		// add to responses map
 		responses["nip4"] = responseContent
 		errProcessing = true
-		return responses, errProcessing
+		//return responses, errProcessing
 	}
 
 	// encrypt response
@@ -174,9 +174,12 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 	resp.Tags = nostr.Tags{pTag, eTag}
 	// sign event (handles ID and signature)
 	resp.Sign(svc.Config.TahubPrivateKey)
-	// broadcast TODO address warning / create type for URL
+	// broadcast TODO confirm context.WithValue in the loop
 	for _, url := range svc.Config.RelayURI {
-		broadcastCtx := context.WithValue(context.Background(), "url", url)
+		// relay url type alias (TODO find a better spot for this to live).
+		type RelayURI string
+		typedUri := RelayURI(url)
+		broadcastCtx := context.WithValue(context.Background(), typedUri, url)
 		conn, e := nostr.RelayConnect(broadcastCtx, url)
 		if e != nil {
 			// failed to connect to relay

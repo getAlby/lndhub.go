@@ -194,6 +194,7 @@ func main() {
 	for _, relayURI := range c.RelayURI {
 		backgroundWg.Add(1)
 		go func(uri string) {
+			// TODO spot to get the last filter for the relay
 			err = svc.StartRelayRoutine(backGroundCtx, uri)
 			if err != nil {
 				// TODO add sentry

@@ -1,3 +1,22 @@
+CREATE TABLE relay (
+    id SERIAL PRIMARY KEY,
+    uri character varying NOT NULL UNIQUE,
+    relay_name character varying NOT NULL UNIQUE,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone
+);
+--bun:split
+CREATE TABLE filter (
+    relay_id bigint PRIMARY KEY,
+    last_event_ts bigint,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    CONSTRAINT fk_relay
+        FOREIGN KEY(relay_id)
+        REFERENCES relay(id)
+        ON DELETE CASCADE
+);
+--bun:split
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     pubkey character varying NOT NULL UNIQUE,
@@ -7,7 +26,7 @@ CREATE TABLE users (
 --bun:split
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
-    event_id character varying NOT NULL,
+    event_id character varying NOT NULL UNIQUE,
     from_pubkey character varying NOT NULL,
     kind int NOT NULL,
     content character varying NOT NULL,

@@ -8,14 +8,16 @@ import (
 	//"github.com/nbd-wtf/go-nostr/nip19"
 )
 func (svc *LndhubService) StartRelayRoutine(ctx context.Context, uri string) (err error) {
-	bgCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
+	// connect to relay
 	relay, err := nostr.RelayConnect(bgCtx, uri)
 
 	if err != nil {
 		// we need to restart on error of this routine
-		defer cancel()
-		
+		defer cancel() // TODO determine why golang is telling us we need this here?
+
 		return err
 	}
 	// create NIP 4 filter
@@ -46,6 +48,8 @@ func (svc *LndhubService) StartRelayRoutine(ctx context.Context, uri string) (er
 			return err
 		}
 	}
+	// TODO do we need to call r.close() on the relay connection
+	// 		or leave open for the subscription.
 	return nil
 }
 
