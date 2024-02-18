@@ -12,3 +12,10 @@ type Filter struct {
 	UpdatedAt bun.NullTime `bun:",nullzero"`
 }
 
+func (f *Filter) BeforeAppendModel(query bun.Query) error {
+	switch query.(type) {
+	case *bun.UpdateQuery:
+		f.UpdatedAt = bun.NullTime{Time: time.Now()}
+	}
+	return nil
+}
