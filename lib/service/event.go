@@ -13,25 +13,39 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip19"
 )
 
-func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event) error {
+func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event, relayUri string) error {
 	// check sig
 	if result, err := payload.CheckSignature(); (err != nil || !result) {
 		svc.Logger.Errorf("Signature is not valid for the event... Consider monitoring this user if issue persists: %v", err)
 		// TODO use RespondToNip4 to respond with error message - invalid signature
-		return nil
+		//return nil
 	}
 	// validate and decode
 	result, decoded, err := svc.CheckEvent(payload)
 	if err != nil || !result {
 		svc.Logger.Errorf("Invalid Nostr Event content: %v", err)
 		// TODO use RespondToNip4 to respond with error message - invalid event content
-		return nil
+		//return nil
 	}
+
 	// insert encoded
 	status, err := svc.InsertEvent(ctx, payload)
 	if err != nil || !status {
-		svc.Logger.Errorf("Failed to insert nostr event into db.")
-		return nil
+		// * specifically handle duplicate events
+		dupEvent := strings.Contains(err.Error(), "unique constraint")
+		if dupEvent {
+			svc.Logger.Errorf("Duplicate event found.")
+			// TODO use RespondToNip4 to respond with error message - duplicate event
+		} else {
+			// * likely db connectivity issue, since payload has been 
+			//	 validated
+			svc.Logger.Errorf("Failed to insert nostr event into db.")
+			// TODO use RespondToNip4 to respond with error message - failed to insert event
+		}
+		// * likely db connectivity issue, since payload has been
+		//	 validated
+		svc.Logger.Errorf("Failed to insert nostr event into db. Unknown error.")
+		// TODO use RespondToNip4 to respond with error message - failed to insert event
 	}
 	// Split event content
 	data := strings.Split(decoded.Content, ":")
@@ -44,10 +58,8 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 		// check if user was found
 		if existingUser.ID > 0 {
 			svc.Logger.Errorf("Cannot create user that has already registered this pubkey")
-
+			// TODO ensure client receivers user exists message from RespondToNip4
 			svc.RespondToNip4(ctx, "error: exists", true, decoded.PubKey, decoded.ID,)
-			// TODO further evaluate response, don't need to break routine
- 			return nil
 		}
 		// confirm no error occurred in checking if the user exists
 		if err != nil {
@@ -55,10 +67,11 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 			// TODO consider this and try to make more robust
 			if msg != "sql: now rows in result set" {
 				svc.Logger.Info("Error is related to no results in the dataset, which is acceptable.")
+				// * proceed as usual
 			} else {
 				svc.Logger.Errorf("Unable to verify the pubkey has not already been registered: %v", err)
-				// TODO further evaluate response, don't need to break routine
-				return nil
+				//return nil
+				// TODO RespondWithNip4 - an unexpected database error occurred
 			}
 		}
 		// create the user, by public key
@@ -66,13 +79,14 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 		if err != nil {
 			// create user error response
 			svc.Logger.Errorf("Failed to create user via Nostr event: %v", err)
-			// TODO further evaluate response, don't need to break routine
-			return nil
+			//return nil
+			// TODO RespondWithNip4 - failed to insert user into database
+
 		}
 		// create user success response
 		msg := fmt.Sprintf("userid: %d", user.ID)
 		svc.RespondToNip4(ctx, msg, false, decoded.PubKey, decoded.ID)
-
+	// TODO PROCEED WITH ALL OTHER REVENTS RESPONDING THROUGH: RespondToNip4
 	} else if data[0] == "TAHUB_GET_SERVER_PUBKEY" {
 		// get server npub
 		res, err := svc.HandleGetPublicKey()
@@ -119,6 +133,9 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event)
 		// TODO further evaluate response, don't need to break routine
 		return nil
 	}
+	// update filter value
+	
+	//
 	return nil
 }
 

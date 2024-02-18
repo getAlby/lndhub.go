@@ -7,13 +7,13 @@ import (
 )
 // Relay : Relay Model
 type Relay struct {
-	ID         string `bun:",pk,autoincrement"`
+	ID         int64 `bun:",pk,autoincrement"`
 	Uri		   string `bun:",notnull,unique"`
 	RelayName  string `bun:",notnull"`
 	CreatedAt  time.Time     `bun:",notnull,default:current_timestamp"`
 	UpdatedAt  bun.NullTime  `bun:",nullzero"`
 	// relationship
-	Filters	   []*Filter `bun:"rel:has-many,join:relay_id"`
+	Filter	   *Filter `bun:"rel:has-one,join:id=relay_id"`
 }
 
 func (r *Relay) BeforeAppendModel(ctx context.Context, query bun.Query) error {
@@ -25,3 +25,4 @@ func (r *Relay) BeforeAppendModel(ctx context.Context, query bun.Query) error {
 }
 
 var _ bun.BeforeAppendModelHook = (*Relay)(nil)
+
