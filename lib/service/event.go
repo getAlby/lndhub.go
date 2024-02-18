@@ -39,7 +39,9 @@ func (svc *LndhubService) EventHandler(ctx context.Context, payload nostr.Event,
 			// * NOTE we are responding to duplicate events, trusting the filter
 			//   minimizes the workload we have on a given restart
 			svc.Logger.Errorf("Duplicate event encountered.")
-			return svc.RespondToNip4(ctx, "error: duplicate event", true, decoded.PubKey, decoded.ID, relayUri, decoded.CreatedAt.Time().Unix())
+			// * NOTE not responding to duplicate events, otherwise
+			//	 users will receive a DM (1 success, n - 1 duplicates where n is the number of tahub relays they also use)
+			//return svc.RespondToNip4(ctx, "error: duplicate event", true, decoded.PubKey, decoded.ID, relayUri, decoded.CreatedAt.Time().Unix())
 		} else {
 			// * likely db connectivity issue, since payload has been 
 			//	 validated
