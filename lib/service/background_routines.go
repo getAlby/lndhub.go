@@ -24,19 +24,6 @@ func (svc *LndhubService) StartRelayRoutine(ctx context.Context, uri string, las
 
 		return err
 	}
-	// pull filter for relay
-	// var lastSeenFilter = models.Filter{}
-	// // TODO this query can be improved to return just the value, not the whole row
-	// query := svc.DB.NewSelect().Model(&lastSeenFilter).Where("relay_id = ?", uri)
-	// db_err := query.Scan(bgCtx)
-
-	// if db_err != nil || lastSeenFilter.LastEventSeen == 0 {
-	// 	svc.Logger.Errorf("Failed to get last seen filter for relay %s: %v", uri, err)
-	// 	// * IMPORTANT NOTE
-
-	// 	// default to 24 hours ago and dont interrupt the routine
-	// 	lastSeenFilter.LastEventSeen = time.Now().Add(-24 * time.Hour).Unix()
-	// }
 	// create NIP 4 filter
 	var filters nostr.Filters
 	t := make(map[string][]string)
@@ -54,8 +41,8 @@ func (svc *LndhubService) StartRelayRoutine(ctx context.Context, uri string, las
 
 	go func() {
 		<-sub.EndOfStoredEvents
-		// TODO insert last seen filter
-	
+		// TODO consider this spot for inerting
+		// last seen filter
 		cancel()
 	}()
 	// hold last event to store the filter for next startup
@@ -66,7 +53,7 @@ func (svc *LndhubService) StartRelayRoutine(ctx context.Context, uri string, las
 		//errEvents = append(errEvents, *ev)
 
 		// handle event
-		err := svc.EventHandler(ctx, *ev, uri)
+		err := svc.EventHandler(ctx, *ev, uri, lastSeen)
 		if err != nil && err != context.Canceled {
 			return err
 		}

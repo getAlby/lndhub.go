@@ -11,8 +11,8 @@ INSERT INTO relays(id, uri, relay_name) SELECT 1, 'wss://dev-relay.nostrassets.c
 INSERT INTO relays(id, uri, relay_name) SELECT 2, 'wss://relay.damus.io', 'damus' WHERE NOT EXISTS (SELECT id FROM relays WHERE id = 2);
 --bun:split
 CREATE TABLE filters (
-    relay_id int PRIMARY KEY,
-    last_event_ts bigint,
+    relay_id bigint PRIMARY KEY,
+    last_event_seen bigint,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT fk_relay
@@ -21,9 +21,9 @@ CREATE TABLE filters (
         ON DELETE CASCADE
 );
 --bun:split
-INSERT INTO filters(relay_id, last_event_ts) SELECT 1, 1708201481 WHERE NOT EXISTS (SELECT relay_id FROM filters WHERE relay_id = 1);
+INSERT INTO filters(relay_id, last_event_seen) SELECT 1, 1708201481 WHERE NOT EXISTS (SELECT relay_id FROM filters WHERE relay_id = 1);
 --bun:split
-INSERT INTO filters(relay_id, last_event_ts) SELECT 2, 1708201481 WHERE NOT EXISTS (SELECT relay_id FROM filters WHERE relay_id = 2);
+INSERT INTO filters(relay_id, last_event_seen) SELECT 2, 1708201481 WHERE NOT EXISTS (SELECT relay_id FROM filters WHERE relay_id = 2);
 --bun:split
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
