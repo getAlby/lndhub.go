@@ -209,6 +209,8 @@ func (svc *LndhubService) RespondToNip4(ctx context.Context, rawContent string, 
 	responses[replyToUri] = "broadcast"
 	// * TODO confirm this and insert event here too
 	// update filter value
+
+	// * NOTE this is where the call occurs for the filter to be updated
 	_, filter_err := svc.UpdateRelay(ctx, replyToUri, eventTime)
 	if filter_err != nil {
 		svc.Logger.Errorf("Failed to update filter for relay %s: %v", replyToUri, err)

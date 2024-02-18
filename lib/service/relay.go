@@ -21,7 +21,7 @@ func (svc *LndhubService) FindRelay(ctx context.Context, relayUri string) (*mode
 	}
 	return &relay, nil
 }
-
+// * NOTE this is the function that calls the update
 func (svc *LndhubService) UpdateRelay(ctx context.Context, relayUri string, lastSeen int64) (relay *models.Relay, err error) {
 	relay, err = svc.FindRelay(ctx, relayUri)
 	if err != nil {

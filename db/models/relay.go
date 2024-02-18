@@ -15,7 +15,7 @@ type Relay struct {
 	// relationship
 	Filter	   *Filter `bun:"rel:has-one,join:id=relay_id"`
 }
-
+// * NOTE this is used so that the ORM applies the updated_at field
 func (r *Relay) BeforeAppendModel(ctx context.Context, query bun.Query) error {
 	switch query.(type) {
 	case *bun.UpdateQuery:
