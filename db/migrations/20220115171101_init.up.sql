@@ -1,3 +1,30 @@
+CREATE TABLE relays (
+    id SERIAL PRIMARY KEY,
+    uri character varying NOT NULL UNIQUE,
+    relay_name character varying NOT NULL UNIQUE,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone
+);
+--bun:split
+INSERT INTO relays(id, uri, relay_name) SELECT 1, 'wss://dev-relay.nostrassets.com', 'internal-dev' WHERE NOT EXISTS (SELECT id FROM relays WHERE id = 1);
+--bun:split
+INSERT INTO relays(id, uri, relay_name) SELECT 2, 'wss://relay.damus.io', 'damus' WHERE NOT EXISTS (SELECT id FROM relays WHERE id = 2);
+--bun:split
+CREATE TABLE filters (
+    relay_id bigint PRIMARY KEY,
+    last_event_seen bigint,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    CONSTRAINT fk_relay
+        FOREIGN KEY(relay_id)
+        REFERENCES relays(id)
+        ON DELETE CASCADE
+);
+--bun:split
+INSERT INTO filters(relay_id, last_event_seen) SELECT 1, 1708201481 WHERE NOT EXISTS (SELECT relay_id FROM filters WHERE relay_id = 1);
+--bun:split
+INSERT INTO filters(relay_id, last_event_seen) SELECT 2, 1708201481 WHERE NOT EXISTS (SELECT relay_id FROM filters WHERE relay_id = 2);
+--bun:split
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     pubkey character varying NOT NULL UNIQUE,
@@ -7,7 +34,7 @@ CREATE TABLE users (
 --bun:split
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
-    event_id character varying NOT NULL,
+    event_id character varying NOT NULL UNIQUE,
     from_pubkey character varying NOT NULL,
     kind int NOT NULL,
     content character varying NOT NULL,

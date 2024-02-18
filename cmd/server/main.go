@@ -190,19 +190,29 @@ func main() {
 		svc.Logger.Info("Invoice routine done")
 		backgroundWg.Done()
 	}()
-	// start relay subscription
-	backgroundWg.Add(1)
-	go func() {
-		err = svc.StartRelayRoutine(backGroundCtx)
-		if err != nil {
-			// TODO add sentry
-			
-			// restart on error of relay routine
-			svc.Logger.Fatal(err)
-		}
-		svc.Logger.Info("No more NIP04 messages to address")
-		backgroundWg.Done()
-	}()
+	// TODO get relays from DB
+	relays, err := svc.GetRelays(backGroundCtx)
+	if err != nil && len(relays) > 0 {
+		sentry.CaptureException(err)
+		// we want to restart in case of an error here
+		svc.Logger.Fatal(err)
+	}
+	// start relay subscriptions
+	for _, relay := range relays {
+		backgroundWg.Add(1)
+		go func(uri string, lastSeen int64) {
+			// TODO spot to get the last filter for the relay
+			err = svc.StartRelayRoutine(backGroundCtx, uri, lastSeen)
+			if err != nil {
+				// TODO add sentry
+				
+				// restart on error of relay routine
+				svc.Logger.Fatal(err)
+			}
+			svc.Logger.Info("No more NIP04 messages to address")
+			backgroundWg.Done()
+		}(relay.Uri, relay.Filter.LastEventSeen)
+	}
 	// Check the status of all pending outgoing payments
 	backgroundWg.Add(1)
 	go func() {
