@@ -5,12 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	LND_CLIENT_TYPE         = "lnd"
-	LND_CLUSTER_CLIENT_TYPE = "lnd_cluster"
-	ECLAIR_CLIENT_TYPE      = "eclair"
-)
-
 type Config struct {
 	DatabaseUri                      string  `envconfig:"DATABASE_URI" required:"true"`
 	DatabaseMaxConns                 int     `envconfig:"DATABASE_MAX_CONNS" default:"10"`
@@ -25,14 +19,6 @@ type Config struct {
 	AdminToken                       string  `envconfig:"ADMIN_TOKEN"`
 	JWTRefreshTokenExpiry            int     `envconfig:"JWT_REFRESH_EXPIRY" default:"604800"` // in seconds, default 7 days
 	JWTAccessTokenExpiry             int     `envconfig:"JWT_ACCESS_EXPIRY" default:"172800"`  // in seconds, default 2 days
-	LNClientType                     string  `envconfig:"LN_CLIENT_TYPE" default:"lnd"`        //lnd, lnd_cluster, eclair
-	LNDAddress                       string  `envconfig:"LND_ADDRESS" required:"true"`
-	LNDMacaroonFile                  string  `envconfig:"LND_MACAROON_FILE"`
-	LNDCertFile                      string  `envconfig:"LND_CERT_FILE"`
-	LNDMacaroonHex                   string  `envconfig:"LND_MACAROON_HEX"`
-	LNDCertHex                       string  `envconfig:"LND_CERT_HEX"`
-	LNDClusterLivenessPeriod         int     `envconfig:"LND_CLUSTER_LIVENESS_PERIOD" default:"10"`
-	LNDClusterActiveChannelRatio     float64 `envconfig:"LND_CLUSTER_ACTIVE_CHANNEL_RATIO" default:"0.5"`
 	CustomName                       string  `envconfig:"CUSTOM_NAME"`
 	Host                             string  `envconfig:"HOST" default:"localhost:3000"`
 	Port                             int     `envconfig:"PORT" default:"3000"`
@@ -45,11 +31,17 @@ type Config struct {
 	PrometheusPort                   int     `envconfig:"PROMETHEUS_PORT" default:"9092"`
 	WebhookUrl                       string  `envconfig:"WEBHOOK_URL"`
 	FeeReserve                       bool    `envconfig:"FEE_RESERVE" default:"false"`
+	ServiceFee                       int     `envconfig:"SERVICE_FEE" default:"0"`
+	NoServiceFeeUpToAmount           int     `envconfig:"NO_SERVICE_FEE_UP_TO_AMOUNT" default:"0"`
 	AllowAccountCreation             bool    `envconfig:"ALLOW_ACCOUNT_CREATION" default:"true"`
 	MinPasswordEntropy               int     `envconfig:"MIN_PASSWORD_ENTROPY" default:"0"`
 	MaxReceiveAmount                 int64   `envconfig:"MAX_RECEIVE_AMOUNT" default:"0"`
 	MaxSendAmount                    int64   `envconfig:"MAX_SEND_AMOUNT" default:"0"`
 	MaxAccountBalance                int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
+	MaxFeeAmount                     int64   `envconfig:"MAX_FEE_AMOUNT" default:"5000"`
+	MaxSendVolume                    int64   `envconfig:"MAX_SEND_VOLUME" default:"0"`         //0 means the volume check is disabled by default
+	MaxReceiveVolume                 int64   `envconfig:"MAX_RECEIVE_VOLUME" default:"0"`      //0 means the volume check is disabled by default
+	MaxVolumePeriod                  int64   `envconfig:"MAX_VOLUME_PERIOD" default:"2592000"` //in seconds, default 1 month
 	RabbitMQUri                      string  `envconfig:"RABBITMQ_URI"`
 	RabbitMQLndhubInvoiceExchange    string  `envconfig:"RABBITMQ_INVOICE_EXCHANGE" default:"lndhub_invoice"`
 	RabbitMQLndInvoiceExchange       string  `envconfig:"RABBITMQ_LND_INVOICE_EXCHANGE" default:"lnd_invoice"`
@@ -58,7 +50,13 @@ type Config struct {
 	RabbitMQPaymentConsumerQueueName string  `envconfig:"RABBITMQ_PAYMENT_CONSUMER_QUEUE_NAME" default:"lnd_payment_consumer"`
 	Branding                         BrandingConfig
 }
-
+type Limits struct {
+	MaxSendVolume     int64
+	MaxSendAmount     int64
+	MaxReceiveVolume  int64
+	MaxReceiveAmount  int64
+	MaxAccountBalance int64
+}
 type BrandingConfig struct {
 	Title   string        `envconfig:"BRANDING_TITLE" default:"LndHub.go - Alby Lightning"`
 	Desc    string        `envconfig:"BRANDING_DESC" default:"Alby server for the Lightning Network"`

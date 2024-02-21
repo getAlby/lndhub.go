@@ -20,12 +20,14 @@ func NewUpdateUserController(svc *service.LndhubService) *UpdateUserController {
 type UpdateUserResponseBody struct {
 	Login       string `json:"login"`
 	Deactivated bool   `json:"deactivated"`
+	Deleted     bool   `json:"deleted"`
 	ID          int64  `json:"id"`
 }
 type UpdateUserRequestBody struct {
 	Login       *string `json:"login,omitempty"`
 	Password    *string `json:"password,omitempty"`
 	Deactivated *bool   `json:"deactivated,omitempty"`
+	Deleted     *bool   `json:"deleted,omitempty"`
 	ID          int64   `json:"id" validate:"required"`
 }
 
@@ -52,7 +54,7 @@ func (controller *UpdateUserController) UpdateUser(c echo.Context) error {
 		c.Logger().Errorf("Invalid update user request body error: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-	user, err := controller.svc.UpdateUser(c.Request().Context(), body.ID, body.Login, body.Password, body.Deactivated)
+	user, err := controller.svc.UpdateUser(c.Request().Context(), body.ID, body.Login, body.Password, body.Deactivated, body.Deleted)
 	if err != nil {
 		c.Logger().Errorf("Failed to update user: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
@@ -61,6 +63,7 @@ func (controller *UpdateUserController) UpdateUser(c echo.Context) error {
 	var ResponseBody UpdateUserResponseBody
 	ResponseBody.Login = user.Login
 	ResponseBody.Deactivated = user.Deactivated
+	ResponseBody.Deleted = user.Deleted
 	ResponseBody.ID = user.ID
 
 	return c.JSON(http.StatusOK, &ResponseBody)

@@ -1,6 +1,7 @@
 package v2controllers
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -79,8 +81,12 @@ func (controller *KeySendController) KeySend(c echo.Context) error {
 		c.Logger().Errorf("Invalid keysend request body: %v", err)
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
-
-	result, errResp := controller.SingleKeySend(c, &reqBody, userID)
+	errResp := controller.checkKeysendPaymentAllowed(c, reqBody.Amount, userID)
+	if errResp != nil {
+		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
+		return c.JSON(errResp.HttpStatusCode, errResp)
+	}
+	result, errResp := controller.SingleKeySend(c.Request().Context(), &reqBody, userID)
 	if errResp != nil {
 		c.Logger().Errorf("Failed to send keysend: %s", errResp.Message)
 		return c.JSON(errResp.HttpStatusCode, errResp)
@@ -117,13 +123,22 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 	}
+	var totalAmount int64
+	for _, keysend := range reqBody.Keysends {
+		totalAmount += keysend.Amount
+	}
+	errResp := controller.checkKeysendPaymentAllowed(c, totalAmount, userID)
+	if errResp != nil {
+		c.Logger().Errorf("Failed to make keysend split payments: %s", errResp.Message)
+		return c.JSON(errResp.HttpStatusCode, errResp)
+	}
 	result := &MultiKeySendResponseBody{
 		Keysends: []KeySendResult{},
 	}
 	singleSuccesfulPayment := false
 	for _, keysend := range reqBody.Keysends {
 		keysend := keysend
-		res, err := controller.SingleKeySend(c, &keysend, userID)
+		res, err := controller.SingleKeySend(context.Background(), &keysend, userID)
 		if err != nil {
 			controller.svc.Logger.Errorf("Error making keysend split payment %v %s", keysend, err.Message)
 			result.Keysends = append(result.Keysends, KeySendResult{
@@ -147,7 +162,25 @@ func (controller *KeySendController) MultiKeySend(c echo.Context) error {
 	return c.JSON(status, result)
 }
 
-func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeySendRequestBody, userID int64) (result *KeySendResponseBody, resp *responses.ErrorResponse) {
+func (controller *KeySendController) checkKeysendPaymentAllowed(c echo.Context, amount, userID int64) (resp *responses.ErrorResponse) {
+	syntheticPayReq := &lnd.LNPayReq{
+		PayReq: &lnrpc.PayReq{
+			NumSatoshis: amount,
+		},
+		Keysend: true,
+	}
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, syntheticPayReq, userID)
+	if err != nil {
+		return &responses.GeneralServerError
+	}
+	if resp != nil {
+		controller.svc.Logger.Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, syntheticPayReq.PayReq.NumSatoshis)
+		return resp
+	}
+	return nil
+}
+
+func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody *KeySendRequestBody, userID int64) (result *KeySendResponseBody, resp *responses.ErrorResponse) {
 	lnPayReq := &lnd.LNPayReq{
 		PayReq: &lnrpc.PayReq{
 			Destination: reqBody.Destination,
@@ -170,22 +203,12 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 			HttpStatusCode: 400,
 		}
 	}
-	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
-	if err != nil {
-		controller.svc.Logger.Error(err)
-		return nil, &responses.GeneralServerError
-	}
-	if !ok {
-		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
-		return nil, &responses.NotEnoughBalanceError
-	}
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, "", lnPayReq)
-	if err != nil {
-		controller.svc.Logger.Error(err)
-		return nil, &responses.GeneralServerError
+	invoice, errResp := controller.svc.AddOutgoingInvoice(ctx, userID, "", lnPayReq)
+	if errResp != nil {
+		return nil, errResp
 	}
 	if _, err := hex.DecodeString(invoice.DestinationPubkeyHex); err != nil || len(invoice.DestinationPubkeyHex) != common.DestinationPubkeyHexSize {
-		c.Logger().Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
+		controller.svc.Logger.Errorf("Invalid destination pubkey hex user_id:%v pubkey:%v", userID, len(invoice.DestinationPubkeyHex))
 		return nil, &responses.InvalidDestinationError
 	}
 	invoice.DestinationCustomRecords = map[uint64][]byte{}
@@ -193,13 +216,28 @@ func (controller *KeySendController) SingleKeySend(c echo.Context, reqBody *KeyS
 	for key, value := range customRecords {
 		intKey, err := strconv.Atoi(key)
 		if err != nil {
+			controller.svc.Logger.Errorj(
+				log.JSON{
+					"message":        "invalid custom records",
+					"error":          err,
+					"lndhub_user_id": userID,
+				},
+			)
 			return nil, &responses.BadArgumentsError
 		}
 		invoice.DestinationCustomRecords[uint64(intKey)] = []byte(value)
 	}
-	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
+	sendPaymentResponse, err := controller.svc.PayInvoice(ctx, invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed: user_id:%v error: %v", userID, err)
+		controller.svc.Logger.Errorj(
+			log.JSON{
+				"message": 	"payment failed",
+				"error": err,
+				"lndhub_user_id": userID,
+				"invoice_id": invoice.ID,
+				"destination_pubkey_hex": invoice.DestinationPubkeyHex,
+			},
+		)
 		sentry.CaptureException(err)
 		return nil, &responses.ErrorResponse{
 			Error:   true,

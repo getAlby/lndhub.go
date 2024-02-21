@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
 	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -66,7 +67,8 @@ func (controller *HomeController) QR(c echo.Context) error {
 	url := fmt.Sprintf("bluewallet:setlndhuburl?url=%s", encoded)
 	png, err := qrcode.Encode(url, qrcode.Medium, 256)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Error encoding QR: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	return c.Blob(http.StatusOK, "image/png", png)
 }
@@ -74,16 +76,19 @@ func (controller *HomeController) QR(c echo.Context) error {
 func (controller *HomeController) Home(c echo.Context) error {
 	info, err := controller.svc.GetInfo(c.Request().Context())
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to retrieve info: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	channels, err := controller.svc.LndClient.ListChannels(c.Request().Context(), &lnrpc.ListChannelsRequest{})
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to list channels: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	tmpl, err := template.New("index").Parse(controller.html)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to parse template: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	// See original code: https://github.com/BlueWallet/LndHub/blob/master/controllers/website.js#L32
 	maxChanCapacity := -1
@@ -117,7 +122,8 @@ func (controller *HomeController) Home(c echo.Context) error {
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, content)
 	if err != nil {
-		return err
+		c.Logger().Errorf("Failed to parse template: %v", err)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=300, stale-if-error=21600") // cache for 5 minutes or if error for 6 hours max
 	return c.HTMLBlob(http.StatusOK, buf.Bytes())

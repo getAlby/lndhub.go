@@ -13,6 +13,7 @@ import (
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -160,23 +161,25 @@ func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrp
 		}, nil
 	}
 
-	preImage, err := makePreimageHex()
-	if err != nil {
-		return nil, err
-	}
-	pHash := sha256.New()
-	pHash.Write(preImage)
 	// Prepare the LNRPC call
 	//See: https://github.com/hsjoberg/blixt-wallet/blob/9fcc56a7dc25237bc14b85e6490adb9e044c009c/src/lndmobile/index.ts#L251-L270
 	destBytes, err := hex.DecodeString(invoice.DestinationPubkeyHex)
 	if err != nil {
 		return nil, err
 	}
+	preImage, err := hex.DecodeString(invoice.Preimage)
+	if err != nil {
+		return nil, err
+	}
 	invoice.DestinationCustomRecords[KEYSEND_CUSTOM_RECORD] = preImage
+	paymentHash, err := hex.DecodeString(invoice.RHash)
+	if err != nil {
+		return nil, err
+	}
 	return &lnrpc.SendRequest{
 		Dest:              destBytes,
 		Amt:               invoice.Amount,
-		PaymentHash:       pHash.Sum(nil),
+		PaymentHash:       paymentHash,
 		FeeLimit:          &feeLimit,
 		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
 		DestCustomRecords: invoice.DestinationCustomRecords,
@@ -232,7 +235,7 @@ func (svc *LndhubService) PayInvoice(ctx context.Context, invoice *models.Invoic
 	// The payment was successful.
 	// These changes to the invoice are persisted in the `HandleSuccessfulPayment` function
 	invoice.Preimage = paymentResponse.PaymentPreimageStr
-	invoice.Fee = paymentResponse.PaymentRoute.TotalFees
+	invoice.SetFee(entry, paymentResponse.PaymentRoute.TotalFees)
 	invoice.RHash = paymentResponse.PaymentHashStr
 	err = svc.HandleSuccessfulPayment(context.Background(), invoice, entry)
 	return &paymentResponse, err
@@ -253,6 +256,13 @@ func (svc *LndhubService) HandleFailedPayment(ctx context.Context, invoice *mode
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Errorf("Could not revert fee reserve entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
+		return err
+	}
+	//revert the service fee if necessary
+	err = svc.RevertServiceFee(ctx, &entryToRevert, invoice, tx)
+	if err != nil {
+		sentry.CaptureException(err)
+		svc.Logger.Errorf("Could not revert service fee entry entry user_id:%v invoice_id:%v error %s", invoice.UserID, invoice.ID, err.Error())
 		return err
 	}
 
@@ -315,8 +325,10 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 		return entry, err
 	}
 
-	//if external payment: add fee reserve to entry
+	// add fee entries (fee reserve and service fee)
 	feeLimit := svc.CalcFeeLimit(invoice.DestinationPubkeyHex, invoice.Amount)
+	serviceFee := svc.CalcServiceFee(invoice.Amount)
+
 	if feeLimit != 0 {
 		feeReserveEntry := models.TransactionEntry{
 			UserID:          invoice.UserID,
@@ -325,12 +337,29 @@ func (svc *LndhubService) InsertTransactionEntry(ctx context.Context, invoice *m
 			DebitAccountID:  debitAccount.ID,
 			Amount:          feeLimit,
 			EntryType:       models.EntryTypeFeeReserve,
+			ParentID:        entry.ID,
 		}
 		_, err = tx.NewInsert().Model(&feeReserveEntry).Exec(ctx)
 		if err != nil {
 			return entry, err
 		}
 		entry.FeeReserve = &feeReserveEntry
+	}
+	if serviceFee != 0 {
+		serviceFeeEntry := models.TransactionEntry{
+			UserID:          invoice.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: feeAccount.ID,
+			DebitAccountID:  debitAccount.ID,
+			Amount:          serviceFee,
+			EntryType:       models.EntryTypeServiceFee,
+			ParentID:        entry.ID,
+		}
+		_, err = tx.NewInsert().Model(&serviceFeeEntry).Exec(ctx)
+		if err != nil {
+			return entry, err
+		}
+		entry.ServiceFee = &serviceFeeEntry
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -356,22 +385,35 @@ func (svc *LndhubService) RevertFeeReserve(ctx context.Context, entry *models.Tr
 	return nil
 }
 
-func (svc *LndhubService) AddFeeEntry(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
-	if entry.FeeReserve != nil {
-		// add transaction entry for fee
-		// if there was no fee reserve then this is an internal payment
-		// and no fee entry is needed
-		// if there is a fee reserve then we must use the same account id's
-		entry := models.TransactionEntry{
+func (svc *LndhubService) RevertServiceFee(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
+	if entry.ServiceFee != nil {
+		entryToRevert := entry.ServiceFee
+		serviceFeeRevert := models.TransactionEntry{
+			UserID:          entryToRevert.UserID,
+			InvoiceID:       invoice.ID,
+			CreditAccountID: entryToRevert.DebitAccountID,
+			DebitAccountID:  entryToRevert.CreditAccountID,
+			Amount:          entryToRevert.Amount,
+			EntryType:       models.EntryTypeServiceFeeReversal,
+		}
+		_, err = tx.NewInsert().Model(&serviceFeeRevert).Exec(ctx)
+		return err
+	}
+	return nil
+}
+
+func (svc *LndhubService) AddRoutingFeeEntry(ctx context.Context, entry *models.TransactionEntry, invoice *models.Invoice, tx bun.Tx) (err error) {
+	if invoice.RoutingFee != 0 {
+		routingFeeEntry := models.TransactionEntry{
 			UserID:          invoice.UserID,
 			InvoiceID:       invoice.ID,
 			CreditAccountID: entry.FeeReserve.CreditAccountID,
 			DebitAccountID:  entry.FeeReserve.DebitAccountID,
-			Amount:          int64(invoice.Fee),
+			Amount:          int64(invoice.RoutingFee),
 			ParentID:        entry.ID,
 			EntryType:       models.EntryTypeFee,
 		}
-		_, err = tx.NewInsert().Model(&entry).Exec(ctx)
+		_, err = tx.NewInsert().Model(&routingFeeEntry).Exec(ctx)
 		return err
 	}
 	return nil
@@ -405,7 +447,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	}
 
 	//add the real fee entry
-	err = svc.AddFeeEntry(ctx, &parentEntry, invoice, tx)
+	err = svc.AddRoutingFeeEntry(ctx, &parentEntry, invoice, tx)
 	if err != nil {
 		tx.Rollback()
 		sentry.CaptureException(err)
@@ -437,7 +479,7 @@ func (svc *LndhubService) HandleSuccessfulPayment(ctx context.Context, invoice *
 	return nil
 }
 
-func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, error) {
+func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, paymentRequest string, lnPayReq *lnd.LNPayReq) (*models.Invoice, *responses.ErrorResponse) {
 	// Initialize new DB invoice
 	invoice := models.Invoice{
 		Type:                 common.InvoiceTypeOutgoing,
@@ -453,18 +495,32 @@ func (svc *LndhubService) AddOutgoingInvoice(ctx context.Context, userID int64, 
 		ExpiresAt:            bun.NullTime{Time: time.Unix(lnPayReq.PayReq.Timestamp, 0).Add(time.Duration(lnPayReq.PayReq.Expiry) * time.Second)},
 	}
 
+	if lnPayReq.Keysend {
+		preImage, err := makePreimageHex()
+		if err != nil {
+			svc.Logger.Errorf("Error adding invoice: user_id:%v error: %v", userID, err)
+			return nil, &responses.GeneralServerError
+		}
+		pHash := sha256.New()
+		pHash.Write(preImage)
+
+		invoice.RHash = hex.EncodeToString(pHash.Sum(nil))
+		invoice.Preimage = hex.EncodeToString(preImage)
+	}
+
 	// Save invoice
 	_, err := svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
-		return nil, err
+		svc.Logger.Errorf("Error adding invoice: user_id:%v error: %v", userID, err)
+		return nil, &responses.GeneralServerError
 	}
 	return &invoice, nil
 }
 
-func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, error) {
+func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, amount int64, memo, descriptionHashStr string) (*models.Invoice, *responses.ErrorResponse) {
 	preimage, err := makePreimageHex()
 	if err != nil {
-		return nil, err
+		return nil, &responses.GeneralServerError
 	}
 	expiry := time.Hour * 24 // invoice expires in 24h
 	// Initialize new DB invoice
@@ -481,12 +537,12 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	// Save invoice - we save the invoice early to have a record in case the LN call fails
 	_, err = svc.DB.NewInsert().Model(&invoice).Exec(ctx)
 	if err != nil {
-		return nil, err
+		return nil, &responses.GeneralServerError
 	}
 
 	descriptionHash, err := hex.DecodeString(descriptionHashStr)
 	if err != nil {
-		return nil, err
+		return nil, &responses.GeneralServerError
 	}
 	// Initialize lnrpc invoice
 	lnInvoice := lnrpc.Invoice{
@@ -499,7 +555,8 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 	// Call LND
 	lnInvoiceResult, err := svc.LndClient.AddInvoice(ctx, &lnInvoice)
 	if err != nil {
-		return nil, err
+		svc.Logger.Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
+		return nil, &responses.GeneralServerError
 	}
 
 	// Update the DB invoice with the data from the LND gRPC call
@@ -512,7 +569,7 @@ func (svc *LndhubService) AddIncomingInvoice(ctx context.Context, userID int64, 
 
 	_, err = svc.DB.NewUpdate().Model(&invoice).WherePK().Exec(ctx)
 	if err != nil {
-		return nil, err
+		return nil, &responses.GeneralServerError
 	}
 
 	return &invoice, nil

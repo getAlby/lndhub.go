@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getsentry/sentry-go"
@@ -14,18 +15,25 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 )
 
+func (svc *LndhubService) GetPendingPaymentsUntil(ctx context.Context, ts time.Time) ([]models.Invoice, error) {
+	payments := []models.Invoice{}
+	err := svc.DB.NewSelect().
+		Model(&payments).
+		Where("state = 'initialized'").
+		Where("type = 'outgoing'").
+		Where("r_hash != ''").
+		Where("created_at >= (now() - interval '2 weeks') ").
+		Where("created_at < ? ", ts).
+		Scan(ctx)
+	return payments, err
+}
+
 func (svc *LndhubService) GetAllPendingPayments(ctx context.Context) ([]models.Invoice, error) {
 	payments := []models.Invoice{}
 	err := svc.DB.NewSelect().Model(&payments).Where("state = 'initialized'").Where("type = 'outgoing'").Where("r_hash != ''").Where("created_at >= (now() - interval '2 weeks') ").Scan(ctx)
 	return payments, err
 }
-func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (err error) {
-	pendingPayments, err := svc.GetAllPendingPayments(ctx)
-	if err != nil {
-		return err
-	}
-
-	svc.Logger.Infof("Found %d pending payments", len(pendingPayments))
+func (svc *LndhubService) CheckPendingOutgoingPayments(ctx context.Context, pendingPayments []models.Invoice) (err error) {
 	//call trackoutgoingpaymentstatus for each one
 	var wg sync.WaitGroup
 	for _, inv := range pendingPayments {
@@ -46,6 +54,7 @@ func (svc *LndhubService) CheckAllPendingOutgoingPayments(ctx context.Context) (
 func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id int64) (models.TransactionEntry, error) {
 	entry := models.TransactionEntry{}
 	feeReserveEntry := models.TransactionEntry{}
+	serviceFeeEntry := models.TransactionEntry{}
 
 	err := svc.DB.NewSelect().Model(&entry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeOutgoing).Limit(1).Scan(ctx)
 	if err != nil {
@@ -62,11 +71,24 @@ func (svc *LndhubService) GetTransactionEntryByInvoiceId(ctx context.Context, id
 		return entry, err
 	}
 	err = svc.DB.NewSelect().Model(&feeReserveEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeFeeReserve).Limit(1).Scan(ctx)
-	if err != nil {
+	// The fee reserve transaction entry is optional thus we ignore NoRow errors.
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return entry, err
 	}
-	entry.FeeReserve = &feeReserveEntry
-	return entry, err
+	if err == nil {
+		entry.FeeReserve = &feeReserveEntry
+	}
+
+	err = svc.DB.NewSelect().Model(&serviceFeeEntry).Where("invoice_id = ? and entry_type = ?", id, models.EntryTypeServiceFee).Limit(1).Scan(ctx)
+	// The service fee transaction entry is optional thus we ignore NoRow errors.
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return entry, err
+	}
+	if err == nil {
+		entry.ServiceFee = &serviceFeeEntry
+	}
+
+	return entry, nil
 }
 
 // Should be called in a goroutine as the tracking can potentially take a long time
@@ -115,8 +137,9 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 			return
 		}
 		if payment.Status == lnrpc.Payment_SUCCEEDED {
-			invoice.Fee = payment.FeeSat
+			invoice.SetFee(entry, payment.FeeSat)
 			invoice.Preimage = payment.PaymentPreimage
+			invoice.RHash = payment.PaymentHash
 			svc.Logger.Infof("Completed payment detected: hash %s", payment.PaymentHash)
 			err = svc.HandleSuccessfulPayment(ctx, invoice, entry)
 			if err != nil {

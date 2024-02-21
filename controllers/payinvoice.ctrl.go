@@ -13,6 +13,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // PayInvoiceController : Pay invoice controller struct
@@ -57,7 +58,7 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	paymentRequest = strings.ToLower(paymentRequest)
 	decodedPaymentRequest, err := controller.svc.DecodePaymentRequest(c.Request().Context(), paymentRequest)
 	if err != nil {
-		if strings.Contains(err.Error(),"invoice not for current active network") {
+		if strings.Contains(err.Error(), "invoice not for current active network") {
 			c.Logger().Errorf("Incorrect network user_id:%v error: %v", userID, err)
 			return c.JSON(http.StatusBadRequest, responses.IncorrectNetworkError)
 		}
@@ -77,34 +78,42 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	if decodedPaymentRequest.NumSatoshis == 0 {
 		amt, err := controller.svc.ParseInt(reqBody.Amount)
 		if err != nil || amt <= 0 {
+			c.Logger().Errorj(
+				log.JSON{
+					"message":        "invalid amount",
+					"error":          err,
+					"lndhub_user_id": userID,
+				},
+			)
 			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 		}
 		lnPayReq.PayReq.NumSatoshis = amt
 	}
 
-	if controller.svc.Config.MaxSendAmount > 0 {
-		if lnPayReq.PayReq.NumSatoshis > controller.svc.Config.MaxSendAmount {
-			c.Logger().Errorf("Max send amount exceeded for user_id:%v (amount:%v)", userID, lnPayReq.PayReq.NumSatoshis)
-			return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
-		}
+	resp, err := controller.svc.CheckOutgoingPaymentAllowed(c, lnPayReq, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+	}
+	if resp != nil {
+		c.Logger().Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, lnPayReq.PayReq.NumSatoshis)
+		return c.JSON(http.StatusBadRequest, resp)
 	}
 
-	ok, err := controller.svc.BalanceCheck(c.Request().Context(), lnPayReq, userID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		c.Logger().Errorf("User does not have enough balance user_id:%v amount:%v", userID, lnPayReq.PayReq.NumSatoshis)
-		return c.JSON(http.StatusBadRequest, responses.NotEnoughBalanceError)
-	}
-
-	invoice, err := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
-	if err != nil {
-		return err
+	invoice, errResp := controller.svc.AddOutgoingInvoice(c.Request().Context(), userID, paymentRequest, lnPayReq)
+	if errResp != nil {
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	sendPaymentResponse, err := controller.svc.PayInvoice(c.Request().Context(), invoice)
 	if err != nil {
-		c.Logger().Errorf("Payment failed invoice_id:%v user_id:%v error: %v", invoice.ID, userID, err)
+		c.Logger().Errorj(
+				log.JSON{
+				"message": 	"payment failed",
+				"error": err,
+				"lndhub_user_id": userID,
+				"invoice_id": invoice.ID,
+				"destination_pubkey_hex": invoice.DestinationPubkeyHex,
+			},
+		)
 		if hub := sentryecho.GetHubFromContext(c); hub != nil {
 			hub.WithScope(func(scope *sentry.Scope) {
 				scope.SetExtra("invoice_id", invoice.ID)

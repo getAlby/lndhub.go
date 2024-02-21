@@ -27,8 +27,10 @@ func (cluster *LNDCluster) StartLivenessLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cluster.Logger.Info("Checking cluster status")
-			cluster.checkClusterStatus(ctx)
+			cluster.Logger.Info("Checking cluster status")	
+			checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			cluster.checkClusterStatus(checkCtx)
 		}
 	}
 }

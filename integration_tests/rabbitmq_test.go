@@ -64,7 +64,7 @@ func (suite *RabbitMQTestSuite) SetupSuite() {
 	e.Validator = &lib.CustomValidator{Validator: validator.New()}
 
 	suite.echo = e
-	suite.echo.Use(tokens.Middleware(suite.svc.Config.JWTSecret))
+	suite.echo.Use(tokens.Middleware([]byte(suite.svc.Config.JWTSecret)))
 	suite.echo.POST("/addinvoice", controllers.NewAddInvoiceController(suite.svc).AddInvoice)
 	suite.echo.POST("/payinvoice", controllers.NewPayInvoiceController(suite.svc).PayInvoice)
 	go func() {

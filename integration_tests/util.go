@@ -10,8 +10,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db"
 	"github.com/getAlby/lndhub.go/db/migrations"
+	"github.com/getAlby/lndhub.go/db/models"
 	"github.com/getAlby/lndhub.go/lib"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
@@ -45,17 +47,19 @@ const (
 )
 
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
-	dbUri := "postgresql://user:password@localhost/lndhub?sslmode=disable"
+	dbUri, ok := os.LookupEnv("DATABASE_URI")
+	if !ok {
+		dbUri = "postgresql://user:password@localhost/lndhub?sslmode=disable"
+	}
 	c := &service.Config{
 		DatabaseUri:             dbUri,
 		DatabaseMaxConns:        1,
 		DatabaseMaxIdleConns:    1,
 		DatabaseConnMaxLifetime: 10,
+		MaxFeeAmount:            1e6,
 		JWTSecret:               []byte("SECRET"),
 		JWTAccessTokenExpiry:    3600,
 		JWTRefreshTokenExpiry:   3600,
-		LNDAddress:              mockLNDAddress,
-		LNDMacaroonHex:          mockLNDMacaroonHex,
 	}
 
 	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")
@@ -125,6 +129,22 @@ func getUserIdFromToken(token string) int64 {
 	parsedToken, _, _ := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
 	claims, _ := parsedToken.Claims.(jwt.MapClaims)
 	return int64(claims["id"].(float64))
+}
+
+// since svc.invoicesFor excludes erroneous invoices, this is used for testing
+func invoicesFor(svc *service.LndhubService, userId int64, invoiceType string) ([]models.Invoice, error) {
+	var invoices []models.Invoice
+
+	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
+	if invoiceType != "" {
+		query.Where("type = ? AND state <> ?", invoiceType, common.InvoiceStateInitialized)
+	}
+	query.OrderExpr("id DESC").Limit(100)
+	err := query.Scan(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return invoices, nil
 }
 
 func createUsers(svc *service.LndhubService, usersToCreate int) (logins []ExpectedCreateUserResponseBody, tokens []string, err error) {

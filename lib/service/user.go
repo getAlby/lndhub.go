@@ -5,11 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/db/models"
+	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
+	"github.com/getsentry/sentry-go"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 )
@@ -73,7 +78,7 @@ func (svc *LndhubService) CreateUser(ctx context.Context, login string, password
 	return user, err
 }
 
-func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *string, password *string, deactivated *bool) (user *models.User, err error) {
+func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *string, password *string, deactivated *bool, deleted *bool) (user *models.User, err error) {
 	user, err = svc.FindUser(ctx, userId)
 	if err != nil {
 		return nil, err
@@ -93,6 +98,14 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *s
 	}
 	if deactivated != nil {
 		user.Deactivated = *deactivated
+	}
+	// if a user gets deleted we mark it as deactivated and deleted
+	// un-deleting it is not supported currently
+	if deleted != nil {
+		if *deleted == true {
+			user.Deactivated = true
+			user.Deleted = true
+		}
 	}
 	_, err = svc.DB.NewUpdate().Model(user).WherePK().Exec(ctx)
 	if err != nil {
@@ -121,17 +134,122 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 	return &user, nil
 }
 
-func (svc *LndhubService) BalanceCheck(ctx context.Context, lnpayReq *lnd.LNPayReq, userId int64) (ok bool, err error) {
-	currentBalance, err := svc.CurrentUserBalance(ctx, userId)
+func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
+	limits := svc.GetLimits(c)
+	if limits.MaxSendAmount > 0 {
+		if lnpayReq.PayReq.NumSatoshis > limits.MaxSendAmount {
+			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userId, lnpayReq.PayReq.NumSatoshis)
+			return &responses.SendExceededError, nil
+		}
+	}
+
+	if limits.MaxSendVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(c.Request().Context(), userId, common.InvoiceTypeOutgoing, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching volume",
+					"error":          err,
+					"lndhub_user_id": userId,
+				},
+			)
+			return nil, err
+		}
+		if volume > limits.MaxSendVolume {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message": 			"transaction volume exceeded",
+					"lndhub_user_id": 	userId,
+				},
+			)
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
+		}
+	}
+
+	currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userId)
 	if err != nil {
-		return false, err
+		svc.Logger.Errorj(
+			log.JSON{
+				"message":        "error checking balance",
+				"error":          err,
+				"lndhub_user_id": userId,
+			},
+		)
+		return nil, err
 	}
 
 	minimumBalance := lnpayReq.PayReq.NumSatoshis
 	if svc.Config.FeeReserve {
 		minimumBalance += svc.CalcFeeLimit(lnpayReq.PayReq.Destination, lnpayReq.PayReq.NumSatoshis)
 	}
-	return currentBalance >= minimumBalance, nil
+	if svc.Config.ServiceFee != 0 {
+		minimumBalance += svc.CalcServiceFee(lnpayReq.PayReq.NumSatoshis)
+	}
+	if currentBalance < minimumBalance {
+		return &responses.NotEnoughBalanceError, nil
+	}
+
+	return nil, nil
+}
+
+func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
+	limits := svc.GetLimits(c)
+	if limits.MaxReceiveAmount > 0 {
+		if amount > limits.MaxReceiveAmount {
+			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
+			return &responses.ReceiveExceededError, nil
+		}
+	}
+
+	if limits.MaxReceiveVolume > 0 {
+		volume, err := svc.GetVolumeOverPeriod(c.Request().Context(), userId, common.InvoiceTypeIncoming, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching volume",
+					"error":          err,
+					"lndhub_user_id": userId,
+				},
+			)
+			return nil, err
+		}
+		if volume > limits.MaxReceiveVolume {
+			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
+			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			return &responses.TooMuchVolumeError, nil
+		}
+	}
+
+	if limits.MaxAccountBalance > 0 {
+		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userId)
+		if err != nil {
+			svc.Logger.Errorj(
+				log.JSON{
+					"message":        "error fetching balance",
+					"lndhub_user_id": userId,
+					"error":          err,
+				},
+			)
+			return nil, err
+		}
+		if currentBalance+amount > limits.MaxAccountBalance {
+			svc.Logger.Errorf("Max account balance exceeded for user_id %d", userId)
+			return &responses.BalanceExceededError, nil
+		}
+	}
+
+	return nil, nil
+}
+func (svc *LndhubService) CalcServiceFee(amount int64) int64 {
+	if svc.Config.ServiceFee == 0 {
+		return 0
+	}
+	if svc.Config.NoServiceFeeUpToAmount != 0 && amount <= int64(svc.Config.NoServiceFeeUpToAmount) {
+		return 0
+	}
+	serviceFee := int64(math.Ceil(float64(amount) * float64(svc.Config.ServiceFee) / 1000.0))
+	return serviceFee
 }
 
 func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
@@ -141,6 +259,9 @@ func (svc *LndhubService) CalcFeeLimit(destination string, amount int64) int64 {
 	limit := int64(10)
 	if amount > 1000 {
 		limit = int64(math.Ceil(float64(amount)*float64(0.01)) + 1)
+	}
+	if limit > svc.Config.MaxFeeAmount {
+		limit = svc.Config.MaxFeeAmount
 	}
 	return limit
 }
@@ -173,7 +294,7 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 
 	query := svc.DB.NewSelect().Model(&invoices).Where("user_id = ?", userId)
 	if invoiceType != "" {
-		query.Where("type = ? AND state <> ?", invoiceType, common.InvoiceStateInitialized)
+		query.Where("type = ? AND state NOT IN(?, ?)", invoiceType, common.InvoiceStateInitialized, common.InvoiceStateError)
 	}
 	query.OrderExpr("id DESC").Limit(100)
 	err := query.Scan(ctx)
@@ -181,4 +302,45 @@ func (svc *LndhubService) InvoicesFor(ctx context.Context, userId int64, invoice
 		return nil, err
 	}
 	return invoices, nil
+}
+
+func (svc *LndhubService) GetVolumeOverPeriod(ctx context.Context, userId int64, invoiceType string, period time.Duration) (result int64, err error) {
+
+	err = svc.DB.NewSelect().Table("invoices").
+		ColumnExpr("sum(invoices.amount) as result").
+		Where("invoices.user_id = ?", userId).
+		Where("invoices.type = ?", invoiceType).
+		Where("invoices.settled_at >= ?", time.Now().Add(-1*period)).
+		Scan(ctx, &result)
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}
+
+func (svc *LndhubService) GetLimits(c echo.Context) (limits *Limits) {
+	limits = &Limits{
+		MaxSendVolume:     svc.Config.MaxSendVolume,
+		MaxSendAmount:     svc.Config.MaxSendAmount,
+		MaxReceiveVolume:  svc.Config.MaxReceiveVolume,
+		MaxReceiveAmount:  svc.Config.MaxReceiveAmount,
+		MaxAccountBalance: svc.Config.MaxAccountBalance,
+	}
+	if val, ok := c.Get("MaxSendVolume").(int64); ok && val > 0 {
+		limits.MaxSendVolume = val
+	}
+	if val, ok := c.Get("MaxSendAmount").(int64); ok && val > 0 {
+		limits.MaxSendAmount = val
+	}
+	if val, ok := c.Get("MaxReceiveVolume").(int64); ok && val > 0 {
+		limits.MaxReceiveVolume = val
+	}
+	if val, ok := c.Get("MaxReceiveAmount").(int64); ok && val > 0 {
+		limits.MaxReceiveAmount = val
+	}
+	if val, ok := c.Get("MaxAccountBalance").(int64); ok && val > 0 {
+		limits.MaxAccountBalance = val
+	}
+
+	return limits
 }

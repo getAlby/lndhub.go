@@ -54,6 +54,10 @@ vim .env # edit your config
 + `MAX_RECEIVE_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) for which an invoice can be created
 + `MAX_SEND_AMOUNT`: (default: 0 = no limit) Set maximum amount (in satoshi) of an invoice that can be paid
 + `MAX_ACCOUNT_BALANCE`: (default: 0 = no limit) Set maximum balance (in satoshi) for each account
++ `MAX_SEND_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for sending for each account
++ `MAX_RECEIVE_VOLUME`: (default: 0 = no limit) Set maximum volume (in satoshi) for receiving for each account
++ `SERVICE_FEE`: (default: 0 = no service fee) Set the service fee for each outgoing transaction in 1/1000 (e.g. 1 means a fee of 1sat for 1000sats - rounded up to the next bigger integer)
++ `NO_SERVICE_FEE_UP_TO_AMOUNT` (default: 0 = no free transactions) the amount in sats up to which no service fee should be charged
 
 ### Macaroon
 
@@ -79,9 +83,9 @@ lncli bakemacaroon --save_to=lndhub.macaroon info:read invoices:read invoices:wr
 ```
 
 ## Developing
-
+To run the server
 ```shell
-go run .
+go run cmd/server/main.go
 ```
 
 ### Building

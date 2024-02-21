@@ -7,8 +7,8 @@ import (
 	"github.com/getAlby/lndhub.go/common"
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/service"
-	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // InvoiceController : Add invoice controller struct
@@ -55,7 +55,14 @@ func (controller *InvoiceController) GetOutgoingInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeOutgoing)
 	if err != nil {
-		return err
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "failed to get invoices",
+				"error":          err,
+				"lndhub_user_id": userId,
+			},
+		)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	response := make([]Invoice, len(invoices))
@@ -98,7 +105,14 @@ func (controller *InvoiceController) GetIncomingInvoices(c echo.Context) error {
 
 	invoices, err := controller.svc.InvoicesFor(c.Request().Context(), userId, common.InvoiceTypeIncoming)
 	if err != nil {
-		return err
+		c.Logger().Errorj(
+			log.JSON{
+				"message":        "failed to get invoices",
+				"error":          err,
+				"lndhub_user_id": userId,
+			},
+		)
+		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
 	response := make([]Invoice, len(invoices))
@@ -134,6 +148,7 @@ type AddInvoiceResponseBody struct {
 	PaymentHash    string    `json:"payment_hash"`
 	PaymentRequest string    `json:"payment_request"`
 	ExpiresAt      time.Time `json:"expires_at"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // AddInvoice godoc
@@ -162,18 +177,26 @@ func (controller *InvoiceController) AddInvoice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
 	}
 
+	resp, err := controller.svc.CheckIncomingPaymentAllowed(c, body.Amount, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, responses.GeneralServerError)
+	}
+	if resp != nil {
+		c.Logger().Errorf("Error: %v user_id:%v amount:%v", resp.Message, userID, body.Amount)
+		return c.JSON(resp.HttpStatusCode, resp)
+	}
+
 	c.Logger().Infof("Adding invoice: user_id:%v memo:%s value:%v description_hash:%s", userID, body.Description, body.Amount, body.DescriptionHash)
 
-	invoice, err := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)
-	if err != nil {
-		c.Logger().Errorf("Error creating invoice: user_id:%v error: %v", userID, err)
-		sentry.CaptureException(err)
-		return c.JSON(http.StatusBadRequest, responses.BadArgumentsError)
+	invoice, errResp := controller.svc.AddIncomingInvoice(c.Request().Context(), userID, body.Amount, body.Description, body.DescriptionHash)
+	if errResp != nil {
+		return c.JSON(errResp.HttpStatusCode, errResp)
 	}
 	responseBody := AddInvoiceResponseBody{
 		PaymentHash:    invoice.RHash,
 		PaymentRequest: invoice.PaymentRequest,
 		ExpiresAt:      invoice.ExpiresAt.Time,
+		CreatedAt:      invoice.CreatedAt,
 	}
 
 	return c.JSON(http.StatusOK, &responseBody)
