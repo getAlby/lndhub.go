@@ -46,14 +46,13 @@ func main() {
 	// New Echo app
 	e := echo.New()
 
-	// Init new LND client
-	lndClient, err := lnd.NewLNDclient(lnd.LNDoptions{
-		Address:      c.LNDAddress,
-		MacaroonFile: c.LNDMacaroonFile,
-		MacaroonHex:  c.LNDMacaroonHex,
-		CertFile:     c.LNDCertFile,
-		CertHex:      c.LNDCertHex,
-	}, startupCtx)
+	//// Init new LND client
+	lnCfg, err := lnd.LoadConfig()
+	if err != nil {
+		logger.Fatalf("Error loading LN config: %v", err)
+	}
+	lndClient, err := lnd.InitLNClient(lnCfg, logger, startupCtx)
+
 	if err != nil {
 		e.Logger.Fatalf("Error initializing the LND connection: %v", err)
 	}
@@ -67,7 +66,12 @@ func main() {
 		InvoicePubSub: service.NewPubsub(),
 	}
 
-	err = svc.CheckAllPendingOutgoingPayments(startupCtx)
+	pendingPayments, err := svc.GetAllPendingPayments(startupCtx)
+	if err != nil {
+		return
+	}
+
+	err = svc.CheckPendingOutgoingPayments(startupCtx, pendingPayments)
 	if err != nil {
 		sentry.CaptureException(err)
 		svc.Logger.Error(err)
