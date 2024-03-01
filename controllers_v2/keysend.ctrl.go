@@ -247,8 +247,8 @@ func (controller *KeySendController) SingleKeySend(ctx context.Context, reqBody 
 	}
 
 	responseBody := &KeySendResponseBody{
-		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
-		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
+		Amount:          invoice.Amount,
+		Fee:             invoice.Fee,
 		CustomRecords:   customRecords,
 		Description:     reqBody.Memo,
 		Destination:     reqBody.Destination,
