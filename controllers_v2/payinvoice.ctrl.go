@@ -129,8 +129,8 @@ func (controller *PayInvoiceController) PayInvoice(c echo.Context) error {
 	}
 	responseBody := &PayInvoiceResponseBody{
 		PaymentRequest:  paymentRequest,
-		Amount:          sendPaymentResponse.PaymentRoute.TotalAmt,
-		Fee:             sendPaymentResponse.PaymentRoute.TotalFees,
+		Amount:          invoice.Amount,
+		Fee:             invoice.Fee,
 		Description:     invoice.Memo,
 		DescriptionHash: invoice.DescriptionHash,
 		Destination:     invoice.DestinationPubkeyHex,
