@@ -102,7 +102,7 @@ func (svc *LndhubService) UpdateUser(ctx context.Context, userId int64, login *s
 	// if a user gets deleted we mark it as deactivated and deleted
 	// un-deleting it is not supported currently
 	if deleted != nil {
-		if *deleted == true {
+		if *deleted {
 			user.Deactivated = true
 			user.Deleted = true
 		}
@@ -136,14 +136,14 @@ func (svc *LndhubService) FindUserByLogin(ctx context.Context, login string) (*m
 
 func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *lnd.LNPayReq, userId int64) (result *responses.ErrorResponse, err error) {
 	limits := svc.GetLimits(c)
-	if limits.MaxSendAmount > 0 {
+	if limits.MaxSendAmount >= 0 {
 		if lnpayReq.PayReq.NumSatoshis > limits.MaxSendAmount {
 			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userId, lnpayReq.PayReq.NumSatoshis)
 			return &responses.SendExceededError, nil
 		}
 	}
 
-	if limits.MaxSendVolume > 0 {
+	if limits.MaxSendVolume >= 0 {
 		volume, err := svc.GetVolumeOverPeriod(c.Request().Context(), userId, common.InvoiceTypeOutgoing, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
 		if err != nil {
 			svc.Logger.Errorj(
@@ -195,14 +195,14 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 
 func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
 	limits := svc.GetLimits(c)
-	if limits.MaxReceiveAmount > 0 {
+	if limits.MaxReceiveAmount >= 0 {
 		if amount > limits.MaxReceiveAmount {
 			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
 			return &responses.ReceiveExceededError, nil
 		}
 	}
 
-	if limits.MaxReceiveVolume > 0 {
+	if limits.MaxReceiveVolume >= 0 {
 		volume, err := svc.GetVolumeOverPeriod(c.Request().Context(), userId, common.InvoiceTypeIncoming, time.Duration(svc.Config.MaxVolumePeriod*int64(time.Second)))
 		if err != nil {
 			svc.Logger.Errorj(
@@ -326,16 +326,16 @@ func (svc *LndhubService) GetLimits(c echo.Context) (limits *Limits) {
 		MaxReceiveAmount:  svc.Config.MaxReceiveAmount,
 		MaxAccountBalance: svc.Config.MaxAccountBalance,
 	}
-	if val, ok := c.Get("MaxSendVolume").(int64); ok && val > 0 {
+	if val, ok := c.Get("MaxSendVolume").(int64); ok && val >= -1 {
 		limits.MaxSendVolume = val
 	}
-	if val, ok := c.Get("MaxSendAmount").(int64); ok && val > 0 {
+	if val, ok := c.Get("MaxSendAmount").(int64); ok && val >= -1 {
 		limits.MaxSendAmount = val
 	}
-	if val, ok := c.Get("MaxReceiveVolume").(int64); ok && val > 0 {
+	if val, ok := c.Get("MaxReceiveVolume").(int64); ok && val >= -1 {
 		limits.MaxReceiveVolume = val
 	}
-	if val, ok := c.Get("MaxReceiveAmount").(int64); ok && val > 0 {
+	if val, ok := c.Get("MaxReceiveAmount").(int64); ok && val >= -1 {
 		limits.MaxReceiveAmount = val
 	}
 	if val, ok := c.Get("MaxAccountBalance").(int64); ok && val > 0 {
