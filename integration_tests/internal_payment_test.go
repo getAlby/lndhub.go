@@ -309,6 +309,28 @@ func (suite *PaymentTestSuite) TestOutgoingExceededChecks() {
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
 
+	// check if setting zero as send volume stops
+	suite.service.Config.MaxSendVolume = 0
+	//volume 
+	invoice, err = suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	//pay external invoice
+	rec = httptest.NewRecorder()
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+	}))
+	req = httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+
+	//should fail because 0 volume check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp = &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
+
 	//change the config back
 	suite.service.Config.MaxSendAmount = -1
 	suite.service.Config.MaxSendVolume = -1
