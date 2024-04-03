@@ -326,17 +326,17 @@ func (svc *LndhubService) GetLimits(c echo.Context) (limits *Limits) {
 		MaxReceiveAmount:  svc.Config.MaxReceiveAmount,
 		MaxAccountBalance: svc.Config.MaxAccountBalance,
 	}
-	if val, ok := c.Get("MaxSendVolume").(int64); ok && val >= -1 {
-		limits.MaxSendVolume = val
+	if val, ok := c.Get("MaxSendVolume").(*int64); ok && val != nil {
+		limits.MaxSendVolume = *val
 	}
-	if val, ok := c.Get("MaxSendAmount").(int64); ok && val >= -1 {
-		limits.MaxSendAmount = val
+	if val, ok := c.Get("MaxSendAmount").(*int64); ok && val != nil {
+		limits.MaxSendAmount = *val
 	}
-	if val, ok := c.Get("MaxReceiveVolume").(int64); ok && val >= -1 {
-		limits.MaxReceiveVolume = val
+	if val, ok := c.Get("MaxReceiveVolume").(*int64); ok && val != nil {
+		limits.MaxReceiveVolume = *val
 	}
-	if val, ok := c.Get("MaxReceiveAmount").(int64); ok && val >= -1 {
-		limits.MaxReceiveAmount = val
+	if val, ok := c.Get("MaxReceiveAmount").(*int64); ok && val != nil {
+		limits.MaxReceiveAmount = *val
 	}
 	if val, ok := c.Get("MaxAccountBalance").(int64); ok && val > 0 {
 		limits.MaxAccountBalance = val

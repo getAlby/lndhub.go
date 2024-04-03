@@ -163,12 +163,30 @@ func (suite *PaymentTestSuite) TestIncomingExceededChecks() {
 	assert.Equal(suite.T(), responses.ReceiveExceededError.Message, resp.Message)
 
 	// remove volume and receive config and check if it works
-	suite.service.Config.MaxReceiveAmount = 0
+	suite.service.Config.MaxReceiveAmount = -1
 	invoiceResponse = suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	err = suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
-	// add max account
+	// check if setting zero as receive amount stops
+	suite.service.Config.MaxReceiveAmount = 0
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
+		Amount: aliceFundingSats,
+		Memo:   "memo",
+	}))
+	req = httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max receive amount check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp = &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.ReceiveExceededError.Message, resp.Message)
+
+	// remove max receive and add max account
+	suite.service.Config.MaxReceiveAmount = -1
 	suite.service.Config.MaxAccountBalance = 500
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
 		Amount: aliceFundingSats,
