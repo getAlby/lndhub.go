@@ -228,7 +228,7 @@ func (suite *PaymentTestSuite) TestIncomingExceededChecks() {
 	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
 
 	//change the config back, it should work now
-	suite.service.Config.MaxReceiveVolume = 0
+	suite.service.Config.MaxReceiveVolume = -1
 	suite.service.Config.MaxVolumePeriod = 0
 	invoiceResponse = suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	err = suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
@@ -310,8 +310,8 @@ func (suite *PaymentTestSuite) TestOutgoingExceededChecks() {
 	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
 
 	//change the config back
-	suite.service.Config.MaxSendAmount = 0
-	suite.service.Config.MaxSendVolume = 0
+	suite.service.Config.MaxSendAmount = -1
+	suite.service.Config.MaxSendVolume = -1
 	suite.service.Config.MaxVolumePeriod = 0
 }
 
