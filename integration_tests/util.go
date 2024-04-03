@@ -51,9 +51,6 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 	if !ok {
 		dbUri = "postgresql://user:password@localhost/lndhub?sslmode=disable"
 	}
-	dc := &service.Config{}
-	fmt.Println("dc.MaxSendAmount")
-	fmt.Println(dc.MaxSendAmount)
 	c := &service.Config{
 		DatabaseUri:             dbUri,
 		DatabaseMaxConns:        1,
