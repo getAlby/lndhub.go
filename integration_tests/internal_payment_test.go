@@ -204,7 +204,7 @@ func (suite *PaymentTestSuite) TestIncomingExceededChecks() {
 	assert.Equal(suite.T(), responses.BalanceExceededError.Message, resp.Message)
 
 	//change the config back and add sats, it should work now
-	suite.service.Config.MaxAccountBalance = 0
+	suite.service.Config.MaxAccountBalance = -1
 	invoiceResponse = suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	err = suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)

@@ -37,7 +37,7 @@ type Config struct {
 	MinPasswordEntropy               int     `envconfig:"MIN_PASSWORD_ENTROPY" default:"0"`
 	MaxReceiveAmount                 int64   `envconfig:"MAX_RECEIVE_AMOUNT" default:"-1"`
 	MaxSendAmount                    int64   `envconfig:"MAX_SEND_AMOUNT" default:"-1"`
-	MaxAccountBalance                int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"0"`
+	MaxAccountBalance                int64   `envconfig:"MAX_ACCOUNT_BALANCE" default:"-1"`
 	MaxFeeAmount                     int64   `envconfig:"MAX_FEE_AMOUNT" default:"5000"`
 	MaxSendVolume                    int64   `envconfig:"MAX_SEND_VOLUME" default:"-1"`         //-1 means the volume check is disabled by default
 	MaxReceiveVolume                 int64   `envconfig:"MAX_RECEIVE_VOLUME" default:"-1"`      //-1 means the volume check is disabled by default

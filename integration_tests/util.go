@@ -49,8 +49,11 @@ const (
 func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *service.LndhubService, err error) {
 	dbUri, ok := os.LookupEnv("DATABASE_URI")
 	if !ok {
-		dbUri = "postgresql://user:password@localhost/lndhub?sslmode=disable"
+		dbUri = "postgresql://im-adithya:password@localhost:5432/lndhub?sslmode=disable"
 	}
+	dc := &service.Config{}
+	fmt.Println("dc.MaxSendAmount")
+	fmt.Println(dc.MaxSendAmount)
 	c := &service.Config{
 		DatabaseUri:             dbUri,
 		DatabaseMaxConns:        1,
@@ -64,6 +67,7 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		MaxSendVolume:           -1,
 		MaxReceiveAmount:        -1,
 		MaxReceiveVolume:        -1,
+		MaxAccountBalance:       -1,
 	}
 
 	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")

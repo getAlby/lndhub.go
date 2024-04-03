@@ -21,7 +21,7 @@ type jwtCustomClaims struct {
 	MaxSendAmount     *int64 `json:"maxSendAmount,omitempty"`
 	MaxReceiveVolume  *int64 `json:"maxReceiveVolume,omitempty"`
 	MaxReceiveAmount  *int64 `json:"maxReceiveAmount,omitempty"`
-	MaxAccountBalance int64  `json:"maxAccountBalance"`
+	MaxAccountBalance *int64 `json:"maxAccountBalance,omitempty"`
 	jwt.StandardClaims
 }
 

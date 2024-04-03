@@ -221,7 +221,7 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 		}
 	}
 
-	if limits.MaxAccountBalance > 0 {
+	if limits.MaxAccountBalance >= 0 {
 		currentBalance, err := svc.CurrentUserBalance(c.Request().Context(), userId)
 		if err != nil {
 			svc.Logger.Errorj(
@@ -338,8 +338,8 @@ func (svc *LndhubService) GetLimits(c echo.Context) (limits *Limits) {
 	if val, ok := c.Get("MaxReceiveAmount").(*int64); ok && val != nil {
 		limits.MaxReceiveAmount = *val
 	}
-	if val, ok := c.Get("MaxAccountBalance").(int64); ok && val > 0 {
-		limits.MaxAccountBalance = val
+	if val, ok := c.Get("MaxAccountBalance").(*int64); ok && val != nil {
+		limits.MaxAccountBalance = *val
 	}
 
 	return limits
