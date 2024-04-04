@@ -1,6 +1,7 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/getAlby/lndhub.go/common"
+	"github.com/getAlby/lndhub.go/lib/responses"
+	"github.com/labstack/echo/v4"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,6 +38,25 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 	}
 	invoice, err := suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
 	assert.NoError(suite.T(), err)
+
+	var buf bytes.Buffer
+	suite.service.Config.MaxSendAmount = 200
+	rec := httptest.NewRecorder()
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max send amount check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp := &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.SendExceededError.Message, resp.Message)
+
+	suite.service.Config.MaxSendAmount = -1
 	//pay external from alice
 	payResponse := suite.createPayInvoiceReq(&ExpectedPayInvoiceRequestBody{
 		Invoice: invoice.PaymentRequest,
@@ -116,9 +138,9 @@ func (suite *PaymentTestSuite) TestOutGoingPayment() {
 
 	// fetch transactions, make sure the fee is there
 	// check invoices again
-	req := httptest.NewRequest(http.MethodGet, "/gettxs", nil)
+	req = httptest.NewRequest(http.MethodGet, "/gettxs", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
-	rec := httptest.NewRecorder()
+	rec = httptest.NewRecorder()
 	suite.echo.ServeHTTP(rec, req)
 	responseBody := &[]ExpectedOutgoingInvoice{}
 	assert.Equal(suite.T(), http.StatusOK, rec.Code)

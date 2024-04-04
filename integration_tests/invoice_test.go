@@ -84,6 +84,26 @@ func (suite *InvoiceTestSuite) TestAddInvoiceWithoutToken() {
 	assert.Equal(suite.T(), 1, len(invoicesAfter))
 }
 
+func (suite *InvoiceTestSuite) TestAddInvoiceWithLimits() {
+	suite.service.Config.MaxReceiveAmount = 200
+	rec := httptest.NewRecorder()
+	var buf bytes.Buffer
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedV2AddInvoiceRequestBody{
+		Amount: 300,
+		Memo:   "testing limits",
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/v2/invoices", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max receive amount check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp := &responses.ErrorResponse{}
+	err := json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.ReceiveExceededError.Message, resp.Message)
+}
+
 func (suite *InvoiceTestSuite) TestAddInvoiceForNonExistingUser() {
 	nonExistingLogin := suite.aliceLogin.Login + "abc"
 	suite.createInvoiceReqError(10, "test invoice without token", nonExistingLogin)
