@@ -60,6 +60,11 @@ func LndHubTestServiceInit(lndClientMock lnd.LightningClientWrapper) (svc *servi
 		JWTSecret:               []byte("SECRET"),
 		JWTAccessTokenExpiry:    3600,
 		JWTRefreshTokenExpiry:   3600,
+		MaxSendAmount:           -1,
+		MaxSendVolume:           -1,
+		MaxReceiveAmount:        -1,
+		MaxReceiveVolume:        -1,
+		MaxAccountBalance:       -1,
 	}
 
 	rabbitmqUri, ok := os.LookupEnv("RABBITMQ_URI")

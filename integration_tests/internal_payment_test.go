@@ -163,12 +163,30 @@ func (suite *PaymentTestSuite) TestIncomingExceededChecks() {
 	assert.Equal(suite.T(), responses.ReceiveExceededError.Message, resp.Message)
 
 	// remove volume and receive config and check if it works
-	suite.service.Config.MaxReceiveAmount = 0
+	suite.service.Config.MaxReceiveAmount = -1
 	invoiceResponse = suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	err = suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
 
-	// add max account
+	// check if setting zero as receive amount stops
+	suite.service.Config.MaxReceiveAmount = 0
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
+		Amount: aliceFundingSats,
+		Memo:   "memo",
+	}))
+	req = httptest.NewRequest(http.MethodPost, "/addinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max receive amount check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp = &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.ReceiveExceededError.Message, resp.Message)
+
+	// remove max receive and add max account
+	suite.service.Config.MaxReceiveAmount = -1
 	suite.service.Config.MaxAccountBalance = 500
 	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedAddInvoiceRequestBody{
 		Amount: aliceFundingSats,
@@ -186,7 +204,7 @@ func (suite *PaymentTestSuite) TestIncomingExceededChecks() {
 	assert.Equal(suite.T(), responses.BalanceExceededError.Message, resp.Message)
 
 	//change the config back and add sats, it should work now
-	suite.service.Config.MaxAccountBalance = 0
+	suite.service.Config.MaxAccountBalance = -1
 	invoiceResponse = suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	err = suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
 	assert.NoError(suite.T(), err)
@@ -210,7 +228,7 @@ func (suite *PaymentTestSuite) TestIncomingExceededChecks() {
 	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
 
 	//change the config back, it should work now
-	suite.service.Config.MaxReceiveVolume = 0
+	suite.service.Config.MaxReceiveVolume = -1
 	suite.service.Config.MaxVolumePeriod = 0
 	invoiceResponse = suite.createAddInvoiceReq(aliceFundingSats, "integration test internal payment alice", suite.aliceToken)
 	err = suite.mlnd.mockPaidInvoice(invoiceResponse, 0, false, nil)
@@ -291,9 +309,31 @@ func (suite *PaymentTestSuite) TestOutgoingExceededChecks() {
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
 
-	//change the config back
-	suite.service.Config.MaxSendAmount = 0
+	// check if setting zero as send volume stops
 	suite.service.Config.MaxSendVolume = 0
+	//volume 
+	invoice, err = suite.externalLND.AddInvoice(context.Background(), &externalInvoice)
+	assert.NoError(suite.T(), err)
+	//pay external invoice
+	rec = httptest.NewRecorder()
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedPayInvoiceRequestBody{
+		Invoice: invoice.PaymentRequest,
+	}))
+	req = httptest.NewRequest(http.MethodPost, "/payinvoice", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+
+	//should fail because 0 volume check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp = &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.TooMuchVolumeError.Message, resp.Message)
+
+	//change the config back
+	suite.service.Config.MaxSendAmount = -1
+	suite.service.Config.MaxSendVolume = -1
 	suite.service.Config.MaxVolumePeriod = 0
 }
 

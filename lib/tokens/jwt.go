@@ -15,13 +15,13 @@ import (
 )
 
 type jwtCustomClaims struct {
-	ID                int64 `json:"id"`
-	IsRefresh         bool  `json:"isRefresh"`
-	MaxSendVolume     int64 `json:"maxSendVolume"`
-	MaxSendAmount     int64 `json:"maxSendAmount"`
-	MaxReceiveVolume  int64 `json:"maxReceiveVolume"`
-	MaxReceiveAmount  int64 `json:"maxReceiveAmount"`
-	MaxAccountBalance int64 `json:"maxAccountBalance"`
+	ID                int64  `json:"id"`
+	IsRefresh         bool   `json:"isRefresh"`
+	MaxSendVolume     *int64 `json:"maxSendVolume,omitempty"`
+	MaxSendAmount     *int64 `json:"maxSendAmount,omitempty"`
+	MaxReceiveVolume  *int64 `json:"maxReceiveVolume,omitempty"`
+	MaxReceiveAmount  *int64 `json:"maxReceiveAmount,omitempty"`
+	MaxAccountBalance *int64 `json:"maxAccountBalance,omitempty"`
 	jwt.StandardClaims
 }
 

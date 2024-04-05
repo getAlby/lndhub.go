@@ -79,7 +79,7 @@ func (suite *KeySendTestSuite) TearDownSuite() {
 
 func (suite *KeySendTestSuite) TestKeysendPayment() {
 	suite.service.Config.ServiceFee = 1
-	aliceFundingSats := 1000
+	aliceFundingSats := 1500
 	externalSatRequested := 500
 	expectedServiceFee := 1
 	//fund alice account
@@ -99,6 +99,47 @@ func (suite *KeySendTestSuite) TestKeysendPayment() {
 	}
 	assert.Equal(suite.T(), int64(aliceFundingSats)-int64(externalSatRequested+int(suite.mlnd.fee)+expectedServiceFee), aliceBalance)
 	suite.service.Config.ServiceFee = 0
+
+	var buf bytes.Buffer
+	suite.service.Config.MaxSendAmount = 200
+	rec := httptest.NewRecorder()
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedKeySendRequestBody{
+		Amount:      int64(externalSatRequested),
+		Destination: "123456789012345678901234567890123456789012345678901234567890abcdef",
+		Memo:        "key send test",
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/keysend", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max send amount check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp := &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.SendExceededError.Message, resp.Message)
+
+	// check if setting zero as send amount stops
+	suite.service.Config.MaxSendAmount = 0
+	assert.NoError(suite.T(), json.NewEncoder(&buf).Encode(&ExpectedKeySendRequestBody{
+		Amount:      int64(externalSatRequested),
+		Destination: "123456789012345678901234567890123456789012345678901234567890abcdef",
+		Memo:        "key send test",
+	}))
+	req = httptest.NewRequest(http.MethodPost, "/keysend", &buf)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", suite.aliceToken))
+	suite.echo.ServeHTTP(rec, req)
+	//should fail because max send amount check
+	assert.Equal(suite.T(), http.StatusBadRequest, rec.Code)
+	resp = &responses.ErrorResponse{}
+	err = json.NewDecoder(rec.Body).Decode(resp)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), responses.SendExceededError.Message, resp.Message)
+
+	// restore default and try again, should work now
+	suite.service.Config.MaxSendAmount = -1
+	suite.createKeySendReq(int64(externalSatRequested), "key send test", "123456789012345678901234567890123456789012345678901234567890abcdef", suite.aliceToken)
 }
 
 func (suite *KeySendTestSuite) TestKeysendPaymentNonExistentDestination() {
