@@ -53,11 +53,15 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 			"MaxAccountBalance": claims.MaxAccountBalance,
 		})
 		c.Set("UserID", claims.ID)
-		c.Set("MaxSendVolume", claims.MaxSendVolume)
-		c.Set("MaxSendAmount", claims.MaxSendAmount)
-		c.Set("MaxReceiveVolume", claims.MaxReceiveVolume)
-		c.Set("MaxReceiveAmount", claims.MaxReceiveAmount)
-		c.Set("MaxAccountBalance", claims.MaxAccountBalance)
+		// enable it only for getalbycom calls
+		// there might still be old tokens out there that have these set to 0 (which meant disabled)
+		if claims.Issuer == "getalbycom" {
+			c.Set("MaxSendVolume", claims.MaxSendVolume)
+			c.Set("MaxSendAmount", claims.MaxSendAmount)
+			c.Set("MaxReceiveVolume", claims.MaxReceiveVolume)
+			c.Set("MaxReceiveAmount", claims.MaxReceiveAmount)
+			c.Set("MaxAccountBalance", claims.MaxAccountBalance)
+		}
 		// pass UserID to sentry for exception notifications
 		if hub := sentryecho.GetHubFromContext(c); hub != nil {
 			hub.Scope().SetUser(sentry.User{ID: strconv.FormatInt(claims.ID, 10)})
