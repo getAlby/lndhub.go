@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 )
 
 type jwtCustomClaims struct {
@@ -42,6 +43,15 @@ func Middleware(secret []byte) echo.MiddlewareFunc {
 	config.SuccessHandler = func(c echo.Context) {
 		token := c.Get("UserJwt").(*jwt.Token)
 		claims := token.Claims.(*jwtCustomClaims)
+		c.Logger().Warnj(log.JSON{
+			"msg":               "JWT details",
+			"UserID":            claims.ID,
+			"MaxSendVolume":     claims.MaxSendVolume,
+			"MaxSendAmount":     claims.MaxSendAmount,
+			"MaxReceiveVolume":  claims.MaxReceiveVolume,
+			"MaxReceiveAmount":  claims.MaxReceiveAmount,
+			"MaxAccountBalance": claims.MaxAccountBalance,
+		})
 		c.Set("UserID", claims.ID)
 		c.Set("MaxSendVolume", claims.MaxSendVolume)
 		c.Set("MaxSendAmount", claims.MaxSendAmount)
