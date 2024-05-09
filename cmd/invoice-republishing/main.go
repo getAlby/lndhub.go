@@ -25,10 +25,7 @@ func main() {
 		fmt.Println("Failed to load .env file")
 	}
 	logger := lib.Logger(c.LogFilePath)
-	startDate, endDate, err := loadStartAndEndIdFromEnv()
-	if err != nil {
-		logger.Fatalf("Could not load start and end id from env %v", err)
-	}
+
 	err = envconfig.Process("", c)
 	if err != nil {
 		logger.Fatalf("Error loading environment variables: %v", err)
@@ -63,7 +60,20 @@ func main() {
 	defer rabbitmqClient.Close()
 
 	result := []models.Invoice{}
-	err = dbConn.NewSelect().Model(&result).Where("settled_at > ?", startDate).Where("settled_at < ?", endDate).Scan(context.Background())
+
+	singleInvoiceHash := os.Getenv("REPUBLISH_INVOICE_HASH")
+
+	if singleInvoiceHash != "" {
+		err = dbConn.NewSelect().Model(&result).Where("r_hash = ?", singleInvoiceHash).Scan(context.Background())
+	} else {
+		startDate, endDate, err1 := loadStartAndEndIdFromEnv()
+
+		if err1 != nil {
+			logger.Fatalf("Could not load start and end id from env %v", err1)
+		}
+
+		err = dbConn.NewSelect().Model(&result).Where("settled_at > ?", startDate).Where("settled_at < ?", endDate).Scan(context.Background())
+	}
 	if err != nil {
 		logger.Fatal(err)
 	}
