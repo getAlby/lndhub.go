@@ -77,6 +77,10 @@ func CreateRateLimitMiddleware(requestsPerSecond int, burst int) echo.Middleware
 
 			return id, nil
 		},
+		ErrorHandler: func(context echo.Context, err error) error {
+			res := responses.TooManyRequestsError
+			return context.JSON(res.HttpStatusCode, res)
+		},
 	}
 
 	return middleware.RateLimiterWithConfig(config)

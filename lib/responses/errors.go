@@ -99,6 +99,13 @@ var AccountDeactivatedError = ErrorResponse{
 	HttpStatusCode: 401,
 }
 
+var TooManyRequestsError = ErrorResponse{
+	Error:          true,
+	Code:           1,
+	Message:        "Too many requests",
+	HttpStatusCode: 429,
+}
+
 func HTTPErrorHandler(err error, c echo.Context) {
 	if c.Response().Committed {
 		return
