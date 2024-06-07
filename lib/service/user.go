@@ -12,7 +12,6 @@ import (
 	"github.com/getAlby/lndhub.go/lib/responses"
 	"github.com/getAlby/lndhub.go/lib/security"
 	"github.com/getAlby/lndhub.go/lnd"
-	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/uptrace/bun"
@@ -138,7 +137,15 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 	limits := svc.GetLimits(c)
 	if limits.MaxSendAmount >= 0 {
 		if lnpayReq.PayReq.NumSatoshis > limits.MaxSendAmount {
-			svc.Logger.Errorf("Max send amount exceeded for user_id %v (amount:%v)", userId, lnpayReq.PayReq.NumSatoshis)
+			svc.Logger.Warnj(
+				log.JSON{
+					"message":        "max send amount exceeded",
+					"user_id":        userId,
+					"lndhub_user_id": userId,
+					"amount":         lnpayReq.PayReq.NumSatoshis,
+					"limit":          limits.MaxSendAmount,
+				},
+			)
 			return &responses.SendExceededError, nil
 		}
 	}
@@ -156,13 +163,14 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 			return nil, err
 		}
 		if volume > limits.MaxSendVolume {
-			svc.Logger.Errorj(
+			svc.Logger.Warnj(
 				log.JSON{
-					"message": 			"transaction volume exceeded",
-					"lndhub_user_id": 	userId,
+					"message":        "max send volume exceeded",
+					"lndhub_user_id": userId,
+					"volume":         volume,
+					"limit":          limits.MaxSendVolume,
 				},
 			)
-			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
 			return &responses.TooMuchVolumeError, nil
 		}
 	}
@@ -197,7 +205,15 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 	limits := svc.GetLimits(c)
 	if limits.MaxReceiveAmount >= 0 {
 		if amount > limits.MaxReceiveAmount {
-			svc.Logger.Errorf("Max receive amount exceeded for user_id %d", userId)
+			svc.Logger.Warnj(
+				log.JSON{
+					"message":        "max receive amount exceeded",
+					"user_id":        userId,
+					"lndhub_user_id": userId,
+					"amount":         amount,
+					"limit":          limits.MaxReceiveAmount,
+				},
+			)
 			return &responses.ReceiveExceededError, nil
 		}
 	}
@@ -215,8 +231,14 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 			return nil, err
 		}
 		if volume > limits.MaxReceiveVolume {
-			svc.Logger.Errorf("Transaction volume exceeded for user_id %d", userId)
-			sentry.CaptureMessage(fmt.Sprintf("transaction volume exceeded for user %d", userId))
+			svc.Logger.Warnj(
+				log.JSON{
+					"message":        "max receive volume exceeded",
+					"lndhub_user_id": userId,
+					"volume":         volume,
+					"limit":          limits.MaxReceiveVolume,
+				},
+			)
 			return &responses.TooMuchVolumeError, nil
 		}
 	}
@@ -234,7 +256,14 @@ func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, us
 			return nil, err
 		}
 		if currentBalance+amount > limits.MaxAccountBalance {
-			svc.Logger.Errorf("Max account balance exceeded for user_id %d", userId)
+			svc.Logger.Warnj(
+				log.JSON{
+					"message":        "max balance exceeded",
+					"lndhub_user_id": userId,
+					"new_balance":    currentBalance + amount,
+					"limit":          limits.MaxAccountBalance,
+				},
+			)
 			return &responses.BalanceExceededError, nil
 		}
 	}
