@@ -1,8 +1,8 @@
 name: Build and publish binaries
 on:
+  push:
   release:
-    types:
-      - created
+    types: [published]
 jobs:
   build:
     name: Build and publish binaries
