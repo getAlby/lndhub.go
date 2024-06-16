@@ -19,9 +19,9 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     - name: Build Binary for linux amd64
-      run: go build cmd/server/main.go -o lndhub-${{github.event.release.tag_name}}-linux-x86_64
+      run: go build -o lndhub-${{github.event.release.tag_name}}-linux-x86_64 cmd/server/main.go
     - name: Build Binary for linux arm v7
-      run: GOOS=linux GOARCH=arm GOARM=7 go build cmd/server/main.go -o lndhub-${{github.event.release.tag_name}}-linux-arm_v7
+      run: GOOS=linux GOARCH=arm GOARM=7 go build -o lndhub-${{github.event.release.tag_name}}-linux-arm_v7 cmd/server/main.go
     - name: Upload amd64 binary to release assets
       uses: actions/upload-release-asset@v1.0.1
       env:
