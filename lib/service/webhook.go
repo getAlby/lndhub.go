@@ -65,6 +65,8 @@ type WebhookInvoicePayload struct {
 	UserLogin                string            `json:"user_login"`
 	Amount                   int64             `json:"amount"`
 	Fee                      int64             `json:"fee"`
+	ServiceFee               int64             `json:"service_fee"`
+	RoutingFee               int64             `json:"routing_fee"`
 	Memo                     string            `json:"memo"`
 	DescriptionHash          string            `json:"description_hash,omitempty"`
 	PaymentRequest           string            `json:"payment_request"`
@@ -114,6 +116,8 @@ func ConvertPayload(invoice models.Invoice, user *models.User) (result WebhookIn
 		UserLogin:                user.Login,
 		Amount:                   invoice.Amount,
 		Fee:                      invoice.Fee,
+		ServiceFee:               invoice.ServiceFee,
+		RoutingFee:               invoice.RoutingFee,
 		Memo:                     invoice.Memo,
 		DescriptionHash:          invoice.DescriptionHash,
 		PaymentRequest:           invoice.PaymentRequest,
