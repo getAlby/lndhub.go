@@ -1,6 +1,5 @@
 name: Build and publish binaries
 on:
-  push:
   release:
     types: [published]
 jobs:
