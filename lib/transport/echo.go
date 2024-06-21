@@ -81,6 +81,10 @@ func CreateRateLimitMiddleware(requestsPerSecond int, burst int) echo.Middleware
 			res := responses.TooManyRequestsError
 			return context.JSON(res.HttpStatusCode, res)
 		},
+		DenyHandler: func(context echo.Context, identifier string,err error) error {
+			res := responses.TooManyRequestsError
+			return context.JSON(res.HttpStatusCode, res)
+		},
 	}
 
 	return middleware.RateLimiterWithConfig(config)
