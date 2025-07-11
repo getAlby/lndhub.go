@@ -116,7 +116,7 @@ func (c *defaultAMQPCLient) reconnectionLoop() error {
 			exponentialBackoff := backoff.NewExponentialBackOff()
 
 			exponentialBackoff.MaxInterval = time.Second * 10
-			exponentialBackoff.MaxElapsedTime = time.Minute
+			exponentialBackoff.MaxElapsedTime = time.Minute * 30
 
 			c.reconFlag.Store(true)
 
