@@ -204,7 +204,7 @@ func (svc *LndhubService) CheckOutgoingPaymentAllowed(c echo.Context, lnpayReq *
 func (svc *LndhubService) CheckIncomingPaymentAllowed(c echo.Context, amount, userId int64) (result *responses.ErrorResponse, err error) {
 	limits := svc.GetLimits(c)
 	if limits.MaxReceiveAmount >= 0 {
-		if amount > limits.MaxReceiveAmount {
+		if amount > limits.MaxReceiveAmount || limits.MaxReceiveAmount == 0 {
 			svc.Logger.Warnj(
 				log.JSON{
 					"message":        "max receive amount exceeded",
