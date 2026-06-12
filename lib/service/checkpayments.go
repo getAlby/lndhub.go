@@ -127,7 +127,7 @@ func (svc *LndhubService) TrackOutgoingPaymentstatus(ctx context.Context, invoic
 		}
 		if payment.Status == lnrpc.Payment_FAILED {
 			svc.Logger.Infof("Failed payment detected: hash %s, reason %s", payment.PaymentHash, payment.FailureReason)
-			err = svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf(payment.FailureReason.String()))
+			err = svc.HandleFailedPayment(ctx, invoice, entry, fmt.Errorf("%s", payment.FailureReason.String()))
 			if err != nil {
 				sentry.CaptureException(err)
 				svc.Logger.Errorf("Error handling failed payment %s: %s", invoice.RHash, err.Error())

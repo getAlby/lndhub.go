@@ -42,7 +42,7 @@ func (cluster *LNDCluster) checkClusterStatus(ctx context.Context) {
 		//so we move to the next node
 		if err != nil {
 			msg := fmt.Sprintf("Error connecting to node, node id %s, error %s", node.GetMainPubkey(), err.Error())
-			cluster.Logger.Infof(msg)
+			cluster.Logger.Info(msg)
 			sentry.CaptureMessage(msg)
 			continue
 		}
@@ -57,7 +57,7 @@ func (cluster *LNDCluster) checkClusterStatus(ctx context.Context) {
 		activeChannelRatio := float64(nrActiveChannels) / float64(totalChannels)
 		if activeChannelRatio < cluster.ActiveChannelRatio {
 			msg := fmt.Sprintf("Node does not have enough active channels yet, node id %s, ratio %f, active channels %d, total channels %d", resp.IdentityPubkey, activeChannelRatio, nrActiveChannels, totalChannels)
-			cluster.Logger.Infof(msg)
+			cluster.Logger.Info(msg)
 			sentry.CaptureMessage(msg)
 			continue
 		}
@@ -79,7 +79,7 @@ func (cluster *LNDCluster) ListChannels(ctx context.Context, req *lnrpc.ListChan
 	return cluster.ActiveNode.ListChannels(ctx, req, options...)
 }
 
-func (cluster *LNDCluster) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+func (cluster *LNDCluster) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
 	return cluster.ActiveNode.SendPaymentSync(ctx, req, options...)
 }
 

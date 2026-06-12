@@ -104,8 +104,8 @@ func (wrapper *LNDWrapper) ListChannels(ctx context.Context, req *lnrpc.ListChan
 	return wrapper.client.ListChannels(ctx, req, options...)
 }
 
-func (wrapper *LNDWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
-	return wrapper.client.SendPaymentSync(ctx, req, options...)
+func (wrapper *LNDWrapper) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
+	return wrapper.routerClient.SendPaymentV2(ctx, req, options...)
 }
 
 func (wrapper *LNDWrapper) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {

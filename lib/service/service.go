@@ -61,7 +61,7 @@ func (svc *LndhubService) GenerateToken(ctx context.Context, login, password, in
 	}
 
 	if user.Deactivated || user.Deleted {
-		return "", "", fmt.Errorf(responses.AccountDeactivatedError.Message)
+		return "", "", fmt.Errorf("%s", responses.AccountDeactivatedError.Message)
 	}
 
 	accessToken, err = tokens.GenerateAccessToken(svc.Config.JWTSecret, svc.Config.JWTAccessTokenExpiry, &user)

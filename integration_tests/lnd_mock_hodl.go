@@ -43,7 +43,7 @@ func (wrapper *LNDMockHodlWrapperAsync) SubscribePayment(ctx context.Context, re
 	return wrapper.hps, nil
 }
 
-func (wrapper *LNDMockHodlWrapperAsync) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+func (wrapper *LNDMockHodlWrapperAsync) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
 	//block indefinetely
 	//because we don't want this function to ever return something here
 	//the payments should be processed asynchronously by the payment tracker

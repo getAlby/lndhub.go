@@ -112,7 +112,7 @@ func (mock *lndSubscriptionStartMockClient) ListChannels(ctx context.Context, re
 	panic("not implemented") // TODO: Implement
 }
 
-func (mock *lndSubscriptionStartMockClient) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+func (mock *lndSubscriptionStartMockClient) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
 	panic("not implemented") // TODO: Implement
 }
 

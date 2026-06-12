@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"math/big"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/labstack/gommon/random"
+	"github.com/lightningnetwork/lnd/fn/v2"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnwire"
@@ -49,7 +51,7 @@ func NewMockLND(privkey string, fee int64, invoiceChan chan (*lnrpc.Invoice)) (*
 
 func (mlnd *MockLND) signMsg(msg []byte) ([]byte, error) {
 	hash := sha256.Sum256(msg)
-	return ecdsa.SignCompact(mlnd.privKey, hash[:], true)
+	return ecdsa.SignCompact(mlnd.privKey, hash[:], true), nil
 }
 
 type MockSubscribeInvoices struct {
@@ -70,20 +72,34 @@ func (mlnd *MockLND) ListChannels(ctx context.Context, req *lnrpc.ListChannelsRe
 	}, nil
 }
 
-func (mlnd *MockLND) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
-	return &lnrpc.SendResponse{
-		PaymentError:    "",
-		PaymentPreimage: []byte("preimage"),
-		PaymentRoute: &lnrpc.Route{
-			TotalTimeLock: 0,
-			TotalFees:     mlnd.fee,
-			TotalAmt:      req.Amt + mlnd.fee,
-			Hops:          []*lnrpc.Hop{},
-			TotalFeesMsat: 1000 * mlnd.fee,
-			TotalAmtMsat:  1000 * (req.Amt + mlnd.fee),
-		},
-		PaymentHash: req.PaymentHash,
-	}, nil
+type MockRouter_SendPaymentV2Client struct {
+	grpc.ClientStream
+	Value lnrpc.Payment
+}
+
+func (x *MockRouter_SendPaymentV2Client) Recv() (*lnrpc.Payment, error) {
+	return &x.Value, nil
+}
+
+func (mlnd *MockLND) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
+	return &MockRouter_SendPaymentV2Client{
+		Value: lnrpc.Payment{
+			FailureReason:   lnrpc.PaymentFailureReason_FAILURE_REASON_NONE,
+			PaymentPreimage: "preimage",
+			Htlcs: []*lnrpc.HTLCAttempt{
+				{
+					Route: &lnrpc.Route{
+						TotalTimeLock: 0,
+						Hops:          []*lnrpc.Hop{},
+						TotalFeesMsat: 1000 * mlnd.fee,
+						TotalAmtMsat:  1000 * (req.Amt + mlnd.fee),
+					},
+				},
+			},
+			PaymentHash: hex.EncodeToString(req.PaymentHash),
+			ValueSat: req.Amt+mlnd.fee,
+			FeeSat: mlnd.fee,
+		}}, nil
 }
 
 func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options ...grpc.CallOption) (*lnrpc.AddInvoiceResponse, error) {
@@ -96,7 +112,7 @@ func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 		MilliSat:    &msat,
 		Timestamp:   time.Now(),
 		PaymentHash: &[32]byte{},
-		PaymentAddr: &[32]byte{},
+		PaymentAddr: fn.Some([32]byte{}),
 		Features: &lnwire.FeatureVector{
 			RawFeatureVector: &lnwire.RawFeatureVector{},
 		},
@@ -104,7 +120,11 @@ func (mlnd *MockLND) AddInvoice(ctx context.Context, req *lnrpc.Invoice, options
 	}
 	zpay32.Expiry(time.Duration(req.Expiry))(invoice)
 	copy(invoice.PaymentHash[:], pHash.Sum(nil))
-	copy(invoice.PaymentAddr[:], req.PaymentAddr)
+	paymentAddr, err := invoice.PaymentAddr.UnwrapOrErr(fmt.Errorf("incorrect payment addr"))
+	if err != nil {
+		return nil, err
+	}
+	copy(paymentAddr[:], req.PaymentAddr)
 	if len(req.DescriptionHash) != 0 {
 		invoice.DescriptionHash = &[32]byte{}
 		copy(req.DescriptionHash, invoice.DescriptionHash[:])

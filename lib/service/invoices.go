@@ -17,6 +17,7 @@ import (
 	"github.com/getAlby/lndhub.go/lnd"
 	"github.com/getsentry/sentry-go"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/schema"
 )
@@ -125,39 +126,38 @@ func (svc *LndhubService) SendPaymentSync(ctx context.Context, invoice *models.I
 	}
 
 	// Execute the payment
-	sendPaymentResult, err := svc.LndClient.SendPaymentSync(ctx, sendPaymentRequest)
+	sendPaymentResultClient, err := svc.LndClient.SendPaymentSync(ctx, sendPaymentRequest)
+	if err != nil {
+		return sendPaymentResponse, err
+	}
+	sendPaymentResult, err := sendPaymentResultClient.Recv()
 	if err != nil {
 		return sendPaymentResponse, err
 	}
 
 	// If there was a payment error we return an error
-	if sendPaymentResult.GetPaymentError() != "" || sendPaymentResult.GetPaymentPreimage() == nil {
-		return sendPaymentResponse, errors.New(sendPaymentResult.GetPaymentError())
+	if sendPaymentResult.GetFailureReason() != lnrpc.PaymentFailureReason_FAILURE_REASON_NONE || sendPaymentResult.GetPaymentPreimage() == "" {
+		return sendPaymentResponse, errors.New(sendPaymentResult.GetFailureReason().String())
 	}
 
 	preimage := sendPaymentResult.GetPaymentPreimage()
-	sendPaymentResponse.PaymentPreimage = preimage
-	sendPaymentResponse.PaymentPreimageStr = hex.EncodeToString(preimage[:])
+	sendPaymentResponse.PaymentPreimageStr = preimage
+	sendPaymentResponse.PaymentPreimage = []byte(preimage)
 	paymentHash := sendPaymentResult.GetPaymentHash()
-	sendPaymentResponse.PaymentHash = paymentHash
-	sendPaymentResponse.PaymentHashStr = hex.EncodeToString(paymentHash[:])
-	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: sendPaymentResult.PaymentRoute.TotalAmt, TotalFees: sendPaymentResult.PaymentRoute.TotalFees}
+	sendPaymentResponse.PaymentHashStr = paymentHash
+	sendPaymentResponse.PaymentHash = []byte(paymentHash)
+	sendPaymentResponse.PaymentRoute = &Route{TotalAmt: sendPaymentResult.GetValueSat(), TotalFees: sendPaymentResult.GetFeeSat()}
 	return sendPaymentResponse, nil
 }
 
-func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrpc.SendRequest, error) {
-	feeLimit := lnrpc.FeeLimit{
-		Limit: &lnrpc.FeeLimit_Fixed{
-			//if we get here, the destination is never ourselves, so we can use a dummy
-			Fixed: svc.CalcFeeLimit("dummy", invoice.Amount),
-		},
-	}
+func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*routerrpc.SendPaymentRequest, error) {
+	//if we get here, the destination is never ourselves, so we can use a dummy
+	feeLimit := svc.CalcFeeLimit("dummy", invoice.Amount)
 
 	if !invoice.Keysend {
-		return &lnrpc.SendRequest{
+		return &routerrpc.SendPaymentRequest{
 			PaymentRequest: invoice.PaymentRequest,
-			Amt:            invoice.Amount,
-			FeeLimit:       &feeLimit,
+			FeeLimitSat:    feeLimit,
 		}, nil
 	}
 
@@ -176,11 +176,11 @@ func (svc *LndhubService) createLnRpcSendRequest(invoice *models.Invoice) (*lnrp
 	if err != nil {
 		return nil, err
 	}
-	return &lnrpc.SendRequest{
+	return &routerrpc.SendPaymentRequest{
 		Dest:              destBytes,
 		Amt:               invoice.Amount,
 		PaymentHash:       paymentHash,
-		FeeLimit:          &feeLimit,
+		FeeLimitSat:       feeLimit,
 		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_TLV_ONION_REQ},
 		DestCustomRecords: invoice.DestinationCustomRecords,
 	}, nil

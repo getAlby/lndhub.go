@@ -237,7 +237,7 @@ func (client *DefaultClient) FinalizeInitializedPayments(ctx context.Context, sv
 					delete(pendingInvoices, payment.PaymentHash)
 
 				case lnrpc.Payment_FAILED:
-					if err = svc.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf(payment.FailureReason.String())); err != nil {
+					if err = svc.HandleFailedPayment(ctx, &invoice, t, fmt.Errorf("%s", payment.FailureReason.String())); err != nil {
 						captureErr(client.logger, err, log.JSON{
 							"subroutine":   "payment finalizer",
 							"message":      "error handling failed payment",

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/getAlby/lndhub.go/lnd"
-	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"google.golang.org/grpc"
 )
 
@@ -21,7 +21,7 @@ func NewLNDMockWrapper(lnd lnd.LightningClientWrapper) (result *LNDMockWrapper, 
 	}, nil
 }
 
-func (wrapper *LNDMockWrapper) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+func (wrapper *LNDMockWrapper) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
 	return nil, errors.New(SendPaymentMockError)
 }
 
@@ -39,7 +39,7 @@ func NewLNDMockWrapperAsync(lnd lnd.LightningClientWrapper) (result *LNDMockWrap
 	}, nil
 }
 
-func (wrapper *LNDMockWrapperAsync) SendPaymentSync(ctx context.Context, req *lnrpc.SendRequest, options ...grpc.CallOption) (*lnrpc.SendResponse, error) {
+func (wrapper *LNDMockWrapperAsync) SendPaymentSync(ctx context.Context, req *routerrpc.SendPaymentRequest, options ...grpc.CallOption) (routerrpc.Router_SendPaymentV2Client, error) {
 	errorMessage := <-errorMessageChannel
 	return nil, errors.New(errorMessage)
 }
